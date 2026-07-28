@@ -14,7 +14,7 @@ body {
     color: #222;
     line-height: 1.6;
     margin: 0;
-    padding: 0; /* HIER: Das padding-top komplett entfernen! */
+    padding: 0;
 }
 
 /* HEADER & NAVIGATION */
@@ -30,11 +30,10 @@ header {
 nav {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 15px 20px; /* Leicht reduzierter Innenabstand */
-
+    padding: 15px 20px;
     display: flex;
     justify-content: center;
-    align-items: center; /* Erzwingt die Ausrichtung auf der Mittellinie */
+    align-items: center;
     gap: 25px;
     flex-wrap: wrap;
 }
@@ -44,11 +43,9 @@ nav a {
     text-decoration: none;
     font-weight: 600;
     transition: 0.3s;
-    
-    /* NEU: Macht die Links zu einer Flex-Box, um die Schrift vertikal zu zentrieren */
     display: inline-flex;
     align-items: center;
-    height: 38px; /* Gibt den Links exakt dieselbe Höhe wie dem Button */
+    height: 38px;
     padding: 0 5px;
 }
 
@@ -59,13 +56,12 @@ nav a:hover, nav a.active {
 /* ESPN BUTTON IN DER NAVI */
 .espn-btn {
     display: inline-flex !important;
-    align-items: center;    /* Zentriert den Text "ESPN" vertikal im Button */
+    align-items: center;
     justify-content: center;
     background-color: #d50a0a;
     color: white !important;
-    
-    height: 38px;           /* Exakt dieselbe Höhe wie die Text-Links */
-    padding: 0 16px !important; /* Innenabstand nur links und rechts */
+    height: 38px;
+    padding: 0 16px !important;
     border-radius: 6px;
     text-decoration: none;
     font-weight: 600;
@@ -78,48 +74,21 @@ nav a:hover, nav a.active {
     text-decoration: none;
 }
 
-}
-
-
-/* HERO */
+/* HERO LAYER STARTSEITE */
 
 .hero {
-    display: block;          /* Erzwingt, dass die Box als eigenständiger Block steht */
+    display: block;
     width: 100%;
-    
-    /* Bestimmt die feste Höhe. 500px ist ideal, damit das Bild nicht zu riesig wirkt, 
-       aber garantiert sichtbar bleibt, obwohl kein Text mehr drin liegt */
     height: 500px;           
-    min-height: 400px;       /* Verhindert das Zusammenbrechen auf kleineren Monitoren */
-
-    /* Das reine Bild ohne Abdunkelung */
+    min-height: 400px;
     background-image: url("../images/hero.jpg");
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    
-    /* Schafft einen sauberen Abstand zur Navigationsleiste */
-    margin-top: 0;
     clear: both;
 }
 
-
-
-
-
-
-.hero h1 {
-    font-size: 5rem;
-    margin-bottom: 15px;
-    text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
-}
-
-.hero p {
-    font-size: 1.5rem;
-    text-shadow: 1px 1px 4px rgba(0,0,0,0.5);
-}
-
-/* WILLKOMMEN */
+/* WILLKOMMENSTEXT */
 
 .welcome {
     max-width: 1200px;
@@ -137,7 +106,7 @@ nav a:hover, nav a.active {
     font-size: 1.1rem;
 }
 
-/* FEATURE CARDS (3x2 GRID MIT REINEM HTML-TEXT ÜBER BILDERN) */
+/* FEATURE CARDS (3x2 GRID MIT TEXT UNTEN LINKS) */
 
 .cards {
     max-width: 1200px;
@@ -158,88 +127,52 @@ a.card {
     text-decoration: none;
     overflow: hidden;
     position: relative;
-    
-    /* Hintergrund-Eigenschaften für alle Kacheln */
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
 }
 
-/* Der Text-Inhalt wird unten links positioniert */
+a.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(209, 139, 47, 0.5);
+}
+
 .card-content {
     width: 100%;
     height: 100%;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end; /* Schiebt den Text ganz nach unten */
-    align-items: flex-start;   /* Richtet den Text linksbündig aus */
-    text-align: left;          /* Linksbündiger Textfluss */
-    padding: 20px;             /* Abstand zum Kachelrand */
+    justify-content: flex-end;
+    align-items: flex-start;
+    text-align: left;
+    padding: 20px;
     box-sizing: border-box;
 }
 
-/* Icon und Titel groß, weiß und linksbündig */
 .card-content h3 {
-    color: #ffffff !important;  /* Erzwingt weiß */
-    font-size: 1.6rem !important;/* Große Schrift */
+    color: #ffffff !important;
+    font-size: 1.6rem !important;
     font-weight: 700;
-    margin-bottom: 4px;        /* Kleiner Abstand zum Untertext */
-    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.9); /* Macht die Schrift auf dem Bild lesbar */
-    text-decoration: none !important; /* Entfernt eventuelle Unterstreichungen */
+    margin-bottom: 4px;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.9);
+    text-decoration: none !important;
 }
 
-/* Kurzer Beschreibungstext darunter */
 .card-content p {
-    color: #e0ded6 !important;  /* Leichtes Off-White/Hellgrau für besseren Kontrast */
-    font-size: 0.95rem !important; /* Etwas kleiner als die Überschrift */
+    color: #e0ded6 !important;
+    font-size: 0.95rem !important;
     margin: 0;
     text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9);
     text-decoration: none !important;
 }
 
-/* Hover-Effekt: Kachel hebt sich leicht an */
-a.card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 25px rgba(209, 139, 47, 0.5); /* Goldener Leuchteffekt */
-}
-
-
-/* HIER WERDEN DIE BILDER HINTERLEGT + SUBTILE ABDUNKELUNG (0.5 = 50% Dunkelheit) */
-.rules-card { 
-    background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_rules.jpg"); 
-}
-.draft-card { 
-    background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_draft_center.jpg"); 
-}
-.standings-card { 
-    background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_standings.jpg"); 
-}
-.teams-card { 
-    background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_teams.jpg"); 
-}
-.reports-card { 
-    background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/Tile_reports.jpg"); 
-}
-.hof-card { 
-    background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_hall_of_fame.jpg"); 
-}
-
-
-/* MOBILE ANPASSUNG */
-@media (max-width: 768px) {
-    .cards {
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* Bricht auf Handys sauber untereinander um */
-        gap: 15px;
-    }
-    a.card {
-        height: 180px; 
-    }
-    .card-content h3 {
-        font-size: 1.3rem;
-    }
-}
-
-
+/* KACHEL-BILDER PFADE (Aus Ihrem Code übernommen) */
+.rules-card     { background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_rules.jpg"); }
+.draft-card     { background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_draft_center.jpg"); }
+.standings-card { background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_standings.jpg"); }
+.teams-card     { background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_teams.jpg"); }
+.reports-card   { background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/Tile_reports.jpg"); }
+.hof-card       { background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_hall_of_fame.jpg"); }
 
 /* FOOTER */
 
@@ -251,75 +184,47 @@ footer {
     padding: 25px;
 }
 
-/* MOBILE */
+/* RESPONSIVE ANPASSUNGEN (MOBIL) */
 
 @media (max-width: 768px) {
-
     nav {
         gap: 15px;
     }
-
     .hero {
-        height: 60vh;
+        height: 300px;
+        min-height: 300px;
     }
-
-    .hero h1 {
-        font-size: 3rem;
-    }
-
-    .hero p {
-        font-size: 1.1rem;
-    }
-
     .welcome {
         margin: 40px auto;
     }
+    .cards {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 15px;
+    }
+    a.card {
+        height: 180px; 
+    }
+    .card-content h3 {
+        font-size: 1.3rem;
+    }
 }
-
-/* Anpassungen für die neuen Kacheln mit Overlays */
-a.card {
-    text-decoration: none; /* Entfernt Unterstreichungen am Link */
-    color: #222;           /* Hält die Schriftfarbe dunkel */
-    display: block;        /* Macht die komplette Kachel klickbar */
-    padding: 0;            /* Setzt den inneren Abstand auf 0, da das Overlay das jetzt übernimmt */
-    overflow: hidden;      /* Verhindert, dass Ecken des Overlays aus der abgerundeten Kachel herausragen */
-}
-
-.card-overlay {
-    padding: 25px;         /* Verlagert den Text-Abstand sauber in das Overlay */
-    width: 100%;
-    height: 100%;
-}
-
-a.card h3 {
-    color: #d18b2f;        /* Behält das goldene Bembel-Bowl-Design für Überschriften */
-    margin-bottom: 10px;
-}
-
-a.card p {
-    color: #555;           /* Macht den Beschreibungstext gut lesbar und dezent */
-}
-
-.espn-btn {
-    display: inline-block; /* Sorgt dafür, dass Padding auf Links korrekt angewendet wird */
-    background-color: #d50a0a;
-    color: white !important;
-    padding: 8px 16px;
-    border-radius: 6px;
-    text-decoration: none; /* Entfernt Unterstreichungen, falls es ein Link ist */
-    font-weight: 600;
-    transition: background-color 0.2s ease-in-out; /* Macht den Farbwechsel geschmeidig */
-}
-
-.espn-btn:hover {
-    background-color: #b30808;
-    color: white !important;
-}
-
 
 /* =========================
    RULES PAGE STYLES
    ========================= */
+
+body.rules-page {
+    background-image: linear-gradient(rgba(244, 241, 234, 0.85), rgba(244, 241, 234, 0.85)), url("../images/rules-bg.jpg");
+    background-attachment: fixed;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.rules-page .rules-section {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(5px);
+}
 
 .rules-container {
     max-width: 1000px;
@@ -354,7 +259,6 @@ a.card p {
     font-size: 1.5rem;
 }
 
-/* Grid-Layout für die schnellen Einstellungen */
 .rules-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -369,7 +273,6 @@ a.card p {
     font-size: 1rem;
 }
 
-/* Kaderbox */
 .roster-box {
     background: #1f1f1f;
     color: white;
@@ -385,7 +288,6 @@ a.card p {
     font-weight: bold;
 }
 
-/* Scoring-Kästen */
 .scoring-box {
     background-color: #f8f6f0;
     padding: 20px;
@@ -422,41 +324,4 @@ a.card p {
     border-radius: 4px;
     font-size: 0.95rem;
     line-height: 1.8;
-}
-
-/* Markierung aktiver Navigationslink */
-nav a.active {
-    color: #d18b2f;
-}
-
-/* HINTERGRUNDBILD NUR FÜR DIE REGELN-SEITE */
-body.rules-page {
-    /* Pfad zu Ihrem Hintergrundbild (aus dem css-Ordner herausgelinkt) */
-    background-image: 
-        linear-gradient(rgba(244, 241, 234, 0.85), rgba(244, 241, 234, 0.85)), /* Legt einen hellen Schleier über das Bild */
-        url("../images/rules_back.jpg");
-    
-    /* Fixiert das Bild im Hintergrund, sodass es beim Scrollen stehen bleibt */
-    background-attachment: fixed;
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-}
-
-/* Optionale Anpassung: Macht die weißen Regel-Kacheln leicht transparent für einen modernen Look */
-.rules-page .rules-section {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(5px); /* Erzeugt einen edlen Milchglas-Effekt */
-}
-
-/* Macht alle Emojis innerhalb der Kachel-Übersichten komplett weiß */
-.card-content h3 {
-    color: #ffffff !important;
-}
-
-/* Dieser Trick filtert die bunten Emojis zu reinem Weiß */
-.card-content h3 span.emoji, 
-.card-content h3 {
-    /* Filter: Macht das Element komplett schwarz-weiß und invertiert es zu Weiß */
-    filter: brightness(0) invert(1); 
 }
