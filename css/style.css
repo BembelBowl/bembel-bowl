@@ -1,10 +1,61 @@
+/* =========================
+   BEMBEL BOWL STYLESHEET
+   ========================= */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    background-color: #f4f1ea;
+    color: #222;
+    line-height: 1.6;
+}
+
+/* HEADER */
+
+header {
+    background-color: #1f1f1f;
+    border-bottom: 4px solid #d18b2f;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+nav {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    flex-wrap: wrap;
+}
+
+nav a {
+    color: white;
+    text-decoration: none;
+    font-weight: 600;
+    transition: 0.3s;
+}
+
+nav a:hover {
+    color: #d18b2f;
+}
+
+/* HERO */
+
 .hero {
     height: 75vh;
 
     background-image:
         linear-gradient(
-            rgba(0, 0, 0, 0.5),
-            rgba(0, 0, 0, 0.5)
+            rgba(0,0,0,0.45),
+            rgba(0,0,0,0.45)
         ),
         url("../images/hero.jpg");
 
@@ -17,5 +68,104 @@
     align-items: center;
 
     text-align: center;
+    padding: 20px;
+}
+
+.hero-content {
     color: white;
+}
+
+.hero h1 {
+    font-size: 5rem;
+    margin-bottom: 15px;
+    text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+}
+
+.hero p {
+    font-size: 1.5rem;
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.5);
+}
+
+/* WILLKOMMEN */
+
+.welcome {
+    max-width: 1200px;
+    margin: 60px auto;
+    padding: 0 25px;
+}
+
+.welcome h2 {
+    color: #d18b2f;
+    font-size: 2rem;
+    margin-bottom: 20px;
+}
+
+.welcome p {
+    font-size: 1.1rem;
+}
+
+/* FEATURE CARDS */
+
+.cards {
+    max-width: 1200px;
+    margin: 50px auto;
+    padding: 0 25px;
+
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 25px;
+}
+
+.card {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+
+    transition: 0.3s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.card h3 {
+    color: #d18b2f;
+    margin-bottom: 10px;
+}
+
+/* FOOTER */
+
+footer {
+    margin-top: 60px;
+    background-color: #1f1f1f;
+    color: white;
+    text-align: center;
+    padding: 25px;
+}
+
+/* MOBILE */
+
+@media (max-width: 768px) {
+
+    nav {
+        gap: 15px;
+    }
+
+    .hero {
+        height: 60vh;
+    }
+
+    .hero h1 {
+        font-size: 3rem;
+    }
+
+    .hero p {
+        font-size: 1.1rem;
+    }
+
+    .welcome {
+        margin: 40px auto;
+    }
 }
