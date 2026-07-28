@@ -210,3 +210,19 @@ a.card h3 {
 a.card p {
     color: #555;           /* Macht den Beschreibungstext gut lesbar und dezent */
 }
+
+.espn-btn {
+    display: inline-block; /* Sorgt dafür, dass Padding auf Links korrekt angewendet wird */
+    background-color: #d50a0a;
+    color: white !important;
+    padding: 8px 16px;
+    border-radius: 6px;
+    text-decoration: none; /* Entfernt Unterstreichungen, falls es ein Link ist */
+    font-weight: 600;
+    transition: background-color 0.2s ease-in-out; /* Macht den Farbwechsel geschmeidig */
+}
+
+.espn-btn:hover {
+    background-color: #b30808;
+    color: white !important;
+}
