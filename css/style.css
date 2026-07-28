@@ -443,3 +443,14 @@ body.rules-page {
     backdrop-filter: blur(5px); /* Erzeugt einen edlen Milchglas-Effekt */
 }
 
+/* Macht alle Emojis innerhalb der Kachel-Übersichten komplett weiß */
+.card-content h3 {
+    color: #ffffff !important;
+}
+
+/* Dieser Trick filtert die bunten Emojis zu reinem Weiß */
+.card-content h3 span.emoji, 
+.card-content h3 {
+    /* Filter: Macht das Element komplett schwarz-weiß und invertiert es zu Weiß */
+    filter: brightness(0) invert(1); 
+}
