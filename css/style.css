@@ -50,16 +50,15 @@ nav a:hover {
 /* HERO */
 
 .hero {
-    height: 75vh;
+    /* 2. Ganzes Bild zeigen: Höhe passt sich dem Bild an, keine feste Beschneidung mehr */
+    min-height: 60vh; 
+    height: auto;
 
-    background-image:
-        linear-gradient(
-            rgba(0,0,0,0.45),
-            rgba(0,0,0,0.45)
-        ),
-        url("../images/hero.jpg");
+    /* 1. Abdunkelung entfernt: Das 'linear-gradient' wurde gelöscht, nur das reine Bild bleibt */
+    background-image: url("../images/hero.jpg");
 
-    background-size: cover;
+    /* 2. Ganzes Bild zeigen: 'contain' sorgt dafür, dass das Bild niemals beschnitten wird */
+    background-size: contain;
     background-position: center;
     background-repeat: no-repeat;
 
@@ -68,12 +67,9 @@ nav a:hover {
     align-items: center;
 
     text-align: center;
-    padding: 20px;
+    padding: 40px 20px;
 }
 
-.hero-content {
-    color: white;
-}
 
 .hero h1 {
     font-size: 5rem;
