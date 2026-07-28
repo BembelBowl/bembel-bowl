@@ -13,6 +13,8 @@ body {
     background-color: #f4f1ea;
     color: #222;
     line-height: 1.6;
+    /* WICHTIG: Drückt die gesamte Seite um die Höhe der Navigationsleiste nach unten */
+    padding-top: 75px !important; 
 }
 
 /* HEADER & NAVIGATION */
