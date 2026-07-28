@@ -15,7 +15,7 @@ body {
     line-height: 1.6;
 }
 
-/* HEADER */
+/* HEADER & NAVIGATION */
 
 header {
     background-color: #1f1f1f;
@@ -28,12 +28,12 @@ header {
 nav {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 15px 20px; /* Leicht reduzierter Innenabstand */
 
     display: flex;
     justify-content: center;
-    align_items:center;
-    gap: 30px;
+    align-items: center; /* Erzwingt die Ausrichtung auf der Mittellinie */
+    gap: 25px;
     flex-wrap: wrap;
 }
 
@@ -42,11 +42,40 @@ nav a {
     text-decoration: none;
     font-weight: 600;
     transition: 0.3s;
-    display: inline-block
+    
+    /* NEU: Macht die Links zu einer Flex-Box, um die Schrift vertikal zu zentrieren */
+    display: inline-flex;
+    align-items: center;
+    height: 38px; /* Gibt den Links exakt dieselbe Höhe wie dem Button */
+    padding: 0 5px;
 }
 
-nav a:hover {
+nav a:hover, nav a.active {
     color: #d18b2f;
+}
+
+/* ESPN BUTTON IN DER NAVI */
+.espn-btn {
+    display: inline-flex !important;
+    align-items: center;    /* Zentriert den Text "ESPN" vertikal im Button */
+    justify-content: center;
+    background-color: #d50a0a;
+    color: white !important;
+    
+    height: 38px;           /* Exakt dieselbe Höhe wie die Text-Links */
+    padding: 0 16px !important; /* Innenabstand nur links und rechts */
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.espn-btn:hover {
+    background-color: #b30808;
+    color: white !important;
+    text-decoration: none;
+}
+
 }
 
 
