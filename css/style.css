@@ -370,3 +370,24 @@ a.card p {
 nav a.active {
     color: #d18b2f;
 }
+
+/* HINTERGRUNDBILD NUR FÜR DIE REGELN-SEITE */
+body.rules-page {
+    /* Pfad zu Ihrem Hintergrundbild (aus dem css-Ordner herausgelinkt) */
+    background-image: 
+        linear-gradient(rgba(244, 241, 234, 0.85), rgba(244, 241, 234, 0.85)), /* Legt einen hellen Schleier über das Bild */
+        url("../images/rules_back.jpg");
+    
+    /* Fixiert das Bild im Hintergrund, sodass es beim Scrollen stehen bleibt */
+    background-attachment: fixed;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/* Optionale Anpassung: Macht die weißen Regel-Kacheln leicht transparent für einen modernen Look */
+.rules-page .rules-section {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(5px); /* Erzeugt einen edlen Milchglas-Effekt */
+}
+
