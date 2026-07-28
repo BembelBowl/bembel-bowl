@@ -169,3 +169,14 @@ footer {
         margin: 40px auto;
     }
 }
+
+/* Styling für Kacheln, die als Links genutzt werden */
+a.card {
+    text-decoration: none; /* Entfernt die Unterstreichung */
+    color: #222;          /* Behält die dunkle Schriftfarbe aus dem Body bei */
+    display: block;        /* Sorgt dafür, dass die gesamte Kachel klickbar ist */
+}
+
+a.card p {
+    color: #555;          /* Macht den Beschreibungstext etwas dezenter */
+}
