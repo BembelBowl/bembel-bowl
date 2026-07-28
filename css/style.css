@@ -49,26 +49,25 @@ nav a:hover {
 
 /* HERO */
 
+/* HERO */
+
 .hero {
-    /* 2. Ganzes Bild zeigen: Höhe passt sich dem Bild an, keine feste Beschneidung mehr */
-    min-height: 60vh; 
-    height: auto;
+    width: 100%;
+    
+    /* Bestimmt die Höhe des Bildes (z.B. 60% der Bildschirmhöhe). 
+       Sie können den Wert nach Wunsch vergrößern (z.B. 70vh) oder verkleinern (z.B. 50vh) */
+    height: 60vh; 
 
-    /* 1. Abdunkelung entfernt: Das 'linear-gradient' wurde gelöscht, nur das reine Bild bleibt */
+    /* Reines Bild ohne Abdunkelung */
     background-image: url("../images/hero.jpg");
-
-    /* 2. Ganzes Bild zeigen: 'contain' sorgt dafür, dass das Bild niemals beschnitten wird */
-    background-size: contain;
+    
+    /* ÄNDERUNG HIER: 'cover' erzwingt, dass das Bild die komplette Breite/Höhe ausfüllt 
+       und beschneidet es, falls das Seitenverhältnis des Bildschirms nicht passt */
+    background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-
-    display: flex;
-    justify-content: center;
-    align-items: center;
-
-    text-align: center;
-    padding: 40px 20px;
 }
+
 
 
 .hero h1 {
