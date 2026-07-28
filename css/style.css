@@ -175,7 +175,7 @@ a.card:hover {
 .draft-card     { background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_draft_center.jpg"); }
 .standings-card { background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_standings.jpg"); }
 .teams-card     { background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_teams.jpg"); }
-.reports-card   { background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/Tile_reports.jpg"); }
+.reports-card   { background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_reports.jpg"); }
 .hof-card       { background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_hall_of_fame.jpg"); }
 
 /* FOOTER */
