@@ -84,17 +84,23 @@ nav a:hover, nav a.active {
 /* HERO */
 
 .hero {
+    display: block;          /* Erzwingt, dass die Box als eigenständiger Block steht */
     width: 100%;
-    height: 75vh; /* Erzwingt, dass die Box 75% der Bildschirmhöhe einnimmt */
+    
+    /* Bestimmt die feste Höhe. 500px ist ideal, damit das Bild nicht zu riesig wirkt, 
+       aber garantiert sichtbar bleibt, obwohl kein Text mehr drin liegt */
+    height: 500px;           
+    min-height: 400px;       /* Verhindert das Zusammenbrechen auf kleineren Monitoren */
 
+    /* Das reine Bild ohne Abdunkelung */
     background-image: url("../images/hero.jpg");
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    /* Schafft einen sauberen Abstand zur Navigationsleiste */
+    margin-top: 0;
+    clear: both;
 }
 
 
