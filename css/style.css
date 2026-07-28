@@ -102,36 +102,55 @@ nav a:hover {
     font-size: 1.1rem;
 }
 
-/* FEATURE CARDS */
+/* FEATURE CARDS (BILD-TILES IM 3x2 RASTER) */
 
 .cards {
     max-width: 1200px;
     margin: 50px auto;
     padding: 0 25px;
-
     display: grid;
-    grid-template-columns: repeat(3, minmax(250px, 1fr));
+    /* Erzwingt exakt 3 Spalten nebeneinander auf großen Bildschirmen */
+    grid-template-columns: repeat(3, minmax(250px, 1fr)); 
     gap: 25px;
 }
 
-.card {
-    background: white;
+a.card {
+    display: block;
+    width: 100%;
+    /* Bestimmt die Höhe der Bild-Kacheln auf dem PC */
+    height: 250px; 
     border-radius: 12px;
-    padding: 25px;
-
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-
-    transition: 0.3s;
+    transition: transform 0.3s, box-shadow 0.3s;
+    
+    /* Das Bild füllt die Kachel komplett aus, ohne sich zu verzerren */
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
 }
 
-.card:hover {
+/* Edler Hover-Effekt: Kachel hebt sich beim Drüberfahren und bekommt einen goldenen Schatten */
+a.card:hover {
     transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(209, 139, 47, 0.4);
 }
 
-.card h3 {
-    color: #d18b2f;
-    margin-bottom: 10px;
+/* HIER DIE ZUWEISUNG DER 6 GRAFIKEN (Namen bei Bedarf anpassen) */
+.rules-card     { background-image: url("../images/rules.jpg"); }
+.draft-card     { background-image: url("../images/draft.jpg"); }
+.standings-card { background-image: url("../images/standings.jpg"); }
+.teams-card     { background-image: url("../images/teams.jpg"); }
+.hof-card       { background-image: url("../images/hof.jpg"); }
+.archive-card   { background-image: url("../images/archive.jpg"); }
+
+/* MOBILE ANPASSUNG */
+@media (max-width: 768px) {
+    /* Macht die Kacheln auf dem Handy etwas flacher, damit sie nicht zu gestreckt wirken */
+    a.card {
+        height: 180px; 
+    }
 }
+
 
 /* FOOTER */
 
