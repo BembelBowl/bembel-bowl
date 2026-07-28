@@ -131,14 +131,13 @@ nav a:hover, nav a.active {
     font-size: 1.1rem;
 }
 
-/* FEATURE CARDS (BILD-TILES IM 3x2 RASTER) */
+/* FEATURE CARDS (3x2 GRID MIT REINEM HTML-TEXT ÜBER BILDERN) */
 
 .cards {
     max-width: 1200px;
     margin: 50px auto;
     padding: 0 25px;
     display: grid;
-    /* Erzwingt exakt 3 Spalten nebeneinander auf großen Bildschirmen */
     grid-template-columns: repeat(3, minmax(250px, 1fr)); 
     gap: 25px;
 }
@@ -146,39 +145,88 @@ nav a:hover, nav a.active {
 a.card {
     display: block;
     width: 100%;
-    /* Bestimmt die Höhe der Bild-Kacheln auf dem PC */
     height: 250px; 
     border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
     transition: transform 0.3s, box-shadow 0.3s;
+    text-decoration: none;
+    overflow: hidden;
+    position: relative;
     
-    /* Das Bild füllt die Kachel komplett aus, ohne sich zu verzerren */
+    /* Hintergrund-Eigenschaften für alle Kacheln */
     background-size: cover;
-    background-position: center bottom;
+    background-position: center;
     background-repeat: no-repeat;
 }
 
-/* Edler Hover-Effekt: Kachel hebt sich beim Drüberfahren und bekommt einen goldenen Schatten */
-a.card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 25px rgba(209, 139, 47, 0.4);
+/* Der Text-Inhalt wird mittels Flexbox perfekt zentriert */
+.card-content {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
 }
 
-/* HIER DIE ZUWEISUNG DER 6 GRAFIKEN (Namen bei Bedarf anpassen) */
-.rules-card     { background-image: url("../images/tile_rules.jpg"); }
-.teams-card     { background-image: url("../images/tile_teams.jpg"); }
-.draft-card { background-image: url("../images/tile_draft_center.jpg"); }
-.standings-card     { background-image: url("../images/tile_standings.jpg"); }
-.reports-card       { background-image: url("../images/tile_reports.jpg"); }
-.hof-card   { background-image: url("../images/tile_hall_of_fame.jpg"); }
+/* Styling für den Text auf den Kacheln */
+.card-content h3 {
+    color: #ffffff !important;
+    font-size: 1.6rem;
+    margin-bottom: 8px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8); /* Macht die Schrift knackscharf */
+}
+
+.card-content p {
+    color: #e0ded6 !important;
+    font-size: 1rem;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+/* Hover-Effekt: Kachel hebt sich leicht an */
+a.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(209, 139, 47, 0.5); /* Goldener Leuchteffekt */
+}
+
+
+/* HIER WERDEN DIE BILDER HINTERLEGT + SUBTILE ABDUNKELUNG (0.5 = 50% Dunkelheit) */
+.rules-card { 
+    background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_rules.jpg"); 
+}
+.draft-card { 
+    background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_draft_center.jpg"); 
+}
+.standings-card { 
+    background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_standings.jpg"); 
+}
+.teams-card { 
+    background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_teams.jpg"); 
+}
+.reports-card { 
+    background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/Tile_reports.jpg"); 
+}
+.hof-card { 
+    background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_hall_of_fame.jpg"); 
+}
+
 
 /* MOBILE ANPASSUNG */
 @media (max-width: 768px) {
-    /* Macht die Kacheln auf dem Handy etwas flacher, damit sie nicht zu gestreckt wirken */
+    .cards {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* Bricht auf Handys sauber untereinander um */
+        gap: 15px;
+    }
     a.card {
         height: 180px; 
     }
+    .card-content h3 {
+        font-size: 1.3rem;
+    }
 }
+
 
 
 /* FOOTER */
