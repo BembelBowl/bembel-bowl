@@ -74,19 +74,23 @@ nav a:hover, nav a.active {
     text-decoration: none;
 }
 
-/* HERO LAYER STARTSEITE */
+/* HERO */
 
 .hero {
-    display: block;
+    display: block;          
     width: 100%;
-    height: 500px;           
-    min-height: 400px;
+    
+    /* ERHÖHT: Gibt dem Bild nach oben und unten deutlich mehr Platz */
+    height: 650px;           
+    min-height: 550px;       
+
     background-image: url("../images/hero.jpg");
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     clear: both;
 }
+
 
 /* WILLKOMMENSTEXT */
 
