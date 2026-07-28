@@ -127,7 +127,7 @@ a.card {
     
     /* Das Bild füllt die Kachel komplett aus, ohne sich zu verzerren */
     background-size: cover;
-    background-position: center;
+    background-position: center bottom;
     background-repeat: no-repeat;
 }
 
