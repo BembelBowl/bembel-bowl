@@ -32,6 +32,7 @@ nav {
 
     display: flex;
     justify-content: center;
+    align_items:center;
     gap: 30px;
     flex-wrap: wrap;
 }
@@ -41,6 +42,7 @@ nav a {
     text-decoration: none;
     font-weight: 600;
     transition: 0.3s;
+    display: inline-block
 }
 
 nav a:hover {
