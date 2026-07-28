@@ -136,12 +136,12 @@ a.card:hover {
 }
 
 /* HIER DIE ZUWEISUNG DER 6 GRAFIKEN (Namen bei Bedarf anpassen) */
-.rules-card     { background-image: url("../images/rules.jpg"); }
-.draft-card     { background-image: url("../images/draft.jpg"); }
-.standings-card { background-image: url("../images/standings.jpg"); }
-.teams-card     { background-image: url("../images/teams.jpg"); }
-.hof-card       { background-image: url("../images/hof.jpg"); }
-.archive-card   { background-image: url("../images/archive.jpg"); }
+.rules-card     { background-image: url("../images/tile_rules.jpg"); }
+.teams-card     { background-image: url("../images/tile_teams.jpg"); }
+.draft-card { background-image: url("../images/tile_draft_center.jpg"); }
+.standings-card     { background-image: url("../images/tile_standings.jpg"); }
+.reports-card       { background-image: url("../images/tile_reports.jpg"); }
+.hof-card   { background-image: url("../images/tile_hall_of_fame.jpg"); }
 
 /* MOBILE ANPASSUNG */
 @media (max-width: 768px) {
