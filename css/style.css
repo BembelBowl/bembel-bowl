@@ -51,22 +51,30 @@ nav a:hover {
 
 /* HERO */
 
-.hero {
-    width: 100%;
-    
-    /* Bestimmt die Höhe des Bildes (z.B. 60% der Bildschirmhöhe). 
-       Sie können den Wert nach Wunsch vergrößern (z.B. 70vh) oder verkleinern (z.B. 50vh) */
-    height: 60vh; 
+/* HERO */
 
-    /* Reines Bild ohne Abdunkelung */
-    background-image: url("../images/hero.jpg");
-    
-    /* ÄNDERUNG HIER: 'cover' erzwingt, dass das Bild die komplette Breite/Höhe ausfüllt 
-       und beschneidet es, falls das Seitenverhältnis des Bildschirms nicht passt */
+.hero {
+    height: 75vh;
+
+    background-image:
+        linear-gradient(
+            rgba(0,0,0,0.45),
+            rgba(0,0,0,0.45)
+        ),
+        url("../images/hero.jpg"); /* WICHTIG: Das '../' bleibt drin, damit der Pfad aus dem css-Ordner heraus funktioniert */
+
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    text-align: center;
+    padding: 20px;
 }
+
 
 
 
