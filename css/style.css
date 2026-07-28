@@ -1,80 +1,111 @@
+/* RESET */
+
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
+/* ALLGEMEIN */
+
 body {
     font-family: Arial, sans-serif;
     background-color: #f4f1ea;
     color: #222;
+    line-height: 1.6;
 }
+
+/* HEADER */
 
 header {
     background-color: #2b2b2b;
     border-bottom: 4px solid #d18b2f;
     position: sticky;
     top: 0;
+    z-index: 1000;
 }
+
+/* NAVIGATION */
 
 nav {
     display: flex;
     justify-content: center;
+    align-items: center;
     gap: 30px;
     padding: 20px;
+    flex-wrap: wrap;
 }
 
 nav a {
     color: white;
     text-decoration: none;
     font-weight: bold;
+    transition: 0.3s;
 }
 
 nav a:hover {
     color: #d18b2f;
 }
 
+/* HERO SECTION */
+
 .hero {
     height: 75vh;
 
     background:
-        linear-gradient(rgba(0,0,0,0.45),
-        rgba(0,0,0,0.45)),
-        url('../images/hero.jpg');
+        linear-gradient(
+            rgba(0, 0, 0, 0.5),
+            rgba(0, 0, 0, 0.5)
+        ),
+        url('/bembel-bowl/images/hero.jpg');
 
     background-size: cover;
     background-position: center;
+    background-repeat: no-repeat;
 
     display: flex;
     justify-content: center;
     align-items: center;
 
     text-align: center;
+    color: white;
+    padding: 20px;
 }
 
 .hero-content {
-    color: white;
+    max-width: 900px;
 }
 
 .hero h1 {
     font-size: 5rem;
-    margin-bottom: 15px;
+    margin-bottom: 20px;
+    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.7);
 }
 
 .hero p {
-    font-size: 1.4rem;
+    font-size: 1.5rem;
+    text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.7);
 }
+
+/* WILLKOMMEN */
 
 .welcome {
     max-width: 1000px;
     margin: 60px auto;
-    padding: 0 20px;
+    padding: 0 25px;
 }
 
 .welcome h2 {
     color: #d18b2f;
     margin-bottom: 20px;
+    font-size: 2rem;
 }
+
+.welcome p {
+    font-size: 1.1rem;
+}
+
+/* FOOTER */
 
 footer {
     margin-top: 60px;
@@ -82,4 +113,30 @@ footer {
     color: white;
     text-align: center;
     padding: 25px;
+}
+
+/* MOBILE */
+
+@media (max-width: 768px) {
+
+    nav {
+        gap: 15px;
+        padding: 15px;
+    }
+
+    .hero {
+        height: 60vh;
+    }
+
+    .hero h1 {
+        font-size: 3rem;
+    }
+
+    .hero p {
+        font-size: 1.1rem;
+    }
+
+    .welcome {
+        margin: 40px auto;
+    }
 }
