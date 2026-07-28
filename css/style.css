@@ -11,8 +11,8 @@ body {
 }
 
 header {
-    background-color: #1f1f1f;
-    padding: 20px;
+    background-color: #2b2b2b;
+    border-bottom: 4px solid #d18b2f;
 }
 
 nav {
@@ -69,5 +69,6 @@ nav a:hover {
 }
 
 .welcome h2 {
+    color: #d18b2f;
     margin-bottom: 20px;
 }
