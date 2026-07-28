@@ -218,11 +218,20 @@ footer {
    ========================= */
 
 body.rules-page {
-    background-image: linear-gradient(rgba(244, 241, 234, 0.85), rgba(244, 241, 234, 0.85)), url("../images/rules-bg.jpg");
+    /* 1. Das Bild wird sauber über den relativen Pfad geladen */
+    background-image: url("../images/rules_back.png");
+    
+    /* 2. Fixiert das Bild im Hintergrund, sodass der Text elegant darübergleitet */
     background-attachment: fixed;
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
+    
+    /* 3. Ein separater Filter-Schleier sorgt dafür, dass das Bild die Regeln nicht übertönt */
+    background-color: rgba(244, 241, 234, 0.88); 
+    background-blend-mode: overlay; /* Verschmilzt die helle Farbe perfekt mit dem Bild */
+}
+
 }
 
 .rules-page .rules-section {
