@@ -159,30 +159,36 @@ a.card {
     background-repeat: no-repeat;
 }
 
-/* Der Text-Inhalt wird mittels Flexbox perfekt zentriert */
+/* Der Text-Inhalt wird unten links positioniert */
 .card-content {
     width: 100%;
     height: 100%;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    padding: 20px;
+    justify-content: flex-end; /* Schiebt den Text ganz nach unten */
+    align-items: flex-start;   /* Richtet den Text linksbündig aus */
+    text-align: left;          /* Linksbündiger Textfluss */
+    padding: 20px;             /* Abstand zum Kachelrand */
+    box-sizing: border-box;
 }
 
-/* Styling für den Text auf den Kacheln */
+/* Icon und Titel groß, weiß und linksbündig */
 .card-content h3 {
-    color: #ffffff !important;
-    font-size: 1.6rem;
-    margin-bottom: 8px;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8); /* Macht die Schrift knackscharf */
+    color: #ffffff !important;  /* Erzwingt weiß */
+    font-size: 1.6rem !important;/* Große Schrift */
+    font-weight: 700;
+    margin-bottom: 4px;        /* Kleiner Abstand zum Untertext */
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.9); /* Macht die Schrift auf dem Bild lesbar */
+    text-decoration: none !important; /* Entfernt eventuelle Unterstreichungen */
 }
 
+/* Kurzer Beschreibungstext darunter */
 .card-content p {
-    color: #e0ded6 !important;
-    font-size: 1rem;
-    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+    color: #e0ded6 !important;  /* Leichtes Off-White/Hellgrau für besseren Kontrast */
+    font-size: 0.95rem !important; /* Etwas kleiner als die Überschrift */
+    margin: 0;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9);
+    text-decoration: none !important;
 }
 
 /* Hover-Effekt: Kachel hebt sich leicht an */
