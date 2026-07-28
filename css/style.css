@@ -51,14 +51,11 @@ nav a:hover {
 /* HERO */
 
 .hero {
+    /* Behält die ursprüngliche, große Dimensionierung bei */
     height: 75vh;
 
-    background-image:
-        linear-gradient(
-            rgba(0,0,0,0.45),
-            rgba(0,0,0,0.45)
-        ),
-        url("../images/hero.jpg"); /* WICHTIG: Das '../' bleibt drin, damit der Pfad aus dem css-Ordner heraus funktioniert */
+    /* ÄNDERUNG HIER: Das 'linear-gradient' wurde gelöscht, nur das reine Bild bleibt übrig */
+    background-image: url("../images/hero.jpg");
 
     background-size: cover;
     background-position: center;
@@ -71,6 +68,7 @@ nav a:hover {
     text-align: center;
     padding: 20px;
 }
+
 
 
 
