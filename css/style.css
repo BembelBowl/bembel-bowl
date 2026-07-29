@@ -506,6 +506,7 @@ body.rules-page {
     padding: 10px 20px;
     border-radius: 30px;
     margin-top: 15px;
+    margin-bottom: 35px; 
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     border: 1px solid #e0ded6;
 }
