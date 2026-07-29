@@ -750,3 +750,156 @@ body.rules-page {
 .pos-rb  { background-color: #2b8a3e; }
 .pos-wr  { background-color: #1864ab; }
 .pos-te  { background-color: #e67700; }
+
+/* =========================
+   HALL OF FAME EXTRA STYLES
+   ========================= */
+
+/* TAB NAVIGATION */
+.hof-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+.tab-btn {
+    background-color: #ffffff;
+    border: 2px solid #d18b2f;
+    color: #1f1f1f;
+    padding: 10px 24px;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tab-btn:hover, .tab-btn.active {
+    background-color: #d18b2f;
+    color: #ffffff;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* CHAMPIONS GRID */
+.champions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.champion-card {
+    background-color: #f8f6f0;
+    border: 1px solid #e0ded6;
+    border-top: 4px solid #d18b2f;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.champion-badge {
+    display: inline-block;
+    background-color: #1f1f1f;
+    color: #d18b2f;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.champion-card h4 {
+    font-size: 1.2rem;
+    color: #1f1f1f;
+    margin-bottom: 5px;
+}
+
+.champion-sub {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+/* TABELLE */
+.table-responsive {
+    overflow-x: auto;
+}
+
+.hof-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    margin-top: 10px;
+}
+
+.hof-table th, .hof-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #e0ded6;
+}
+
+.hof-table th {
+    background-color: #1f1f1f;
+    color: #d18b2f;
+    font-weight: 600;
+}
+
+.hof-table tbody tr:hover {
+    background-color: #f8f6f0;
+}
+
+/* REKORDE GRID & BADGES */
+.records-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.record-card {
+    background: #f8f6f0;
+    border-radius: 8px;
+    padding: 20px;
+    border-left: 4px solid #1f1f1f;
+}
+
+.record-card h4 {
+    font-size: 0.95rem;
+    color: #666;
+    margin-top: 8px;
+    text-transform: uppercase;
+}
+
+.record-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #d18b2f;
+    margin: 5px 0;
+}
+
+.record-holder {
+    font-weight: 600;
+    color: #1f1f1f;
+}
+
+.record-owner {
+    font-size: 0.85rem;
+    color: #777;
+}
+
+.pos-tag {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    color: #fff;
+    display: inline-block;
+}
+
+.pos-qb  { background-color: #c92a2a; }
+.pos-rb  { background-color: #2b8a3e; }
+.pos-wr  { background-color: #1864ab; }
+.pos-te  { background-color: #e67700; }
