@@ -79,18 +79,14 @@ nav a:hover, nav a.active {
 .hero {
     display: block;          
     width: 100%;
-    
-    /* ERHÖHT: Gibt dem Bild nach oben und unten deutlich mehr Platz */
     height: 650px;           
     min-height: 550px;       
-
     background-image: url("../images/hero.jpg");
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     clear: both;
 }
-
 
 /* WILLKOMMENSTEXT */
 
@@ -170,7 +166,13 @@ a.card:hover {
     text-decoration: none !important;
 }
 
-/* KACHEL-BILDER PFADE (Aus Ihrem Code übernommen) */
+.nav-icon {
+    display: inline-block;
+    margin-right: 8px;
+    filter: grayscale(100%) brightness(0) invert(1); 
+}
+
+/* KACHEL-BILDER PFADE */
 .rules-card     { background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_rules.jpg"); }
 .draft-card     { background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_draft_center.jpg"); }
 .standings-card { background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("../images/tile_standings.jpg"); }
@@ -218,20 +220,13 @@ footer {
    ========================= */
 
 body.rules-page {
-    /* 1. Das Bild wird sauber über den relativen Pfad geladen */
     background-image: url("../images/rules_back.png");
-    
-    /* 2. Fixiert das Bild im Hintergrund, sodass der Text elegant darübergleitet */
     background-attachment: fixed;
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    
-    /* 3. Ein separater Filter-Schleier sorgt dafür, dass das Bild die Regeln nicht übertönt */
     background-color: rgba(244, 241, 234, 0.88); 
-    background-blend-mode: overlay; /* Verschmilzt die helle Farbe perfekt mit dem Bild */
-}
-
+    background-blend-mode: overlay; 
 }
 
 .rules-page .rules-section {
@@ -360,23 +355,20 @@ body.rules-page {
     margin-bottom: 10px;
 }
 
-/* Das Grid-System: 4 Spalten auf großen Bildschirmen */
 .teams-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr); /* Genau 4 Kacheln pro Zeile */
+    grid-template-columns: repeat(4, 1fr); 
     gap: 25px;
     margin-bottom: 50px;
 }
 
-/* 3D-Kartensetup */
 .flip-card {
     background-color: transparent;
     width: 100%;
-    height: 300px; /* Einheitliche Höhe für die Logos & Statistiken */
-    perspective: 1000px; /* Ermöglicht den plastischen 3D-Effekt */
+    height: 300px; 
+    perspective: 1000px; 
 }
 
-/* Dieser Container hält die Vorder- und Rückseite zusammen */
 .flip-card-inner {
     position: relative;
     width: 100%;
@@ -388,26 +380,23 @@ body.rules-page {
     border-radius: 12px;
 }
 
-/* Der eigentliche Drehbefehl beim Hovern mit der Maus */
 .flip-card:hover .flip-card-inner {
     transform: rotateY(180deg);
 }
 
-/* Gemeinsame Eigenschaften für Vorder- und Rückseite */
 .flip-card-front, .flip-card-back {
     position: absolute;
     width: 100%;
     height: 100%;
-    -webkit-backface-visibility: hidden; /* Verhindert Blitzen in Safari */
     backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
     border-radius: 12px;
     overflow: hidden;
 }
 
-/* VORDERSEITE: Zeigt das Team-Logo zentriert an */
 .flip-card-front {
-    background-color: #ffffff; /* Weißer Kachelhintergrund, falls kein Logo da ist */
-    background-size: contain;  /* Zeigt das Logo vollflächig ohne Beschnitt */
+    background-color: #ffffff; 
+    background-size: contain;  
     background-position: center;
     background-repeat: no-repeat;
     display: flex;
@@ -416,7 +405,6 @@ body.rules-page {
     border: 1px solid #e0ded6;
 }
 
-/* Unsichtbarer Text auf der Vorderseite, falls ein Logo geladen wird */
 .logo-fallback {
     color: #ccc;
     font-size: 1rem;
@@ -425,18 +413,17 @@ body.rules-page {
     z-index: -1;
 }
 
-/* RÜCKSEITE: Anthrazit-Kasten mit goldener Schrift */
 .flip-card-back {
     background-color: #1f1f1f;
     color: white;
-    transform: rotateY(180deg); /* Dreht die Rückseite standardmäßig um, damit sie lesbar wird */
+    transform: rotateY(180deg); 
     padding: 25px 20px;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    align-items: flex-start; /* Linksbündiger Text für Statistiken */
+    align-items: flex-start; 
     text-align: left;
-    border-bottom: 4px solid #d18b2f; /* Bembel Bowl Akzentlinie */
+    border-bottom: 4px solid #d18b2f; 
 }
 
 .flip-card-back h3 {
@@ -454,7 +441,6 @@ body.rules-page {
     color: #e0ded6;
 }
 
-/* Record-Hervorhebung */
 .record-badge {
     margin-top: 10px !important;
     background-color: #333;
@@ -464,39 +450,23 @@ body.rules-page {
     color: #ffffff !important;
 }
 
-/* MOBIL-ANPASSUNG (RESPONSIVE) */
-@media (max-width: 1024px) {
-    .teams-grid {
-        grid-template-columns: repeat(2, 1fr); /* 2 pro Reihe auf Tablets */
-    }
-}
-
-@media (max-width: 600px) {
-    .teams-grid {
-        grid-template-columns: 1fr; /* 1 pro Reihe auf Handys */
-        gap: 15px;
-    }
-    .flip-card {
-        height: 260px; /* Etwas flacher auf Smartphones */
-    }
-}
-
-/* HIGHLIGHT FÜR GRÜNDUNGSMITGLIEDER */
-
-/* Goldener Rahmen auf der Vorderseite der Kachel */
+/* GRÜNDER HIGHLIGHTS & ABGERUNDETE KANTEN REPARATUR */
 .flip-card.founder .flip-card-inner {
     border: 3px solid #d18b2f;
     box-shadow: 0 4px 20px rgba(209, 139, 47, 0.25);
+    overflow: hidden; /* REPARIERT: Verhindert eckige Kanten bei Gründer-Kacheln */
 }
 
-/* Verstärktes goldenes Leuchten beim Hovern */
 .flip-card.founder:hover .flip-card-inner {
     box-shadow: 0 8px 30px rgba(209, 139, 47, 0.6);
 }
 
-/* STYLES FÜR LEGENDE & EHEMALIGE TEAMS */
+.flip-card.founder .flip-card-back h3::after {
+    content: " ★";
+    color: #d18b2f;
+    font-size: 1.1rem;
+}
 
-/* Die Legenden-Box unter der Einleitung */
 .legend-box {
     display: inline-flex;
     align-items: center;
@@ -506,7 +476,7 @@ body.rules-page {
     padding: 10px 20px;
     border-radius: 30px;
     margin-top: 15px;
-    margin-bottom: 35px; 
+    margin-bottom: 35px; /* REPARIERT: Schafft sauberen Abstand zu den Logos */
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     border: 1px solid #e0ded6;
 }
@@ -514,264 +484,3 @@ body.rules-page {
 .legend-badge {
     width: 16px;
     height: 16px;
-    background-color: transparent;
-    border: 3px solid #d18b2f; /* Simuliert den Kachelrand */
-    border-radius: 4px;
-    display: inline-block;
-}
-
-.legend-box p {
-    font-size: 0.95rem;
-    color: #555;
-    margin: 0;
-}
-
-/* Sektion für ehemalige Teams */
-.past-teams-section {
-    margin-top: 80px;
-    border-top: 2px dashed #d18b2f;
-    padding-top: 40px;
-}
-
-.past-teams-section h3 {
-    color: #1f1f1f;
-    font-size: 1.8rem;
-    margin-bottom: 25px;
-    text-align: center;
-}
-
-/* "In Arbeit" Platzhalter-Box */
-.work-in-progress {
-    background: #ffffff;
-    border-radius: 12px;
-    padding: 40px 20px;
-    text-align: center;
-    max-width: 600px;
-    margin: 0 auto;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-    border: 1px dashed #ccc;
-}
-
-.wip-icon {
-    font-size: 2.5rem;
-    display: block;
-    margin-bottom: 15px;
-    animation: pulse 2s infinite ease-in-out; /* Leichtes Pulsieren des Icons */
-}
-
-.work-in-progress h4 {
-    color: #d18b2f;
-    font-size: 1.3rem;
-    margin-bottom: 8px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.work-in-progress p {
-    color: #666;
-    font-size: 0.95rem;
-    max-width: 450px;
-    margin: 0 auto;
-    line-height: 1.5;
-}
-
-/* Kleiner Animationseffekt für das Werkzeug-Icon */
-@keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); }
-}
-
-/* =========================
-   DRAFTBOARD STYLES
-   ========================= */
-
-.draftboard-page {
-    background-color: #0d1117 !important; /* Dunkler Workspace-Modus für das Board */
-    color: #fff;
-}
-
-.year-selector-container select {
-    background-color: #161b22;
-    color: white;
-    border: 1px solid #30363d;
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-weight: 600;
-}
-
-/* Admin Kontrollzentrum */
-.admin-panel {
-    background-color: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 8px;
-    padding: 20px;
-    margin: 20px auto;
-    max-width: 1400px;
-}
-
-.admin-inputs {
-    display: flex;
-    gap: 15px;
-    margin-top: 15px;
-    flex-wrap: wrap;
-}
-
-.admin-inputs input {
-    background: #0d1117;
-    border: 1px solid #30363d;
-    color: white;
-    padding: 8px 12px;
-    border-radius: 6px;
-}
-
-.search-wrapper {
-    position: relative;
-    flex-grow: 1;
-}
-
-.autocomplete-results {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    width: 100%;
-    background: #161b22;
-    border: 1px solid #30363d;
-    z-index: 2000;
-    border-radius: 0 0 6px 6px;
-}
-
-.autocomplete-item {
-    padding: 10px;
-    cursor: pointer;
-    border-bottom: 1px solid #21262d;
-}
-
-.autocomplete-item:hover {
-    background-color: #21262d;
-    color: #d18b2f;
-}
-
-/* Das 20-Spalten-Raster */
-.board-scroll-wrapper {
-    width: 100%;
-    overflow-x: auto; /* Aktiviert horizontales Scrollen auf Laptops & Mobilgeräten */
-    padding-bottom: 20px;
-}
-
-.draft-board-grid {
-    display: grid;
-    grid-template-columns: repeat(20, minmax(140px, 1fr)); /* Garantiert exakt 20 Spalten nebeneinander */
-    gap: 4px;
-    min-width: 2800px; /* Verhindert das Quetschen auf kleinen Displays */
-    padding: 10px;
-}
-
-/* Zellen-Styling */
-.board-header-cell {
-    background-color: #1f1f1f;
-    border-bottom: 3px solid #d18b2f;
-    padding: 12px 5px;
-    text-align: center;
-    border-radius: 4px;
-}
-
-.team-num { font-size: 0.8rem; color: #d18b2f; font-weight: bold; }
-.team-title { font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-.board-pick-cell {
-    background-color: #161b22;
-    border: 1px solid #21262d;
-    height: 75px;
-    position: relative;
-    padding: 8px;
-    border-radius: 4px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-
-.pick-number {
-    position: absolute;
-    top: 3px;
-    right: 5px;
-    font-size: 0.7rem;
-    color: #8b949e;
-}
-
-.player-info-container h4 {
-    font-size: 0.85rem;
-    margin: 0;
-    color: #fff;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.player-info-container p {
-    font-size: 0.7rem;
-    margin: 2px 0 0 0;
-    color: rgba(255,255,255,0.7);
-}
-
-/* POSITIONELLE FARBCODES (Offizielle Fantasy-Standards) */
-.pos-qb  { background-color: #145ebd !important; border-color: #388bfd; } /* Blau */
-.pos-rb  { background-color: #1a7f37 !important; border-color: #3fb950; } /* Grün */
-.pos-wr  { background-color: #8c1a99 !important; border-color: #d37fed; } /* Lila */
-.pos-te  { background-color: #bf4b16 !important; border-color: #f0883e; } /* Orange */
-.pos-k   { background-color: #9a6600 !important; border-color: #d4a72c; } /* Gold/Gelb */
-.pos-def { background-color: #6e7781 !important; border-color: #afb8c1; } /* Grau */
-
-/* VERLÄNGERTES EINGABEFELD & PERMANENTE SCROLLBAR */
-
-.target-wider {
-    flex-grow: 3 !important; /* Gibt der Spielersuche massiv mehr Breite im Admin-Bereich */
-    min-width: 350px;
-}
-
-.admin-select {
-    background: #0d1117;
-    border: 1px solid #30363d;
-    color: white;
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-weight: 600;
-}
-
-.button-green { background-color: #238636 !important; }
-.button-green:hover { background-color: #2ea44f !important; }
-.button-red { background-color: #da3637 !important; }
-.button-red:hover { background-color: #b32424 !important; }
-
-/* Erzwingt eine permanente Sichtbarkeit der horizontalen Scrollbar am unteren Rand */
-.enforce-scrollbar {
-    overflow-x: scroll !important; /* Schaltet von 'auto' auf permanentes 'scroll' */
-    scrollbar-width: auto !important; /* Verhindert ein schmales Ausblenden in Firefox */
-}
-
-/* Anpassungen speziell für Webkit-Browser (Chrome, Edge, Safari) */
-.enforce-scrollbar::-webkit-scrollbar {
-    height: 14px !important; /* Macht den Balken dick und leicht greifbar */
-    display: block !important;
-}
-
-.enforce-scrollbar::-webkit-scrollbar-track {
-    background: #161b22; /* Hintergrundfarbe der Schiene */
-    border-radius: 8px;
-}
-
-.enforce-scrollbar::-webkit-scrollbar-thumb {
-    background: #d18b2f; /* Bembel-Gold für den anfassbaren Scroll-Schieber */
-    border-radius: 8px;
-    border: 3px solid #161b22;
-}
-
-.enforce-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #f0a842; /* Aufleuchten beim Ziehen */
-}
-
-/* Macht das Board-Zellen-Grid im Admin-Modus interaktiv spürbar */
-.admin-panel ~ .board-scroll-wrapper .board-pick-cell {
-    cursor: pointer;
-}
-
