@@ -24,9 +24,109 @@
         <a href="archive.html" class="nav-link">Archiv</a>
         <a href="https://fantasy.espn.com/football/league?leagueId=843833275" class="nav-link espn-btn" target="_blank">ESPN Fantasy Login</a>
     </nav>
-</header>
 
-<h1>In Arbeit</h1>
+    <!-- Globale Navigation -->
+    <header>
+        <nav>
+            <a href="index.html">Home</a>
+            <a href="rules.html">Regeln</a>
+            <a href="teams.html" class="active">Teams</a>
+            <a href="draft-center.html">Draft Center</a>
+            <a href="standings.html">Tabellen</a>
+            <a href="reports.html">Spielberichte</a>
+            <a href="hall-of-fame.html">Hall of Fame</a>
+            <a href="archive.html">Archiv</a>
+            <a href="https://espn.com" class="espn-btn" target="_blank">ESPN Fantasy Login</a>
+        </nav>
+    </header>
+
+    <!-- Hauptbereich -->
+    <main class="teams-container">
+        
+        <div class="teams-header">
+            <h2>👥 Die Teams der Liga</h2>
+            <p>Fahre mit der Maus über das Logo eines Teams, um den Manager und die aktuellen All-Time Statistiken einzusehen.</p>
+        </div>
+
+        <!-- Das 4x5 Grid-System (Insgesamt 20 Teams) -->
+        <section class="teams-grid">
+
+            <!-- TEAM 1 (Beispiel aus Ihrem Regelbuch) -->
+            <div class="flip-card">
+                <div class="flip-card-inner">
+                    <!-- Vorderseite: Team-Logo -->
+                    <div class="flip-card-front" style="background-image: url('images/logo_team1.jpg');">
+                        <!-- Falls kein Bild geladen werden kann, steht hier Text als Fallback -->
+                        <span class="logo-fallback">Logo Team 1</span> 
+                    </div>
+                    <!-- Rückseite: Text-Informationen -->
+                    <div class="flip-card-back">
+                        <h3>Bojangles Pornstars</h3>
+                        <p><strong>Manager:</strong> Bojangles (Commish)</p>
+                        <p><strong>Division:</strong> Division A</p>
+                        <p><strong>Titel:</strong> 0</p>
+                        <p><strong>Spiele gesamt:</strong> 42</p>
+                        <p class="record-badge">Record: 24 - 18 - 0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TEAM 2 (Beispiel aus Ihrem Regelbuch) -->
+            <div class="flip-card">
+                <div class="flip-card-inner">
+                    <div class="flip-card-front" style="background-image: url('images/logo_team2.jpg');">
+                        <span class="logo-fallback">Logo Team 2</span>
+                    </div>
+                    <div class="flip-card-back">
+                        <h3>Zeugen Ray Lewis</h3>
+                        <p><strong>Manager:</strong> Matze (Vize)</p>
+                        <p><strong>Division:</strong> Division B</p>
+                        <p><strong>Titel:</strong> 0</p>
+                        <p><strong>Spiele gesamt:</strong> 42</p>
+                        <p class="record-badge">Record: 21 - 21 - 0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TEAM 3 (Vorlage - Einfach Daten anpassen) -->
+            <div class="flip-card">
+                <div class="flip-card-inner">
+                    <div class="flip-card-front" style="background-image: url('images/logo_team3.jpg');"><span class="logo-fallback">Team 3</span></div>
+                    <div class="flip-card-back">
+                        <h3>Team Name 3</h3>
+                        <p><strong>Manager:</strong> Name</p>
+                        <p><strong>Division:</strong> Division C</p>
+                        <p><strong>Titel:</strong> 0</p>
+                        <p><strong>Spiele gesamt:</strong> 0</p>
+                        <p class="record-badge">Record: 0 - 0 - 0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TEAM 4 (Vorlage) -->
+            <div class="flip-card">
+                <div class="flip-card-inner">
+                    <div class="flip-card-front" style="background-image: url('images/logo_team4.jpg');"><span class="logo-fallback">Team 4</span></div>
+                    <div class="flip-card-back">
+                        <h3>Team Name 4</h3>
+                        <p><strong>Manager:</strong> Name</p>
+                        <p><strong>Division:</strong> Division D</p>
+                        <p><strong>Titel:</strong> 0</p>
+                        <p><strong>Spiele gesamt:</strong> 0</p>
+                        <p class="record-badge">Record: 0 - 0 - 0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HINWEIS: Kopieren Sie den obigen Block für 'flip-card' einfach so oft, 
+                 bis Sie alle 20 Teams beisammen haben. Das CSS ordnet sie automatisch 4er-Reihen an. -->
+
+        </section>
+    </main>
+
+    <footer>
+        <p>© 2026 Bembel Bowl Fantasy Football League</p>
+    </footer>
 
 </body>
 </html>
