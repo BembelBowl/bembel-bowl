@@ -27,68 +27,131 @@
 <main class="rules-container">
 
     <div class="rules-header">
-        <h2>Hall of Fame</h2>
+        2 Hall of Fame 2
         <p>Die Legenden, Champions und Rekordhalter des Bembel Bowl</p>
     </div>
 
-    <!-- TABS ZUR NAVIGATION ZWISCHEN MANAGER UND PLAYERS -->
+    <!-- TAB NAVIGATION -->
     <div class="hof-tabs">
         <button class="tab-btn active" onclick="openHofTab(event, 'managers')">Manager & Champions</button>
-        <button class="tab-btn" onclick="openHofTab(event, 'players')">Player Records</button>
+        <button class="tab-btn" onclick="openHofTab(event, 'players')">Player & Team Records</button>
     </div>
 
-    <!-- TAB 1: MANAGER & CHAMPIONS -->
+    <!-- ========================================================= -->
+    <!-- TAB 1: MANAGER & CHAMPIONS                                -->
+    <!-- ========================================================= -->
     <div id="managers" class="tab-content active">
         
+        <!-- 1. Bembel Bowl Winners -->
         <section class="rules-section">
-            <h3>Bembel Bowl Champions</h3>
+            3 Bembel Bowl Champions
             <div class="champions-grid">
                 
-                <div class="champion-card">
+                <div class="champion-card winner-card">
                     <div class="champion-badge">🏆 2025 Champion</div>
-                    <h4>Manager Name / Teamname</h4>
-                    <p class="champion-sub">Record: 12-2 | Final Score: 124.5 - 98.2</p>
+                    <h4>Team / Manager Name</h4>
+                    <p class="champion-sub">Runner-Up: Team Name</p>
+                    <p class="champion-sub">Final Score: 124.5 - 98.2</p>
                 </div>
 
-                <div class="champion-card">
+                <div class="champion-card winner-card">
                     <div class="champion-badge">🏆 2024 Champion</div>
-                    <h4>Manager Name / Teamname</h4>
-                    <p class="champion-sub">Record: 10-4 | Final Score: 110.1 - 105.8</p>
+                    <h4>Team / Manager Name</h4>
+                    <p class="champion-sub">Runner-Up: Team Name</p>
+                    <p class="champion-sub">Final Score: 110.1 - 105.8</p>
                 </div>
 
             </div>
         </section>
 
+        <!-- 2. Toilet Bowl Champions -->
         <section class="rules-section">
-            <h3>Manager All-Time Ranking</h3>
+            3 Toilet Bowl Winners
+            <div class="champions-grid">
+                
+                <div class="champion-card toilet-card">
+                    <div class="champion-badge toilet-badge">🚽 2025 Toilet Bowl Winner</div>
+                    <h4>Team / Manager Name</h4>
+                    <p class="champion-sub">Platz 12 / Last Place Avoided</p>
+                </div>
+
+                <div class="champion-card toilet-card">
+                    <div class="champion-badge toilet-badge">🚽 2024 Toilet Bowl Winner</div>
+                    <h4>Team / Manager Name</h4>
+                    <p class="champion-sub">Platz 12 / Last Place Avoided</p>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- 3. Playoff Appearances -->
+        <section class="rules-section">
+            3 Playoff Appearances
+            <div class="table-responsive">
+                <table class="hof-table">
+                    <thead>
+                        <tr>
+                            <th>Manager / Team</th>
+                            <th>Seasons in League</th>
+                            <th>Playoff Appearances</th>
+                            <th>Playoff Ratio</th>
+                            <th>Best Finish</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Manager A</strong></td>
+                            <td>3</td>
+                            <td>3</td>
+                            <td>100%</td>
+                            <td>🏆 Champion (2025)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Manager B</strong></td>
+                            <td>3</td>
+                            <td>2</td>
+                            <td>66.7%</td>
+                            <td>🥈 Finalist (2024)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 4. Ewige Tabelle der Regular Season -->
+        <section class="rules-section">
+            3 Ewige Tabelle (Regular Season)
             <div class="table-responsive">
                 <table class="hof-table">
                     <thead>
                         <tr>
                             <th>Rank</th>
                             <th>Manager</th>
-                            <th>Titles 🏆</th>
-                            <th>Finals 🥈</th>
+                            <th>Games</th>
+                            <th>W - L - T</th>
                             <th>Win %</th>
-                            <th>All-Time Record</th>
+                            <th>Points For (PF)</th>
+                            <th>Points Against (PA)</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td>1</td>
                             <td><strong>Manager A</strong></td>
-                            <td>2</td>
-                            <td>1</td>
-                            <td>.642</td>
-                            <td>45-25</td>
+                            <td>42</td>
+                            <td>28 - 14 - 0</td>
+                            <td>.667</td>
+                            <td>4,520.5</td>
+                            <td>4,100.2</td>
                         </tr>
                         <tr>
                             <td>2</td>
                             <td><strong>Manager B</strong></td>
-                            <td>1</td>
-                            <td>2</td>
-                            <td>.580</td>
-                            <td>40-29</td>
+                            <td>42</td>
+                            <td>25 - 17 - 0</td>
+                            <td>.595</td>
+                            <td>4,310.0</td>
+                            <td>4,150.8</td>
                         </tr>
                     </tbody>
                 </table>
@@ -97,42 +160,118 @@
 
     </div>
 
-    <!-- TAB 2: PLAYERS (Rekorde) -->
+    <!-- ========================================================= -->
+    <!-- TAB 2: PLAYER & TEAM RECORDS                              -->
+    <!-- ========================================================= -->
     <div id="players" class="tab-content">
         
+        <!-- 1. Season MVPs -->
         <section class="rules-section">
-            <h3>Single Game Records</h3>
+            3 Season MVPs
             <div class="records-grid">
                 
-                <div class="record-card">
+                <div class="record-card mvp-card">
                     <span class="pos-tag pos-qb">QB</span>
-                    <h4>Most Points (Single Game)</h4>
-                    <div class="record-value">52.4 PTS</div>
-                    <p class="record-holder">Patrick Mahomes (2023, Week 7)</p>
+                    <h4>2025 League MVP</h4>
+                    <div class="record-value">Josh Allen</div>
+                    <p class="record-holder">412.5 Total Points</p>
                     <p class="record-owner">Owner: Team Mustername</p>
                 </div>
 
-                <div class="record-card">
+                <div class="record-card mvp-card">
                     <span class="pos-tag pos-rb">RB</span>
-                    <h4>Most Rushing Yards</h4>
-                    <div class="record-value">248 YDS</div>
-                    <p class="record-holder">Christian McCaffrey (2024, Week 12)</p>
+                    <h4>2024 League MVP</h4>
+                    <div class="record-value">Christian McCaffrey</div>
+                    <p class="record-holder">395.8 Total Points</p>
                     <p class="record-owner">Owner: Team Mustername</p>
                 </div>
 
             </div>
         </section>
 
+        <!-- 2. Individual Records pro Position -->
         <section class="rules-section">
-            <h3>Single Season Records</h3>
+            3 Individual Records (Pro Position)
             <div class="records-grid">
                 
                 <div class="record-card">
+                    <span class="pos-tag pos-qb">QB</span>
+                    <h4>QB Single Game Record</h4>
+                    <div class="record-value">52.4 PTS</div>
+                    <p class="record-holder">Patrick Mahomes (2023, W7)</p>
+                    <p class="record-owner">Owner: Team Name</p>
+                </div>
+
+                <div class="record-card">
+                    <span class="pos-tag pos-rb">RB</span>
+                    <h4>RB Single Game Record</h4>
+                    <div class="record-value">46.2 PTS</div>
+                    <p class="record-holder">Christian McCaffrey (2024, W4)</p>
+                    <p class="record-owner">Owner: Team Name</p>
+                </div>
+
+                <div class="record-card">
                     <span class="pos-tag pos-wr">WR</span>
-                    <h4>Most Points in a Season</h4>
-                    <div class="record-value">385.2 PTS</div>
-                    <p class="record-holder">Justin Jefferson (Season 2023)</p>
-                    <p class="record-owner">Owner: Team Mustername</p>
+                    <h4>WR Single Game Record</h4>
+                    <div class="record-value">44.1 PTS</div>
+                    <p class="record-holder">Tyreek Hill (2023, W11)</p>
+                    <p class="record-owner">Owner: Team Name</p>
+                </div>
+
+                <div class="record-card">
+                    <span class="pos-tag pos-te">TE</span>
+                    <h4>TE Single Game Record</h4>
+                    <div class="record-value">35.8 PTS</div>
+                    <p class="record-holder">Travis Kelce (2022, W9)</p>
+                    <p class="record-owner">Owner: Team Name</p>
+                </div>
+
+                <div class="record-card">
+                    <span class="pos-tag pos-k">K</span>
+                    <h4>K Single Game Record</h4>
+                    <div class="record-value">22.0 PTS</div>
+                    <p class="record-holder">Justin Tucker (2023, W3)</p>
+                    <p class="record-owner">Owner: Team Name</p>
+                </div>
+
+                <div class="record-card">
+                    <span class="pos-tag pos-def">DEF</span>
+                    <h4>DEF Single Game Record</h4>
+                    <div class="record-value">28.0 PTS</div>
+                    <p class="record-holder">Dallas Cowboys DEF (2023, W1)</p>
+                    <p class="record-owner">Owner: Team Name</p>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- 3. Team Records -->
+        <section class="rules-section">
+            3 Team Records
+            <div class="records-grid">
+                
+                <div class="record-card team-record">
+                    <h4>Highest Single Game Score</h4>
+                    <div class="record-value">188.6 PTS</div>
+                    <p class="record-holder">Team Name (2024, Week 8)</p>
+                </div>
+
+                <div class="record-card team-record">
+                    <h4>Lowest Single Game Score</h4>
+                    <div class="record-value">54.2 PTS</div>
+                    <p class="record-holder">Team Name (2023, Week 12)</p>
+                </div>
+
+                <div class="record-card team-record">
+                    <h4>Longest Win Streak</h4>
+                    <div class="record-value">9 Games</div>
+                    <p class="record-holder">Team Name (Saison 2024)</p>
+                </div>
+
+                <div class="record-card team-record">
+                    <h4>Highest Season Points For</h4>
+                    <div class="record-value">1,720.4 PTS</div>
+                    <p class="record-holder">Team Name (Saison 2025)</p>
                 </div>
 
             </div>
