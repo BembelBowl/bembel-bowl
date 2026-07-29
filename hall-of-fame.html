@@ -8,7 +8,7 @@
     <link rel="icon" type="image/jpeg" href="images/favicon.jpg">
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body class="hof-page">
+<body class="rules-page">
 
 <header>
     <nav>
@@ -24,9 +24,9 @@
     </nav>
 </header>
 
-<main class="hof-container">
+<main class="rules-container">
 
-    <div class="hof-header">
+    <div class="rules-header">
         <h2>Hall of Fame</h2>
         <p>Die Legenden, Champions und Rekordhalter des Bembel Bowl</p>
     </div>
@@ -40,19 +40,16 @@
     <!-- TAB 1: MANAGER & CHAMPIONS -->
     <div id="managers" class="tab-content active">
         
-        <!-- Trophy Showcase / Titelträger -->
-        <section class="hof-section">
+        <section class="rules-section">
             <h3>Bembel Bowl Champions</h3>
             <div class="champions-grid">
                 
-                <!-- Beispiel-Karte Champion 2025 -->
-                <div class="champion-card Gold">
+                <div class="champion-card">
                     <div class="champion-badge">🏆 2025 Champion</div>
                     <h4>Manager Name / Teamname</h4>
                     <p class="champion-sub">Record: 12-2 | Final Score: 124.5 - 98.2</p>
                 </div>
 
-                <!-- Beispiel-Karte Champion 2024 -->
                 <div class="champion-card">
                     <div class="champion-badge">🏆 2024 Champion</div>
                     <h4>Manager Name / Teamname</h4>
@@ -62,8 +59,7 @@
             </div>
         </section>
 
-        <!-- All-Time Manager Stats Table -->
-        <section class="hof-section">
+        <section class="rules-section">
             <h3>Manager All-Time Ranking</h3>
             <div class="table-responsive">
                 <table class="hof-table">
@@ -101,10 +97,10 @@
 
     </div>
 
-    <!-- TAB 2: PLAYERS (Rekorde & Legenden) -->
+    <!-- TAB 2: PLAYERS (Rekorde) -->
     <div id="players" class="tab-content">
         
-        <section class="hof-section">
+        <section class="rules-section">
             <h3>Single Game Records</h3>
             <div class="records-grid">
                 
@@ -127,7 +123,7 @@
             </div>
         </section>
 
-        <section class="hof-section">
+        <section class="rules-section">
             <h3>Single Season Records</h3>
             <div class="records-grid">
                 
@@ -150,7 +146,6 @@
     <p>© 2026 Bembel Bowl Fantasy Football League</p>
 </footer>
 
-<!-- TAB SWITCHING SCRIPT -->
 <script>
     function openHofTab(evt, tabName) {
         var i, tabcontent, tablinks;
