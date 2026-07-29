@@ -493,3 +493,90 @@ body.rules-page {
 .flip-card.founder:hover .flip-card-inner {
     box-shadow: 0 8px 30px rgba(209, 139, 47, 0.6);
 }
+
+/* STYLES FÜR LEGENDE & EHEMALIGE TEAMS */
+
+/* Die Legenden-Box unter der Einleitung */
+.legend-box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background-color: #ffffff;
+    padding: 10px 20px;
+    border-radius: 30px;
+    margin-top: 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border: 1px solid #e0ded6;
+}
+
+.legend-badge {
+    width: 16px;
+    height: 16px;
+    background-color: transparent;
+    border: 3px solid #d18b2f; /* Simuliert den Kachelrand */
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.legend-box p {
+    font-size: 0.95rem;
+    color: #555;
+    margin: 0;
+}
+
+/* Sektion für ehemalige Teams */
+.past-teams-section {
+    margin-top: 80px;
+    border-top: 2px dashed #d18b2f;
+    padding-top: 40px;
+}
+
+.past-teams-section h3 {
+    color: #1f1f1f;
+    font-size: 1.8rem;
+    margin-bottom: 25px;
+    text-align: center;
+}
+
+/* "In Arbeit" Platzhalter-Box */
+.work-in-progress {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    max-width: 600px;
+    margin: 0 auto;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    border: 1px dashed #ccc;
+}
+
+.wip-icon {
+    font-size: 2.5rem;
+    display: block;
+    margin-bottom: 15px;
+    animation: pulse 2s infinite ease-in-out; /* Leichtes Pulsieren des Icons */
+}
+
+.work-in-progress h4 {
+    color: #d18b2f;
+    font-size: 1.3rem;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.work-in-progress p {
+    color: #666;
+    font-size: 0.95rem;
+    max-width: 450px;
+    margin: 0 auto;
+    line-height: 1.5;
+}
+
+/* Kleiner Animationseffekt für das Werkzeug-Icon */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
