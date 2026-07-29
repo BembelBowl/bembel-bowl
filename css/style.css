@@ -484,3 +484,251 @@ body.rules-page {
 .legend-badge {
     width: 16px;
     height: 16px;
+    border: 3px solid #d18b2f;
+   border-radius: 4px;
+   display: inline-block;
+}
+   
+   .legend-box p {
+      font-size: 0.95rem;
+   color: #555;
+      margin: 0;
+}
+
+.past-teams-section {
+   margin-top: 80px;
+   border-top: 2px dashed #d18b2f;
+   padding-top: 40px;
+}
+
+.past-teams-section h3 {
+   color: #1f1f1f;
+   font-size: 1.8rem;
+   margin-bottom: 25px;
+   text-align: center;
+}
+
+.work-in-progress {
+   background: #ffffff;
+   border-radius: 12px;
+   padding: 40px 20px;
+   text-align: center;
+   max-width: 600px;
+   margin: 0 auto;
+   box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+   border: 1px dashed #ccc;
+}
+
+.wip-icon {
+   font-size: 2.5rem;
+   display: block;
+   margin-bottom: 15px;
+   animation: pulse 2s infinite ease-in-out;
+}
+
+.work-in-progress h4 {
+   color: #d18b2f;
+   font-size: 1.3rem;
+   margin-bottom: 8px;
+   text-transform: uppercase;
+   letter-spacing: 1px;
+}
+
+.work-in-progress p {
+   color: #666;
+   font-size: 0.95rem;
+   max-width: 450px;
+   margin: 0 auto;
+   line-height: 1.5;
+}
+
+@keyframes pulse {
+   0% { transform: scale(1); }
+   50% { transform: scale(1.1); }
+   100% { transform: scale(1); }
+}
+
+@media (max-width: 1024px) {
+   .teams-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 600px) {
+   .teams-grid { grid-template-columns: 1fr; gap: 15px; }
+   .flip-card { height: 260px; }
+}
+
+/* =========================
+DRAFTBOARD STYLES
+========================= */
+
+.draftboard-page {
+   background-color: #0d1117 !important;
+   color: #fff;
+}
+
+.year-selector-container select {
+   background-color: #161b22;
+   color: white;
+   border: 1px solid #30363d;
+   padding: 6px 12px;
+   border-radius: 6px;
+   font-weight: 600;
+}
+
+.admin-panel {
+   background-color: #161b22;
+   border: 1px solid #30363d;
+   border-radius: 8px;
+   padding: 20px;
+   margin: 20px auto;
+   max-width: 1400px;
+}
+
+.admin-inputs {
+   display: flex;
+   gap: 15px;
+   margin-top: 15px;
+   flex-wrap: wrap;
+}
+
+.admin-inputs input, .admin-select {
+   background: #0d1117;
+   border: 1px solid #30363d;
+   color: white;
+   padding: 8px 12px;
+   border-radius: 6px;
+   font-weight: 600;
+}
+
+.target-wider {
+   flex-grow: 3 !important; /* Gibt dem Spielersuchfeld deutlich mehr Breite */
+   min-width: 350px;
+}
+
+.search-wrapper { position: relative; }
+
+.autocomplete-results {
+   position: absolute;
+   top: 100%;
+   left: 0;
+   width: 100%;
+   background: #161b22;
+   border: 1px solid #30363d;
+   z-index: 2000;
+   border-radius: 0 0 6px 6px;
+}
+
+.autocomplete-item {
+   padding: 10px;
+   cursor: pointer;
+   border-bottom: 1px solid #21262d;
+   color: white;
+}
+
+.autocomplete-item:hover {
+   background-color: #21262d;
+   color: #d18b2f;
+}
+
+.button-green { background-color: #238636 !important; }
+.button-green:hover { background-color: #2ea44f !important; }
+.button-red { background-color: #da3637 !important; }
+.button-red:hover { background-color: #b32424 !important; }
+
+.board-scroll-wrapper {
+   width: 100%;
+   padding-bottom: 20px;
+}
+
+/* ERZWINGT PERMANENTE SCROLLBAR AM UNTEREN RAND */
+.enforce-scrollbar {
+   overflow-x: scroll !important;
+}
+
+.enforce-scrollbar::-webkit-scrollbar {
+   height: 14px !important;
+   display: block !important;
+}
+
+.enforce-scrollbar::-webkit-scrollbar-track {
+   background: #161b22;
+   border-radius: 8px;
+}
+
+.enforce-scrollbar::-webkit-scrollbar-thumb {
+   background: #d18b2f;
+   border-radius: 8px;
+   border: 3px solid #161b22;
+}
+
+.draft-board-grid {
+   display: grid;grid-template-columns: repeat(20, minmax(140px, 1fr));
+   gap: 4px;min-width: 2800px;
+   padding: 10px;
+}
+
+.board-header-cell {
+   background-color: #1f1f1f;
+   border-bottom: 3px solid #d18b2f;
+   padding: 12px 5px;
+   text-align: center;
+   border-radius: 4px;
+}
+
+.team-num {
+   font-size: 0.8rem; 
+   color: #d18b2f; 
+   font-weight: bold;
+}
+.team-title {
+   font-size: 0.9rem; 
+   font-weight: 600; 
+   white-space: nowrap; 
+   overflow: hidden; 
+   text-overflow: ellipsis; 
+}
+
+.board-pick-cell {
+   background-color: #161b22;
+   border: 1px solid #21262d;
+   height: 75px;position: relative;
+   padding: 8px;border-radius: 4px;
+   display: flex;
+   flex-direction: column;
+   justify-content: center;
+}
+
+.pick-number {
+   position: absolute;
+   top: 3px;
+   right: 5px;
+   font-size: 0.7rem;
+   color: #8b949e;
+}
+
+.player-info-container h4 {
+   font-size: 0.85rem;
+   margin: 0;
+   color: #fff;
+   white-space: nowrap;
+   overflow: hidden;
+   text-overflow: ellipsis;
+}
+
+.player-info-container p {
+   font-size: 0.7rem;
+   margin: 2px 0 0 0;
+   color: rgba(255,255,255,0.7);
+}
+
+.admin-panel ~ .board-scroll-wrapper .board-pick-cell {
+   cursor: pointer;
+}
+
+/* POSITIONELLE FARBCODES (Fantasy-Standards) */
+.pos-qb  { background-color: #145ebd !important; border-color: #388bfd; }
+.pos-rb  { background-color: #1a7f37 !important; border-color: #3fb950; }
+.pos-wr  { background-color: #8c1a99 !important; border-color: #d37fed; }
+.pos-te  { background-color: #bf4b16 !important; border-color: #f0883e; }
+.pos-k   { background-color: #9a6600 !important; border-color: #d4a72c; }
+.pos-def { background-color: #6e7781 !important; border-color: #afb8c1; }
