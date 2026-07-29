@@ -338,3 +338,145 @@ body.rules-page {
     font-size: 0.95rem;
     line-height: 1.8;
 }
+
+/* =========================
+   TEAMS PAGE STYLES (3D FLIP CARDS)
+   ========================= */
+
+.teams-container {
+    max-width: 1300px;
+    margin: 40px auto;
+    padding: 0 25px;
+}
+
+.teams-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.teams-header h2 {
+    color: #d18b2f;
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+}
+
+/* Das Grid-System: 4 Spalten auf großen Bildschirmen */
+.teams-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr); /* Genau 4 Kacheln pro Zeile */
+    gap: 25px;
+    margin-bottom: 50px;
+}
+
+/* 3D-Kartensetup */
+.flip-card {
+    background-color: transparent;
+    width: 100%;
+    height: 300px; /* Einheitliche Höhe für die Logos & Statistiken */
+    perspective: 1000px; /* Ermöglicht den plastischen 3D-Effekt */
+}
+
+/* Dieser Container hält die Vorder- und Rückseite zusammen */
+.flip-card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    text-align: center;
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-style: preserve-3d;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    border-radius: 12px;
+}
+
+/* Der eigentliche Drehbefehl beim Hovern mit der Maus */
+.flip-card:hover .flip-card-inner {
+    transform: rotateY(180deg);
+}
+
+/* Gemeinsame Eigenschaften für Vorder- und Rückseite */
+.flip-card-front, .flip-card-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    -webkit-backface-visibility: hidden; /* Verhindert Blitzen in Safari */
+    backface-visibility: hidden;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* VORDERSEITE: Zeigt das Team-Logo zentriert an */
+.flip-card-front {
+    background-color: #ffffff; /* Weißer Kachelhintergrund, falls kein Logo da ist */
+    background-size: contain;  /* Zeigt das Logo vollflächig ohne Beschnitt */
+    background-position: center;
+    background-repeat: no-repeat;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 1px solid #e0ded6;
+}
+
+/* Unsichtbarer Text auf der Vorderseite, falls ein Logo geladen wird */
+.logo-fallback {
+    color: #ccc;
+    font-size: 1rem;
+    font-weight: 600;
+    opacity: 0.4;
+    z-index: -1;
+}
+
+/* RÜCKSEITE: Anthrazit-Kasten mit goldener Schrift */
+.flip-card-back {
+    background-color: #1f1f1f;
+    color: white;
+    transform: rotateY(180deg); /* Dreht die Rückseite standardmäßig um, damit sie lesbar wird */
+    padding: 25px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start; /* Linksbündiger Text für Statistiken */
+    text-align: left;
+    border-bottom: 4px solid #d18b2f; /* Bembel Bowl Akzentlinie */
+}
+
+.flip-card-back h3 {
+    color: #d18b2f;
+    font-size: 1.3rem;
+    margin-bottom: 15px;
+    width: 100%;
+    border-bottom: 1px solid #333;
+    padding-bottom: 5px;
+}
+
+.flip-card-back p {
+    font-size: 0.95rem;
+    margin-bottom: 6px;
+    color: #e0ded6;
+}
+
+/* Record-Hervorhebung */
+.record-badge {
+    margin-top: 10px !important;
+    background-color: #333;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+    color: #ffffff !important;
+}
+
+/* MOBIL-ANPASSUNG (RESPONSIVE) */
+@media (max-width: 1024px) {
+    .teams-grid {
+        grid-template-columns: repeat(2, 1fr); /* 2 pro Reihe auf Tablets */
+    }
+}
+
+@media (max-width: 600px) {
+    .teams-grid {
+        grid-template-columns: 1fr; /* 1 pro Reihe auf Handys */
+        gap: 15px;
+    }
+    .flip-card {
+        height: 260px; /* Etwas flacher auf Smartphones */
+    }
+}
