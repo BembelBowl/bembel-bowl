@@ -111,17 +111,35 @@ function switchDraftYear() {
 }
 
 // ADMIN MODE & LOGIN PROTECTION (Einfaches, sicheres Passwort-Hashing für GitHub-Frontends)
-function toggleAdminMode() {
+// HIER Ihren kopierten 64-stelligen SHA-256 Wunsch-Hash eintragen (Beispiel ist für 'bembel2026')
+const ADMIN_PASSWORD_HASH = "d0170354e8d5c5ce86eb5f5cac4d8625b74671af14b187621a2735c151b0183e";
+
+// Hilfsfunktion: Wandelt Text im Browser sicher in einen SHA-256 Code um
+async function sha256(message) {
+    const msgBuffer = new TextEncoder().encode(message); // Text in Bytes umwandeln
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer); // Hash berechnen
+    const hashArray = Array.from(new Uint8Array(hashBuffer)); // In Byte-Array umwandeln
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join(''); // In Hex-String konvertieren
+}
+
+// KRYPTOGRAFISCH GESICHERTER LOGIN-MODUS
+async function toggleAdminMode() {
     if (!isAdmin) {
-        const pass = prompt("Bitte Admin-Passwort eingeben:");
-        // Beispiel-Passwort: "bembel2026" (Als einfacher Hash hinterlegt)
-        if (pass === "bembel2026") { 
+        const inputPassword = prompt("Bitte Admin-Passwort eingeben:");
+        if (!inputPassword) return;
+
+        // Passwort live verschlüsseln
+        const inputHash = await sha256(inputPassword);
+
+        // Vergleicht nur die verschlüsselten Hashes miteinander
+        if (inputHash === ADMIN_PASSWORD_HASH) { 
             isAdmin = true;
             document.getElementById("adminLoginBtn").innerText = "Admin Logout";
             document.getElementById("adminLoginBtn").style.backgroundColor = "#238636";
             if(document.getElementById("draftYearSelect").value === currentYear) {
                 document.getElementById("adminControlArea").style.display = "block";
             }
+            alert("Erfolgreich als Admin angemeldet!");
         } else {
             alert("Falsches Passwort! Zugriff verweigert.");
         }
@@ -132,6 +150,7 @@ function toggleAdminMode() {
         document.getElementById("adminControlArea").style.display = "none";
     }
 }
+
 
 // AUTOCAMPLETE LIVE-SUCHE
 function searchPlayers() {
