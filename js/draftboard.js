@@ -6,12 +6,13 @@ import { getFirestore, doc, setDoc, deleteDoc, onSnapshot } from "https://gstati
 // 1. IHRE FIREBASE KONFIGURATION (Hier eintragen!)
 // ==========================================
 const firebaseConfig = {
-    apiKey: "IHR_API_KEY",
-    authDomain: "IHR_://firebaseapp.com",
-    projectId: "IHR_PROJECT_ID",
-    storageBucket: "IHR_://appspot.com",
-    messagingSenderId: "IHRE_SENDER_ID",
-    appId: "IHR_APP_ID"
+  apiKey: "AIzaSyCywC-tZbMiSEEu9DTFqV4NyXLNQl4oUpc",
+  authDomain: "bembel-bowl-draftboard.firebaseapp.com",
+  projectId: "bembel-bowl-draftboard",
+  storageBucket: "bembel-bowl-draftboard.firebasestorage.app",
+  messagingSenderId: "1087232469095",
+  appId: "1:1087232469095:web:be18355f80b85d22190cc2",
+  measurementId: "G-M7G9J2DXSH"
 };
 
 // Firebase initialisieren
