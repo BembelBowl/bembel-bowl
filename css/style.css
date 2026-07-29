@@ -581,3 +581,143 @@ body.rules-page {
     50% { transform: scale(1.1); }
     100% { transform: scale(1); }
 }
+
+/* =========================
+   DRAFTBOARD STYLES
+   ========================= */
+
+.draftboard-page {
+    background-color: #0d1117 !important; /* Dunkler Workspace-Modus für das Board */
+    color: #fff;
+}
+
+.year-selector-container select {
+    background-color: #161b22;
+    color: white;
+    border: 1px solid #30363d;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+/* Admin Kontrollzentrum */
+.admin-panel {
+    background-color: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px auto;
+    max-width: 1400px;
+}
+
+.admin-inputs {
+    display: flex;
+    gap: 15px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+}
+
+.admin-inputs input {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+}
+
+.search-wrapper {
+    position: relative;
+    flex-grow: 1;
+}
+
+.autocomplete-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: #161b22;
+    border: 1px solid #30363d;
+    z-index: 2000;
+    border-radius: 0 0 6px 6px;
+}
+
+.autocomplete-item {
+    padding: 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #21262d;
+}
+
+.autocomplete-item:hover {
+    background-color: #21262d;
+    color: #d18b2f;
+}
+
+/* Das 20-Spalten-Raster */
+.board-scroll-wrapper {
+    width: 100%;
+    overflow-x: auto; /* Aktiviert horizontales Scrollen auf Laptops & Mobilgeräten */
+    padding-bottom: 20px;
+}
+
+.draft-board-grid {
+    display: grid;
+    grid-template-columns: repeat(20, minmax(140px, 1fr)); /* Garantiert exakt 20 Spalten nebeneinander */
+    gap: 4px;
+    min-width: 2800px; /* Verhindert das Quetschen auf kleinen Displays */
+    padding: 10px;
+}
+
+/* Zellen-Styling */
+.board-header-cell {
+    background-color: #1f1f1f;
+    border-bottom: 3px solid #d18b2f;
+    padding: 12px 5px;
+    text-align: center;
+    border-radius: 4px;
+}
+
+.team-num { font-size: 0.8rem; color: #d18b2f; font-weight: bold; }
+.team-title { font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.board-pick-cell {
+    background-color: #161b22;
+    border: 1px solid #21262d;
+    height: 75px;
+    position: relative;
+    padding: 8px;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.pick-number {
+    position: absolute;
+    top: 3px;
+    right: 5px;
+    font-size: 0.7rem;
+    color: #8b949e;
+}
+
+.player-info-container h4 {
+    font-size: 0.85rem;
+    margin: 0;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.player-info-container p {
+    font-size: 0.7rem;
+    margin: 2px 0 0 0;
+    color: rgba(255,255,255,0.7);
+}
+
+/* POSITIONELLE FARBCODES (Offizielle Fantasy-Standards) */
+.pos-qb  { background-color: #145ebd !important; border-color: #388bfd; } /* Blau */
+.pos-rb  { background-color: #1a7f37 !important; border-color: #3fb950; } /* Grün */
+.pos-wr  { background-color: #8c1a99 !important; border-color: #d37fed; } /* Lila */
+.pos-te  { background-color: #bf4b16 !important; border-color: #f0883e; } /* Orange */
+.pos-k   { background-color: #9a6600 !important; border-color: #d4a72c; } /* Gold/Gelb */
+.pos-def { background-color: #6e7781 !important; border-color: #afb8c1; } /* Grau */
