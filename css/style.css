@@ -480,3 +480,16 @@ body.rules-page {
         height: 260px; /* Etwas flacher auf Smartphones */
     }
 }
+
+/* HIGHLIGHT FÜR GRÜNDUNGSMITGLIEDER */
+
+/* Goldener Rahmen auf der Vorderseite der Kachel */
+.flip-card.founder .flip-card-inner {
+    border: 3px solid #d18b2f;
+    box-shadow: 0 4px 20px rgba(209, 139, 47, 0.25);
+}
+
+/* Verstärktes goldenes Leuchten beim Hovern */
+.flip-card.founder:hover .flip-card-inner {
+    box-shadow: 0 8px 30px rgba(209, 139, 47, 0.6);
+}
