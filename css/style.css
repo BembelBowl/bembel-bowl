@@ -1081,3 +1081,14 @@ body.rules-page {
 .pos-te  { background-color: #e67700; }
 .pos-k   { background-color: #9a6600; }
 .pos-def { background-color: #6e7781; }
+
+/* HINTERGRUND FÜR HALL OF FAME */
+body.hof-page {
+    background-image: url("../images/hof_back.png"); /* Pfad zu deinem neuen Bild */
+    background-attachment: fixed;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-color: rgba(244, 241, 234, 0.88); /* Leichter Beige-Ton über dem Bild */
+    background-blend-mode: overlay; 
+}
