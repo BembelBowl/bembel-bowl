@@ -3,65 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bembel Bowl</title>
-
+    <title>Bembel Bowl - Draft Center</title>
     <link rel="icon" type="image/jpeg" href="images/favicon.jpg">
-    
     <link rel="stylesheet" href="css/style.css">
 </head>
-
 <body>
 
-<header class="main-header">
-    <nav class="navbar">
-        <a href="index.html" class="nav-link">Home</a>
-        <a href="rules.html" class="nav-link">Regeln</a>
-        <a href="teams.html" class="nav-link">Teams</a>
-        <a href="draft-center.html" class="nav-link">Draft Center</a>
-        <a href="standings.html" class="nav-link">Tabellen</a>
-        <a href="reports.html" class="nav-link">Spielberichte</a>
-        <a href="hall-of-fame.html" class="nav-link">Hall of Fame</a>
-        <a href="archive.html" class="nav-link">Archiv</a>
-        <a href="https://fantasy.espn.com/football/league?leagueId=843833275" class="nav-link espn-btn" target="_blank">ESPN Fantasy Login</a>
+<header>
+    <nav>
+        <a href="index.html">Home</a>
+        <a href="rules.html">Regeln</a>
+        <a href="teams.html">Teams</a>
+        <a href="draft-center.html" class="active">Draft Center</a>
+        <a href="standings.html">Tabellen</a>
+        <a href="reports.html">Spielberichte</a>
+        <a href="hall-of-fame.html">Hall of Fame</a>
+        <a href="archive.html">Archiv</a>
+        <a href="https://fantasy.espn.com/football/league?leagueId=843833275" class="espn-btn" target="_blank">ESPN Fantasy Login</a>
     </nav>
-    
 </header>
 
-    <main class="rules-container">
-        <div class="rules-header">
-            <h2>Draft Center</h2>
-            <p>Die Schaltzentrale für den Bembel Bowl Draft. Bereitet euch vor, prüft das Regelwerk oder verfolgt die Picks live.</p>
+<main class="rules-container">
+    <div class="rules-header">
+        <h2>Draft Center</h2>
+        <p>Die Schaltzentrale für den Bembel Bowl Draft. Bereitet euch vor, prüft das Regelwerk oder verfolgt die Picks live.</p>
+    </div>
+
+    <!-- REPARIERT: Beide Kacheln nutzen nun exakt dieselbe Link-Struktur -->
+    <section class="cards" style="margin: 30px auto;">
+        <!-- 1. Live Draftboard -->
+        <a href="draftboard.html" class="card rules-card">
+            <div class="card-content">
+                <h3><span class="nav-icon">☲</span> Live Draftboard</h3>
+                <p>Das digitale Board. 20 Teams, 15 Runden live verfolgen.</p>
+            </div>
+        </a>
+
+        <!-- 2. Draft-Tools (Von <div> zu <a> umgebaut für runde Ecken) -->
+        <a href="#" class="card draft-card" style="cursor: default; pointer-events: none;">
+            <div class="card-content">
+                <h3><span class="nav-icon">🛠️</span> Draft-Tools</h3>
+                <p>Hilfreiche Tools & Cheat Sheets (In Arbeit).</p>
+            </div>
+        </a>
+    </section>
+
+    <!-- Draftregeln kompakt aus dem PDF -->
+    <section class="rules-section">
+        <h3>Wichtigste Draft-Regeln</h3>
+        <div class="rules-grid">
+            <div class="rules-item"><strong>Draft-System:</strong> Snake System (Pick #1 hat am Ende von Runde 2 den Doppelpick)</div>
+            <div class="rules-item"><strong>Frist für Listen:</strong> Bis 20.08.25 (EOD) das Sheet auf Basis des Template per Mail einreichen</div>
+            <div class="rules-item"><strong>Kader-Pflicht:</strong> Alle Starter-Positionen müssen besetzt werden</div>
+            <div class="rules-item"><strong>Default-Autodraft:</strong> Best Available nach fixer Positionsreihenfolge (R1: QB, R2: RB...)</div>
         </div>
+    </section>
+</main>
 
-        <!-- Tool-Kacheln -->
-        <section class="cards" style="margin: 30px auto;">
-            <a href="draftboard.html" class="card rules-card">
-                <div class="card-content">
-                    <h3><span class="nav-icon"></span> Live Draftboard</h3>
-                    <p>Das digitale Board. 20 Teams, 15 Runden live verfolgen.</p>
-                </div>
-            </a>
-            <div class="card draft-card" style="background-image: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('images/tile_rules.jpg');">
-                <div class="card-content">
-                    <h3><span class="nav-icon"></span> Draft-Tools</h3>
-                    <p>Hilfreiche Tools & Cheat Sheets (In Arbeit).</p>
-                </div>
-            </div>
-        </section>
+<footer><p>© 2026 Bembel Bowl Fantasy Football League</p></footer>
 
-        <!-- Draftregeln kompakt aus dem PDF -->
-        <section class="rules-section">
-            <h3>Wichtigste Draft-Regeln</h3>
-            <div class="rules-grid">
-                <div class="rules-item"><strong>Draft-System:</strong> Snake System (Pick #1 hat am Ende von Runde 2 den Doppelpick)</div>
-                <div class="rules-item"><strong>Frist für Listen:</strong> Bis 20.08.25 (EOD) das Sheet auf Basis des Template per Mail einreichen</div>
-                <div class="rules-item"><strong>Kader-Pflicht:</strong> Alle Starter-Positionen müssen besetzt werden</div>
-                <div class="rules-item"><strong>Default-Autodraft:</strong> Best Available nach fixer Positionsreihenfolge (R1: QB, R2: RB...)</div>
-            </div>
-        </section>
-    </main>
-    
-    <footer><p>© 2026 Bembel Bowl Fantasy Football League</p></footer>
-    
 </body>
 </html>
