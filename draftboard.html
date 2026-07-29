@@ -1,1 +1,53 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bembel Bowl - Live Draftboard</title>
+    <link rel="icon" type="image/jpeg" href="images/favicon.jpg">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="draftboard-page">
+    <header>
+        <nav>
+            <a href="index.html">Home</a>
+            <a href="draft-center.html">Zurück zum Center</a>
+            <!-- Jahresauswahl für historische Boards -->
+            <div class="year-selector-container">
+                <select id="draftYearSelect" onchange="switchDraftYear()">
+                    <option value="2026" selected>Saison 2026 (Live)</option>
+                    <option value="2025">Saison 2025 (Archiv)</option>
+                    <option value="2024">Saison 2024 (Archiv)</option>
+                </select>
+            </div>
+            <button id="adminLoginBtn" class="espn-btn" style="background-color: #333;" onclick="toggleAdminMode()">Admin Login</button>
+        </nav>
+    </header>
+
+    <main class="draftboard-container">
+        <!-- Admin-Eingabebereich (Standardmäßig unsichtbar) -->
+        <section id="adminControlArea" class="admin-panel" style="display: none;">
+            <h3>🛠️ LM Draft-Steuerung</h3>
+            <div class="admin-inputs">
+                <input type="number" id="pickRound" placeholder="Runde (1-15)" min="1" max="15">
+                <input type="number" id="pickTeam" placeholder="Team-Spalte (1-20)" min="1" max="20">
+                <div class="search-wrapper">
+                    <input type="text" id="playerSearch" placeholder="Spieler suchen (z.B. Mahomes)..." oninput="searchPlayers()">
+                    <div id="searchResults" class="autocomplete-results"></div>
+                </div>
+                <button onclick="submitManualPick()" class="espn-btn">Pick eintragen</button>
+            </div>
+        </section>
+
+        <!-- Die Draftboard Arena -->
+        <div class="board-scroll-wrapper">
+            <div class="draft-board-grid" id="boardGrid">
+                <!-- Wird dynamisch per JS aufgebaut -->
+            </div>
+        </div>
+    </main>
+
+    <script src="js/draftboard.js"></script>
+</body>
+</html>
 
