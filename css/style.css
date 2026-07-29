@@ -721,3 +721,57 @@ body.rules-page {
 .pos-te  { background-color: #bf4b16 !important; border-color: #f0883e; } /* Orange */
 .pos-k   { background-color: #9a6600 !important; border-color: #d4a72c; } /* Gold/Gelb */
 .pos-def { background-color: #6e7781 !important; border-color: #afb8c1; } /* Grau */
+
+/* VERLÄNGERTES EINGABEFELD & PERMANENTE SCROLLBAR */
+
+.target-wider {
+    flex-grow: 3 !important; /* Gibt der Spielersuche massiv mehr Breite im Admin-Bereich */
+    min-width: 350px;
+}
+
+.admin-select {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+.button-green { background-color: #238636 !important; }
+.button-green:hover { background-color: #2ea44f !important; }
+.button-red { background-color: #da3637 !important; }
+.button-red:hover { background-color: #b32424 !important; }
+
+/* Erzwingt eine permanente Sichtbarkeit der horizontalen Scrollbar am unteren Rand */
+.enforce-scrollbar {
+    overflow-x: scroll !important; /* Schaltet von 'auto' auf permanentes 'scroll' */
+    scrollbar-width: auto !important; /* Verhindert ein schmales Ausblenden in Firefox */
+}
+
+/* Anpassungen speziell für Webkit-Browser (Chrome, Edge, Safari) */
+.enforce-scrollbar::-webkit-scrollbar {
+    height: 14px !important; /* Macht den Balken dick und leicht greifbar */
+    display: block !important;
+}
+
+.enforce-scrollbar::-webkit-scrollbar-track {
+    background: #161b22; /* Hintergrundfarbe der Schiene */
+    border-radius: 8px;
+}
+
+.enforce-scrollbar::-webkit-scrollbar-thumb {
+    background: #d18b2f; /* Bembel-Gold für den anfassbaren Scroll-Schieber */
+    border-radius: 8px;
+    border: 3px solid #161b22;
+}
+
+.enforce-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #f0a842; /* Aufleuchten beim Ziehen */
+}
+
+/* Macht das Board-Zellen-Grid im Admin-Modus interaktiv spürbar */
+.admin-panel ~ .board-scroll-wrapper .board-pick-cell {
+    cursor: pointer;
+}
+
