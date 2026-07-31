@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Bembel Bowl – Draft Order</title>
+<style>
+  :root{
+    --bg-0:#20242a;
+    --bg-1:#2a3038;
+    --panel:#343b43;
+    --panel-2:#3e4650;
+    --gold:#4f7fac;
+    --gold-bright:#7bb0e0;
+    --cobalt:#8b96a1;
+    --cream:#e9edf0;
+    --muted:#9aa4ad;
+    --rust:#5f4f47;
+    --rust-bright:#7a6459;
+    --line: rgba(123,176,224,0.25);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+
+  body{
+    background:
+      repeating-linear-gradient(135deg, rgba(123,176,224,0.04) 0px, rgba(123,176,224,0.04) 2px, transparent 2px, transparent 26px),
+      repeating-linear-gradient(45deg, rgba(155,163,171,0.035) 0px, rgba(155,163,171,0.035) 2px, transparent 2px, transparent 26px),
+      radial-gradient(ellipse at top, var(--bg-1), var(--bg-0) 70%);
+    background-attachment: fixed;
+    color:var(--cream);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height:100vh;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .app{
+    max-width:560px;
+    margin:0 auto;
+    padding: 18px 16px 60px;
+  }
+
+  header.top{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding: 6px 2px 20px;
+    border-bottom: 2px solid var(--line);
+    margin-bottom: 22px;
+  }
+
+  .league-logo{
+    flex:0 0 auto;
+    height:44px;
+    width:auto;
+    display:block;
+  }
+
+  .brand{ line-height:1.05; }
+  .brand .eyebrow{
+    display:block;
+    font-size:11px;
+    letter-spacing:.28em;
+    color:var(--gold);
+    text-transform:uppercase;
+    margin-bottom:3px;
+  }
+  .brand h1{
+    margin:0;
+    font-family: Arial, "Helvetica Neue", sans-serif;
+    font-weight:900;
+    font-style:italic;
+    font-size:26px;
+    letter-spacing:.01em;
+    text-transform:uppercase;
+    color:var(--cream);
+  }
+  .brand h1 span{ color:var(--gold-bright); }
+
+  .screen{ display:none; }
+  .screen.active{ display:block; animation: fade .35s ease; }
+  @keyframes fade{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;} }
+
+  h2.section-title{
+    font-family: Arial, "Helvetica Neue", sans-serif;
+    font-weight:900;
+    font-style:italic;
+    text-transform:uppercase;
+    font-size:19px;
+    letter-spacing:.02em;
+    margin: 0 0 4px;
+    color:var(--cream);
+  }
+  .hint{
+    color:var(--muted);
+    font-size:13.5px;
+    margin: 0 0 18px;
+  }
+
+  .team-grid{
+    display:grid;
+    grid-template-columns: 1fr;
+    gap:9px;
+    margin-bottom: 18px;
+  }
+  .team-row{
+    display:flex;
+    align-items:center;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    overflow:hidden;
+  }
+  .team-row .num{
+    flex:0 0 40px;
+    text-align:center;
+    font-weight:800;
+    font-size:13px;
+    color:var(--bg-0);
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+    align-self:stretch;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .team-row input{
+    flex:1;
+    border:0;
+    background:transparent;
+    color:var(--cream);
+    padding: 12px 12px;
+    font-size:15px;
+    min-width:0;
+    font-family: inherit;
+  }
+  .team-row input::placeholder{ color: #6b747c; }
+  .team-row input:focus{ outline: none; background: rgba(123,176,224,0.10); }
+
+  .team-logo{
+    flex:0 0 32px;
+    width:32px; height:32px;
+    margin-left:10px;
+    border-radius:50%;
+    object-fit:cover;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+  }
+  .team-logo-fallback{
+    flex:0 0 32px;
+    width:32px; height:32px;
+    margin-left:10px;
+    border-radius:50%;
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+    color:#141a1f;
+    font-weight:800;
+    font-size:11.5px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+
+  .actions{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    margin: 6px 0 8px;
+  }
+
+  .btn{
+    border:0;
+    border-radius:12px;
+    padding: 15px 18px;
+    font-size:15px;
+    font-weight:800;
+    letter-spacing:.03em;
+    text-transform:uppercase;
+    cursor:pointer;
+    font-family: Arial, "Helvetica Neue", sans-serif;
+    transition: transform .12s ease, filter .12s ease, opacity .12s ease;
+  }
+  .btn:active{ transform: scale(.97); }
+  .btn:disabled{ opacity:.4; cursor:not-allowed; }
+  .btn-primary{
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+    color:#141a1f;
+    box-shadow: 0 6px 18px rgba(79,127,172,0.3);
+  }
+  .btn-primary:hover:not(:disabled){ filter:brightness(1.06); }
+  .btn-ghost{
+    background: transparent;
+    color: var(--cobalt);
+    border: 1px solid rgba(139,150,161,0.5);
+  }
+  .btn-danger{
+    background: transparent;
+    color: var(--rust-bright);
+    border: 1px solid rgba(122,100,89,0.55);
+  }
+
+  .error{
+    color: var(--rust-bright);
+    font-size:13.5px;
+    margin: -6px 0 12px;
+  }
+  .hidden{ display:none !important; }
+
+  .backlink{
+    display:inline-block;
+    color: var(--cobalt);
+    font-size:13px;
+    text-decoration:none;
+    margin-bottom: 16px;
+    letter-spacing:.02em;
+  }
+
+  /* Reveal screen */
+  .pick-card{
+    position:relative;
+    background:
+      repeating-linear-gradient(60deg, rgba(123,176,224,0.07) 0px, rgba(123,176,224,0.07) 3px, transparent 3px, transparent 22px),
+      repeating-linear-gradient(-60deg, rgba(155,163,171,0.06) 0px, rgba(155,163,171,0.06) 3px, transparent 3px, transparent 22px),
+      linear-gradient(180deg, var(--panel-2), var(--panel));
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding: 34px 20px;
+    text-align:center;
+    margin-bottom: 18px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.02);
+    overflow:hidden;
+  }
+  .pick-number{
+    font-family: Arial, "Helvetica Neue", sans-serif;
+    font-weight:900;
+    font-style:italic;
+    letter-spacing:.05em;
+    color: var(--gold);
+    font-size:15px;
+    text-transform:uppercase;
+    margin-bottom:10px;
+  }
+  .pick-team{
+    font-family: Arial, "Helvetica Neue", sans-serif;
+    font-weight:900;
+    font-size: 30px;
+    line-height:1.15;
+    color: var(--cream);
+    min-height: 76px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    word-break: break-word;
+  }
+  .pick-team.hidden-team{
+    color: var(--muted);
+    font-size:40px;
+    letter-spacing:.1em;
+  }
+  .pick-team.reveal-anim{
+    animation: reveal .5s cubic-bezier(.2,.8,.2,1);
+  }
+  @keyframes reveal{
+    0%{ transform: scale(.85) rotateX(40deg); opacity:0; }
+    100%{ transform:none; opacity:1; }
+  }
+
+  .pick-logo{
+    width:64px; height:64px;
+    border-radius:50%;
+    object-fit:cover;
+    margin: 0 auto 14px;
+    display:block;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+  }
+  .pick-logo-fallback{
+    width:64px; height:64px;
+    border-radius:50%;
+    margin: 0 auto 14px;
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+    color:#141a1f;
+    font-weight:800;
+    font-size:20px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .pick-logo-wrap.hidden{ display:none; }
+
+  .revealed-list{
+    list-style:none;
+    margin: 10px 0 0;
+    padding: 0;
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+  }
+  .revealed-list li{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background: var(--panel);
+    border:1px solid var(--line);
+    border-radius:9px;
+    padding: 9px 12px;
+    font-size:14px;
+    animation: fade .3s ease;
+  }
+  .revealed-list li .badge{
+    flex:0 0 30px;
+    height:30px;
+    border-radius:50%;
+    background: rgba(123,176,224,0.16);
+    color: var(--gold-bright);
+    font-weight:800;
+    font-size:12.5px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .revealed-list li .name{ font-weight:600; }
+  .revealed-list li .team-logo,
+  .revealed-list li .team-logo-fallback{ margin-left:0; }
+
+  .done-banner{
+    text-align:center;
+    color: var(--gold-bright);
+    font-weight:800;
+    font-style:italic;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    font-size:14px;
+    margin: 4px 0 16px;
+  }
+
+  footer.credit{
+    text-align:center;
+    color: #5b6167;
+    font-size:11px;
+    margin-top: 30px;
+    letter-spacing:.05em;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <header class="top">
+    <div class="brand">
+      <span class="eyebrow">Bembel Bowl</span>
+      <h1>Draft <span>Order</span> Generator</h1>
+    </div>
+  </header>
+
+  <!-- SETUP SCREEN -->
+  <main id="setupScreen" class="screen active">
+    <h2 class="section-title">Teams eintragen</h2>
+    <p class="hint">Gib 12 Teams ein (oder lade Standard-Teams) und starte den Reveal.</p>
+
+    <div id="teamGrid" class="team-grid"></div>
+
+    <div id="setupError" class="error hidden">Bitte fülle alle 12 Teamnamen aus.</div>
+
+    <div class="actions">
+      <button id="btnStartDraft" class="btn btn-primary">Draft Reihenfolge auslosen</button>
+      <button id="btnLoadDefaults" class="btn btn-ghost">Standard-Teams laden</button>
+      <button id="btnClearTeams" class="btn btn-danger">Alle Felder leeren</button>
+    </div>
+  </main>
+
+  <!-- REVEAL SCREEN -->
+  <main id="revealScreen" class="screen">
+    <a href="#" id="btnBackToSetup" class="backlink">← Zurück zur Teameingabe</a>
+
+    <h2 class="section-title">Draft Order Reveal</h2>
+    <p class="hint">Deck-by-Deck Enthüllung der Pick-Reihenfolge.</p>
+
+    <div class="pick-card">
+      <div id="pickNumber" class="pick-number">Pick #12</div>
+      <div id="pickLogoWrap" class="pick-logo-wrap hidden"></div>
+      <div id="pickTeam" class="pick-team hidden-team">???</div>
+    </div>
+
+    <div class="actions">
+      <button id="btnNextPick" class="btn btn-primary">Nächsten Pick enthüllen</button>
+      <button id="btnResetDraft" class="btn btn-ghost">Erneut auslosen</button>
+    </div>
+
+    <div id="doneBanner" class="done-banner hidden">Alle Picks enthüllt!</div>
+
+    <h2 class="section-title" style="margin-top:24px;">Reihenfolge</h2>
+    <ul id="revealedList" class="revealed-list"></ul>
+  </main>
+
+  <footer class="credit">BEMBEL BOWL DRAFT GENERATOR</footer>
+
+</div>
+
+<script>
+  // Standard Teams
+  const DEFAULT_TEAMS = [
+    "Team 1", "Team 2", "Team 3", "Team 4",
+    "Team 5", "Team 6", "Team 7", "Team 8",
+    "Team 9", "Team 10", "Team 11", "Team 12"
+  ];
+
+  let draftOrder = [];
+  let currentPickIndex = 0;
+
+  // DOM Elements
+  const setupScreen = document.getElementById('setupScreen');
+  const revealScreen = document.getElementById('revealScreen');
+  const teamGrid = document.getElementById('teamGrid');
+  const setupError = document.getElementById('setupError');
+
+  const btnStartDraft = document.getElementById('btnStartDraft');
+  const btnLoadDefaults = document.getElementById('btnLoadDefaults');
+  const btnClearTeams = document.getElementById('btnClearTeams');
+  const btnBackToSetup = document.getElementById('btnBackToSetup');
+
+  const pickNumber = document.getElementById('pickNumber');
+  const pickLogoWrap = document.getElementById('pickLogoWrap');
+  const pickTeam = document.getElementById('pickTeam');
+  const btnNextPick = document.getElementById('btnNextPick');
+  const btnResetDraft = document.getElementById('btnResetDraft');
+  const doneBanner = document.getElementById('doneBanner');
+  const revealedList = document.getElementById('revealedList');
+
+  // Init Inputs
+  function initInputs() {
+    teamGrid.innerHTML = '';
+    for (let i = 1; i <= 12; i++) {
+      const row = document.createElement('div');
+      row.className = 'team-row';
+      row.innerHTML = `
+        <div class="num">${i}</div>
+        <input type="text" id="teamInput_${i}" placeholder="Teamname ${i}">
+      `;
+      teamGrid.appendChild(row);
+    }
+  }
+
+  function loadDefaults() {
+    DEFAULT_TEAMS.forEach((name, idx) => {
+      const input = document.getElementById(`teamInput_${idx + 1}`);
+      if (input) input.value = name;
+    });
+    setupError.classList.add('hidden');
+  }
+
+  function clearTeams() {
+    for (let i = 1; i <= 12; i++) {
+      const input = document.getElementById(`teamInput_${i}`);
+      if (input) input.value = '';
+    }
+    setupError.classList.add('hidden');
+  }
+
+  function getTeamsFromInputs() {
+    const teams = [];
+    for (let i = 1; i <= 12; i++) {
+      const val = document.getElementById(`teamInput_${i}`).value.trim();
+      if (val) teams.push(val);
+    }
+    return teams;
+  }
+
+  function shuffle(array) {
+    let m = array.length, t, i;
+    while (m) {
+      i = Math.floor(Math.random() * m--);
+      t = array[m];
+      array[m] = array[i];
+      array[i] = t;
+    }
+    return array;
+  }
+
+  function startDraft() {
+    const teams = getTeamsFromInputs();
+    if (teams.length < 12) {
+      setupError.classList.remove('hidden');
+      return;
+    }
+    setupError.classList.add('hidden');
+
+    // Shuffle for random order
+    draftOrder = shuffle([...teams]);
+    currentPickIndex = 0;
+
+    // UI Switch
+    setupScreen.classList.remove('active');
+    revealScreen.classList.add('active');
+
+    resetRevealUI();
+  }
+
+  function resetRevealUI() {
+    currentPickIndex = 0;
+    revealedList.innerHTML = '';
+    doneBanner.classList.add('hidden');
+    btnNextPick.disabled = false;
+    btnNextPick.classList.remove('hidden');
+
+    updateCardDisplay(false);
+  }
+
+  function updateCardDisplay(revealed = false, teamName = "") {
+    const totalPicks = 12;
+    const currentPickNum = totalPicks - currentPickIndex;
+
+    if (currentPickIndex >= totalPicks) {
+      pickNumber.textContent = "Draft Complete";
+      pickTeam.textContent = "Fertig!";
+      pickTeam.classList.remove('hidden-team');
+      pickLogoWrap.classList.add('hidden');
+      btnNextPick.classList.add('hidden');
+      doneBanner.classList.remove('hidden');
+      return;
+    }
+
+    pickNumber.textContent = `Pick #${currentPickNum}`;
+    
+    if (revealed) {
+      pickTeam.textContent = teamName;
+      pickTeam.classList.remove('hidden-team');
+      pickTeam.classList.add('reveal-anim');
+      setTimeout(() => pickTeam.classList.remove('reveal-anim'), 500);
+    } else {
+      pickTeam.textContent = "???";
+      pickTeam.classList.add('hidden-team');
+      pickLogoWrap.classList.add('hidden');
+    }
+  }
+
+  function revealNextPick() {
+    if (currentPickIndex >= 12) return;
+
+    const teamName = draftOrder[currentPickIndex];
+    const pickNum = 12 - currentPickIndex;
+
+    updateCardDisplay(true, teamName);
+
+    // Add to revealed list
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <div class="badge">#${pickNum}</div>
+      <div class="name">${teamName}</div>
+    `;
+    revealedList.insertBefore(li, revealedList.firstChild);
+
+    currentPickIndex++;
+
+    if (currentPickIndex >= 12) {
+      btnNextPick.disabled = true;
+      doneBanner.classList.remove('hidden');
+    }
+  }
+
+  // Event Listeners
+  btnLoadDefaults.addEventListener('click', loadDefaults);
+  btnClearTeams.addEventListener('click', clearTeams);
+  btnStartDraft.addEventListener('click', startDraft);
+
+  btnNextPick.addEventListener('click', revealNextPick);
+  btnResetDraft.addEventListener('click', () => {
+    draftOrder = shuffle(draftOrder);
+    resetRevealUI();
+  });
+
+  btnBackToSetup.addEventListener('click', (e) => {
+    e.preventDefault();
+    revealScreen.classList.remove('active');
+    setupScreen.classList.add('active');
+  });
+
+  // Init
+  initInputs();
+</script>
+</body>
+</html>
