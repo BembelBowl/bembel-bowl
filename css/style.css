@@ -351,7 +351,8 @@ body.rules-page {
 .flip-card {
     background-color: transparent;
     perspective: 1000px; /* Erzeugt den 3D-Effekt */
-    height: 350px;
+    width: 100%;
+   aspect-ratio: 1/1;
 }
 
 /* 2. Der innere Container, der rotiert */
@@ -421,12 +422,6 @@ body.rules-page {
 .flip-card.founder .flip-card-inner {
     border: 3px solid #d18b2f;
     box-shadow: 0 4px 20px rgba(209, 139, 47, 0.25);
-}
-
-.flip-card.founder .flip-card-back h3::after {
-    content: " ★";
-    color: #d18b2f;
-    font-size: 1.1rem;
 }
 
 .legend-box {
@@ -516,7 +511,6 @@ body.rules-page {
 
 @media (max-width: 600px) {
     .teams-grid { grid-template-columns: 1fr; gap: 15px; }
-    .flip-card { height: 260px; }
 }
 
 /* =========================
