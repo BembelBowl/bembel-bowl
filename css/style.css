@@ -338,6 +338,17 @@ body.rules-page {
    TEAMS PAGE STYLES (3D FLIP CARDS)
    ========================= */
 
+.teams-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.teams-header h2 {
+    color: #d18b2f;
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+}
+
 /* 0. Das Grid-System (4 Kacheln pro Reihe) */
 .teams-grid {
     display: grid;
