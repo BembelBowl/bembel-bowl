@@ -447,5 +447,27 @@
         <p>© 2026 Bembel Bowl Fantasy Football League</p>
     </footer>
 
+    <!-- Script für Touch-Unterstützung auf Mobilgeräten -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const flipCards = document.querySelectorAll('.flip-card');
+
+            flipCards.forEach(card => {
+                card.addEventListener('click', function(e) {
+                    // Prüfen, ob wir auf einem Touch-Gerät/Mobilgerät sind
+                    if (window.innerWidth <= 1024) {
+                        // Schließt alle anderen geöffneten Karten
+                        flipCards.forEach(c => {
+                            if (c !== card) c.classList.remove('flipped');
+                        });
+                        
+                        // Schaltet die angetippte Karte um (auf/zu)
+                        this.classList.toggle('flipped');
+                    }
+                });
+            });
+        });
+    </script>
+    
 </body>
 </html>
