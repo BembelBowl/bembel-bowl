@@ -338,111 +338,62 @@ body.rules-page {
    TEAMS PAGE STYLES (3D FLIP CARDS)
    ========================= */
 
-.teams-container {
-    max-width: 1300px;
-    margin: 40px auto;
-    padding: 0 25px;
-}
-
-.teams-header {
-    text-align: center;
-    margin-bottom: 40px;
-}
-
-.teams-header h2 {
-    color: #d18b2f;
-    font-size: 2.5rem;
-    margin-bottom: 10px;
-}
-
-.teams-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 25px;
-    margin-bottom: 50px;
-}
-
+/* 1. Basis-Container */
 .flip-card {
     background-color: transparent;
-    width: 100%;
-    height: 300px;
-    perspective: 1000px;
+    perspective: 1000px; /* Erzeugt den 3D-Effekt beim Drehen */
+    height: 350px;       /* Stelle sicher, dass eine feste Höhe definiert ist */
 }
 
+/* 2. Der innere Container, der rotiert */
 .flip-card-inner {
     position: relative;
     width: 100%;
     height: 100%;
     text-align: center;
-    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.6s ease-in-out;
     transform-style: preserve-3d;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    border-radius: 12px;
 }
 
-/* Statt nur :hover sowohl :hover als auch .flipped unterstützen */
+/* Drehung per Hover (Desktop) oder per Klasse .flipped (Mobil) */
 .flip-card:hover .flip-card-inner,
 .flip-card.flipped .flip-card-inner {
     transform: rotateY(180deg);
 }
 
-.flip-card-front, .flip-card-back {
+/* 3. Gemeinsame Regeln für Vorder- und Rückseite */
+.flip-card-front, 
+.flip-card-back {
     position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-    border-radius: 12px;
-    overflow: hidden;
+    -webkit-backface-visibility: hidden; /* Für Safari Browser */
+    backface-visibility: hidden;         /* WICHTIG: Blendet die abgewandte Seite komplett aus */
+    border-radius: 8px;
+    box-sizing: border-box;
 }
 
+/* 4. VORDERSEITE: Zeigt NUR das Logo-Bild */
 .flip-card-front {
-    background-color: #ffffff;
-    background-size: contain;
+    background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border: 1px solid #e0ded6;
 }
 
-.logo-fallback {
-    color: #ccc;
-    font-size: 1rem;
-    font-weight: 600;
-    opacity: 0.4;
-    z-index: -1;
-}
-
+/* 5. RÜCKSEITE: Zeigt NUR den Text auf eigenem Hintergrund */
 .flip-card-back {
-    background-color: #1f1f1f;
-    color: white;
-    transform: rotateY(180deg);
-    padding: 25px 20px;
+    background-color: #1a1a1a; /* Deckender Hintergrund, damit das Logo nicht durchscheint */
+    color: #ffffff;
+    transform: rotateY(180deg); /* Startet bereits um 180° gedreht, damit der Text nach der Drehung lesbar ist */
     display: flex;
     flex-direction: column;
     justify-content: center;
-    align-items: flex-start;
-    text-align: left;
-    border-bottom: 4px solid #d18b2f;
+    align-items: center;
+    padding: 15px;
+    overflow: hidden;
 }
-
-.flip-card-back h3 {
-    color: #d18b2f;
-    font-size: 1.3rem;
-    margin-bottom: 15px;
-    width: 100%;
-    border-bottom: 1px solid #333;
-    padding-bottom: 5px;
-}
-
-.flip-card-back p {
-    font-size: 0.95rem;
-    margin-bottom: 6px;
-    color: #e0ded6;
-}
-
 .record-badge {
     margin-top: 10px !important;
     background-color: #333;
