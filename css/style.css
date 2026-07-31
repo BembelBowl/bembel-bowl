@@ -423,11 +423,6 @@ body.rules-page {
     box-shadow: 0 4px 20px rgba(209, 139, 47, 0.25);
 }
 
-.flip-card.founder:hover .flip-card-inner,
-.flip-card.founder.flipped .flip-card-inner {
-    box-shadow: 0 8px 30px rgba(209, 139, 47, 0.6);
-}
-
 .flip-card.founder .flip-card-back h3::after {
     content: " ★";
     color: #d18b2f;
