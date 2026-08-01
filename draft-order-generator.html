@@ -360,8 +360,8 @@
     <div class="dog-grid" id="teamInputs"></div>
 
     <div class="dog-actions">
-        <button id="drawBtn" class="dog-btn dog-btn-primary" disabled>🎲 Draft-Reihenfolge auslosen</button>
-        <button id="clearBtn" class="dog-btn dog-btn-secondary">🗑️ Alle Teams löschen</button>
+        <button id="drawBtn" class="dog-btn dog-btn-primary" disabled>Draft-Reihenfolge auslosen</button>
+        <button id="clearBtn" class="dog-btn dog-btn-secondary">Alle Teams löschen</button>
     </div>
     <p class="dog-hint">Alle 20 Teams müssen eingetragen sein, bevor die Auslosung gestartet werden kann. Eingaben werden automatisch zwischengespeichert.</p>
 </section>
@@ -414,7 +414,7 @@ const draftComplete = document.getElementById('draftComplete');
 const restartBtn = document.getElementById('restartBtn');
 
 /* ---------- Logo-Handling ---------- */
-// Erwartet Logo-Dateien unter images/teams/<Teamname>.(png|jpg|jpeg|webp)
+// Erwartet Logo-Dateien unter images/<Teamname>.(png|jpg|jpeg|webp)
 // Fällt automatisch auf einen generierten Initialen-Avatar zurück, falls keine Datei gefunden wird.
 function initialsAvatar(name) {
     const initial = (name.trim()[0] || '?').toUpperCase();
