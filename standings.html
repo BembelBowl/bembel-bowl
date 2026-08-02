@@ -1,32 +1,602 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bembel Bowl</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabellen | Bembel Bowl</title>
 
-    <link rel="icon" type="image/jpeg" href="images/favicon.jpg">
-    
-    <link rel="stylesheet" href="css/style.css">
+<link rel="icon" type="image/jpeg" href="images/favicon.jpg">
+<link rel="stylesheet" href="css/style.css">
+
+<style>
+header {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 100%;
+}
+
+body {
+    padding-top: 70px;
+}
+
+.st-meta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 25px;
+}
+
+.st-meta span {
+    color: #888;
+    font-size: 0.88rem;
+}
+
+.st-refresh-btn {
+    background-color: #ffffff;
+    border: 2px solid #d18b2f;
+    color: #1f1f1f;
+    padding: 6px 16px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.st-refresh-btn:hover {
+    background-color: #d18b2f;
+    color: #ffffff;
+}
+
+.st-team-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.st-team-cell img {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    object-fit: cover;
+    background-color: #1f1f1f;
+}
+
+.st-division-name {
+    color: #666;
+    font-size: 0.85rem;
+}
+
+.st-error {
+    text-align: center;
+    color: #c92a2a;
+    background: #fff5f5;
+    border: 1px solid #ffc9c9;
+    border-radius: 8px;
+    padding: 20px;
+    font-size: 0.95rem;
+}
+
+.st-loading {
+    text-align: center;
+    color: #888;
+    padding: 30px;
+}
+
+.st-playoff-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 30px;
+}
+
+.st-playoff-card {
+    background-color: #f8f6f0;
+    border-left: 4px solid #d18b2f;
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.st-playoff-card img {
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    object-fit: cover;
+    background-color: #1f1f1f;
+}
+
+.st-playoff-seed {
+    background-color: #1f1f1f;
+    color: #d18b2f;
+    font-weight: 700;
+    font-size: 0.85rem;
+    border-radius: 4px;
+    padding: 3px 8px;
+    margin-right: 4px;
+}
+
+.st-playoff-record {
+    font-size: 0.8rem;
+    color: #777;
+}
+
+.st-outside-title {
+    color: #1f1f1f;
+    font-size: 1.1rem;
+    margin: 20px 0 12px;
+}
+</style>
 </head>
-
 <body>
 
-<header class="main-header">
-    <nav class="navbar">
-        <a href="index.html" class="nav-link">Home</a>
-        <a href="rules.html" class="nav-link">Regeln</a>
-        <a href="teams.html" class="nav-link">Teams</a>
-        <a href="draft-center.html" class="nav-link">Draft Center</a>
-        <a href="standings.html" class="nav-link">Tabellen</a>
-        <a href="reports.html" class="nav-link">Spielberichte</a>
-        <a href="hall-of-fame.html" class="nav-link">Hall of Fame</a>
-        <a href="archive.html" class="nav-link">Archiv</a>
-        <a href="https://fantasy.espn.com/football/league?leagueId=843833275" class="nav-link espn-btn" target="_blank">ESPN Fantasy Login</a>
+<header>
+    <nav>
+        <a href="index.html">Home</a>
+        <a href="rules.html">Regeln</a>
+        <a href="teams.html">Teams</a>
+        <a href="draft-center.html">Draft Center</a>
+        <a href="standings.html" class="active">Tabellen</a>
+        <a href="reports.html">Spielberichte</a>
+        <a href="hall-of-fame.html">Hall of Fame</a>
+        <a href="archive.html">Archiv</a>
+        <a href="https://fantasy.espn.com/football/league?leagueId=843833275" class="espn-btn" target="_blank">ESPN Fantasy Login</a>
     </nav>
 </header>
 
-<h1>In Arbeit</h1>
+<div class="hof-container">
+
+    <div class="hof-header">
+        <h2>Tabellen</h2>
+        <p>Divisions, Liga-Tabelle &amp; Playoff-Picture</p>
+    </div>
+
+    <div class="st-meta">
+        <span id="lastUpdated">Lade Daten…</span>
+        <button id="refreshBtn" class="st-refresh-btn">🔄 Jetzt aktualisieren</button>
+    </div>
+
+    <!-- TAB NAVIGATION -->
+    <div class="hof-tabs">
+        <button class="tab-btn active" data-tab="tab-divisions">Divisions</button>
+        <button class="tab-btn" data-tab="tab-league">Liga-Tabelle</button>
+        <button class="tab-btn" data-tab="tab-playoffs">Playoff-Picture</button>
+    </div>
+
+    <div id="statusArea"></div>
+
+    <!-- DIVISIONS -->
+    <div id="tab-divisions" class="tab-content active">
+        <div id="divisionsContainer"></div>
+    </div>
+
+    <!-- LIGA-TABELLE -->
+    <div id="tab-league" class="tab-content">
+        <div class="hof-section">
+            <h3>Gesamte Liga-Tabelle</h3>
+            <div class="table-responsive">
+                <table class="hof-table">
+                    <thead>
+                        <tr>
+                            <th>Platz</th>
+                            <th>Team</th>
+                            <th>Division</th>
+                            <th>S</th>
+                            <th>N</th>
+                            <th>U</th>
+                            <th>Punkte</th>
+                            <th>Gegner-Punkte</th>
+                            <th>Diff.</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leagueTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- PLAYOFF PICTURE -->
+    <div id="tab-playoffs" class="tab-content">
+        <div class="hof-section">
+            <h3>Playoff-Picture</h3>
+            <div id="playoffGrid" class="st-playoff-grid"></div>
+            <h4 class="st-outside-title">Außerhalb der Playoff-Plätze</h4>
+            <div class="table-responsive">
+                <table class="hof-table">
+                    <thead>
+                        <tr>
+                            <th>Platz</th>
+                            <th>Team</th>
+                            <th>Division</th>
+                            <th>S</th>
+                            <th>N</th>
+                            <th>U</th>
+                            <th>Punkte</th>
+                        </tr>
+                    </thead>
+                    <tbody id="outsideTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<footer>
+    <p>© 2026 Bembel Bowl Fantasy Football League</p>
+</footer>
+
+<script>
+/* ==========================================================
+   KONFIGURATION
+   ========================================================== */
+const LEAGUE_ID = 843833275;
+const SEASON = 2026; // Jede Saison anpassen (ESPN-Season-Jahr = Startjahr der Saison)
+const PLAYOFF_SPOTS = 6; // Anzahl Playoff-Plätze – bei Bedarf an euer Ligaformat anpassen
+
+const CACHE_KEY = 'bembelBowlStandingsCache';
+const CACHE_TIME_KEY = 'bembelBowlStandingsCacheTime';
+
+/* Fest hinterlegte Teamliste für Logos (identisch zu den anderen Tools) */
+const TEAM_LOGOS = {
+    "Amity Island Sharks":   "images/Amity Island Sharks.jpg",
+    "Beard":                 "images/Beard.jpg",
+    "Bishop Sycamore":       "images/Bishop Sycamore.jpg",
+    "Bojangles P-Stars":     "images/Bojangles P-Stars.jpg",
+    "Brady Gaga":            "images/Brady Gaga.jpg",
+    "Broken Bembels ULB":    "images/Broken Bembels ULB.jpg",
+    "E-Town Elephants":      "images/E-Town Elephants.jpg",
+    "Fighting Farmers":      "images/Fighting Farmers.jpg",
+    "Foxboro Forever":       "images/Foxboro Forever.jpg",
+    "Frankfurt Bakers":      "images/Frankfurt Bakers.jpg",
+    "K-Town Devils":         "images/K-Town Devils.jpg",
+    "Pep's Band":            "images/Pep's Band.jpg",
+    "Randy Moss Lob Jünger": "images/Randy Moss Lob Jünger.jpg",
+    "Rookie One":            "images/Rookie One.jpg",
+    "Steelersnation 7":      "images/Steelersnation 7.jpg",
+    "The 49vengers":         "images/The 49vengers.jpg",
+    "the Boys":              "images/the Boys.jpg",
+    "Thunder Ducks":         "images/Thunder Ducks.jpg",
+    "Wiesbaden Phantoms":    "images/Wiesbaden Phantoms.jpg",
+    "Zeugen Ray Lewis":      "images/Zeugen Ray Lewis.jpg"
+};
+
+const statusArea = document.getElementById('statusArea');
+const lastUpdated = document.getElementById('lastUpdated');
+const refreshBtn = document.getElementById('refreshBtn');
+const divisionsContainer = document.getElementById('divisionsContainer');
+const leagueTableBody = document.getElementById('leagueTableBody');
+const playoffGrid = document.getElementById('playoffGrid');
+const outsideTableBody = document.getElementById('outsideTableBody');
+
+/* ==========================================================
+   TABS
+   ========================================================== */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+    });
+});
+
+/* ==========================================================
+   LOGO-HELPER
+   ========================================================== */
+function initialsAvatar(name) {
+    const initial = ((name || '?').trim()[0] || '?').toUpperCase();
+    const svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>"
+        + "<rect width='100' height='100' rx='16' fill='%231f1f1f'/>"
+        + "<text x='50' y='60' font-family='Segoe UI, Arial, sans-serif' font-size='42' font-weight='700' fill='%23d18b2f' text-anchor='middle'>"
+        + initial + "</text></svg>";
+    return 'data:image/svg+xml,' + encodeURIComponent(svg).replace(/'/g, '%27');
+}
+
+function setTeamLogo(imgEl, name) {
+    const base = TEAM_LOGOS[name] || ('images/' + encodeURIComponent(name) + '.jpg');
+    const baseNoExt = base.replace(/\.[a-zA-Z0-9]+$/, '');
+    const attempts = [base, baseNoExt + '.jpeg', baseNoExt + '.png', baseNoExt + '.webp'];
+    let i = 0;
+    function tryNext() {
+        if (i >= attempts.length) { imgEl.onerror = null; imgEl.src = initialsAvatar(name); return; }
+        imgEl.src = attempts[i]; i++;
+    }
+    imgEl.onerror = tryNext;
+    tryNext();
+}
+
+/* ==========================================================
+   ZEITSTEUERUNG: Aktualisierung jeden Dienstag 09:00 (Europe/Berlin)
+   ========================================================== */
+function lastTuesday9amBerlin(now) {
+    // Berlin-Zeit über Intl ermitteln (funktioniert unabhängig von der Zeitzone des Browsers)
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Europe/Berlin',
+        weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false
+    }).formatToParts(now);
+    const map = {};
+    parts.forEach(p => map[p.type] = p.value);
+    const weekdayIdx = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[map.weekday];
+
+    const nowBerlin = new Date(Date.UTC(
+        parseInt(map.year), parseInt(map.month) - 1, parseInt(map.day),
+        parseInt(map.hour), parseInt(map.minute)
+    ));
+
+    let daysSinceTuesday = (weekdayIdx - 2 + 7) % 7;
+    const candidate = new Date(nowBerlin);
+    candidate.setUTCDate(candidate.getUTCDate() - daysSinceTuesday);
+    candidate.setUTCHours(9, 0, 0, 0);
+
+    if (candidate.getTime() > nowBerlin.getTime()) {
+        candidate.setUTCDate(candidate.getUTCDate() - 7);
+    }
+    // Differenz zwischen "jetzt" (echte Zeit) und "nowBerlin" (Wanduhrzeit) draufrechnen,
+    // damit der zurückgegebene Zeitpunkt mit echten Date.now()-Timestamps vergleichbar ist.
+    const offset = now.getTime() - nowBerlin.getTime();
+    return new Date(candidate.getTime() + offset);
+}
+
+function formatGermanDateTime(date) {
+    return new Intl.DateTimeFormat('de-DE', {
+        timeZone: 'Europe/Berlin',
+        weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+    }).format(date) + ' Uhr';
+}
+
+/* ==========================================================
+   DATEN LADEN (mit Cache, Aktualisierung ab Dienstag 09:00)
+   ========================================================== */
+async function loadStandings(forceRefresh) {
+    const now = new Date();
+    const threshold = lastTuesday9amBerlin(now);
+
+    let cached = null;
+    let cachedTime = null;
+    try {
+        cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+        cachedTime = parseInt(localStorage.getItem(CACHE_TIME_KEY) || '0', 10);
+    } catch (e) { /* ignore */ }
+
+    const cacheIsFresh = cached && cachedTime && cachedTime >= threshold.getTime();
+
+    if (cacheIsFresh && !forceRefresh) {
+        render(cached, new Date(cachedTime));
+        return;
+    }
+
+    statusArea.innerHTML = '<p class="st-loading">Lade aktuelle Tabellen von ESPN…</p>';
+    try {
+        const data = await fetchEspnStandings();
+        localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+        localStorage.setItem(CACHE_TIME_KEY, String(now.getTime()));
+        statusArea.innerHTML = '';
+        render(data, now);
+    } catch (e) {
+        console.warn('ESPN-Ladeversuch fehlgeschlagen:', e);
+        if (cached) {
+            statusArea.innerHTML = '<p class="st-error">Aktualisierung fehlgeschlagen – zeige den zuletzt gespeicherten Stand.</p>';
+            render(cached, new Date(cachedTime));
+        } else {
+            statusArea.innerHTML = '<div class="st-error">Die Tabellen konnten nicht von ESPN geladen werden (z. B. wegen CORS-Beschränkungen des Browsers). Bitte später erneut versuchen oder Klaus/Admin Bescheid geben.</div>';
+            lastUpdated.textContent = 'Keine Daten verfügbar';
+        }
+    }
+}
+
+async function fetchEspnStandings() {
+    const urls = [
+        'https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/' + SEASON + '/segments/0/leagues/' + LEAGUE_ID + '?view=mTeam&view=mStandings&view=mSettings',
+        'https://fantasy.espn.com/apis/v3/games/ffl/seasons/' + SEASON + '/segments/0/leagues/' + LEAGUE_ID + '?view=mTeam&view=mStandings&view=mSettings'
+    ];
+
+    let lastErr = null;
+    for (const url of urls) {
+        try {
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            if (!res.ok) throw new Error('ESPN HTTP ' + res.status);
+            const json = await res.json();
+            return parseEspnResponse(json);
+        } catch (e) {
+            lastErr = e;
+        }
+    }
+    throw lastErr || new Error('ESPN nicht erreichbar');
+}
+
+function parseEspnResponse(json) {
+    if (!json || !Array.isArray(json.teams)) throw new Error('Unerwartetes ESPN-Antwortformat');
+
+    // Divisionsnamen aus den Liga-Settings
+    const divisions = {};
+    try {
+        const divArr = json.settings.scheduleSettings.divisions || [];
+        divArr.forEach(d => { divisions[d.id] = d.name; });
+    } catch (e) { /* ignore, Fallback unten */ }
+
+    const teams = json.teams.map(t => {
+        const name = t.name || ((t.location || '') + ' ' + (t.nickname || '')).trim() || ('Team ' + t.id);
+        const rec = (t.record && t.record.overall) || {};
+        return {
+            id: t.id,
+            name: name,
+            divisionId: t.divisionId != null ? t.divisionId : null,
+            divisionName: divisions[t.divisionId] || null,
+            wins: rec.wins || 0,
+            losses: rec.losses || 0,
+            ties: rec.ties || 0,
+            pointsFor: rec.pointsFor != null ? rec.pointsFor : (t.points || 0),
+            pointsAgainst: rec.pointsAgainst || 0,
+            playoffSeed: t.playoffSeed || null
+        };
+    });
+
+    return { teams, divisions };
+}
+
+/* ==========================================================
+   RENDERING
+   ========================================================== */
+function sortStandings(teams) {
+    return teams.slice().sort((a, b) => {
+        if (b.wins !== a.wins) return b.wins - a.wins;
+        if (a.losses !== b.losses) return a.losses - b.losses;
+        return b.pointsFor - a.pointsFor;
+    });
+}
+
+function teamRow(team, rank, cols) {
+    const tr = document.createElement('tr');
+
+    const rankTd = document.createElement('td');
+    rankTd.textContent = rank;
+    tr.appendChild(rankTd);
+
+    const teamTd = document.createElement('td');
+    const wrap = document.createElement('div');
+    wrap.className = 'st-team-cell';
+    const img = document.createElement('img');
+    setTeamLogo(img, team.name);
+    const span = document.createElement('span');
+    span.textContent = team.name;
+    wrap.appendChild(img);
+    wrap.appendChild(span);
+    teamTd.appendChild(wrap);
+    tr.appendChild(teamTd);
+
+    if (cols.division) {
+        const divTd = document.createElement('td');
+        divTd.className = 'st-division-name';
+        divTd.textContent = team.divisionName || '–';
+        tr.appendChild(divTd);
+    }
+
+    const wTd = document.createElement('td'); wTd.textContent = team.wins; tr.appendChild(wTd);
+    const lTd = document.createElement('td'); lTd.textContent = team.losses; tr.appendChild(lTd);
+    const tTd = document.createElement('td'); tTd.textContent = team.ties; tr.appendChild(tTd);
+
+    const pfTd = document.createElement('td'); pfTd.textContent = team.pointsFor.toFixed(1); tr.appendChild(pfTd);
+
+    if (cols.against) {
+        const paTd = document.createElement('td'); paTd.textContent = team.pointsAgainst.toFixed(1); tr.appendChild(paTd);
+    }
+    if (cols.diff) {
+        const diffTd = document.createElement('td');
+        const diff = team.pointsFor - team.pointsAgainst;
+        diffTd.textContent = (diff >= 0 ? '+' : '') + diff.toFixed(1);
+        tr.appendChild(diffTd);
+    }
+
+    return tr;
+}
+
+function renderDivisions(teams, divisions) {
+    divisionsContainer.innerHTML = '';
+    const divIds = Object.keys(divisions).length
+        ? Object.keys(divisions)
+        : [...new Set(teams.map(t => t.divisionId))].filter(id => id !== null);
+
+    divIds.forEach(divId => {
+        const divTeams = sortStandings(teams.filter(t => String(t.divisionId) === String(divId)));
+        if (divTeams.length === 0) return;
+
+        const section = document.createElement('div');
+        section.className = 'hof-section';
+
+        const h3 = document.createElement('h3');
+        h3.textContent = divisions[divId] || ('Division ' + divId);
+        section.appendChild(h3);
+
+        const wrap = document.createElement('div');
+        wrap.className = 'table-responsive';
+        const table = document.createElement('table');
+        table.className = 'hof-table';
+        table.innerHTML = '<thead><tr><th>Platz</th><th>Team</th><th>S</th><th>N</th><th>U</th><th>Punkte</th><th>Gegner-Punkte</th></tr></thead>';
+        const tbody = document.createElement('tbody');
+        divTeams.forEach((team, i) => tbody.appendChild(teamRow(team, i + 1, { against: true })));
+        table.appendChild(tbody);
+        wrap.appendChild(table);
+        section.appendChild(wrap);
+        divisionsContainer.appendChild(section);
+    });
+
+    if (divisionsContainer.innerHTML === '') {
+        divisionsContainer.innerHTML = '<p class="st-loading">Keine Divisionsdaten verfügbar.</p>';
+    }
+}
+
+function renderLeagueTable(teams) {
+    leagueTableBody.innerHTML = '';
+    const sorted = sortStandings(teams);
+    sorted.forEach((team, i) => {
+        leagueTableBody.appendChild(teamRow(team, i + 1, { division: true, against: true, diff: true }));
+    });
+}
+
+function renderPlayoffs(teams) {
+    playoffGrid.innerHTML = '';
+    outsideTableBody.innerHTML = '';
+
+    let sorted;
+    const hasSeeds = teams.every(t => t.playoffSeed);
+    if (hasSeeds) {
+        sorted = teams.slice().sort((a, b) => a.playoffSeed - b.playoffSeed);
+    } else {
+        sorted = sortStandings(teams);
+    }
+
+    const inPlayoffs = sorted.slice(0, PLAYOFF_SPOTS);
+    const outside = sorted.slice(PLAYOFF_SPOTS);
+
+    inPlayoffs.forEach((team, i) => {
+        const card = document.createElement('div');
+        card.className = 'st-playoff-card';
+        const img = document.createElement('img');
+        setTeamLogo(img, team.name);
+        const info = document.createElement('div');
+        const line1 = document.createElement('div');
+        const seed = document.createElement('span');
+        seed.className = 'st-playoff-seed';
+        seed.textContent = '#' + (i + 1);
+        line1.appendChild(seed);
+        const nameSpan = document.createElement('strong');
+        nameSpan.textContent = team.name;
+        line1.appendChild(nameSpan);
+        const recordDiv = document.createElement('div');
+        recordDiv.className = 'st-playoff-record';
+        recordDiv.textContent = team.wins + '-' + team.losses + '-' + team.ties + ' · ' + team.pointsFor.toFixed(1) + ' Pkt.';
+        info.appendChild(line1);
+        info.appendChild(recordDiv);
+        card.appendChild(img);
+        card.appendChild(info);
+        playoffGrid.appendChild(card);
+    });
+
+    outside.forEach((team, i) => {
+        outsideTableBody.appendChild(teamRow(team, PLAYOFF_SPOTS + i + 1, { division: true }));
+    });
+}
+
+function render(data, updatedAt) {
+    renderDivisions(data.teams, data.divisions || {});
+    renderLeagueTable(data.teams);
+    renderPlayoffs(data.teams);
+    lastUpdated.textContent = 'Stand: ' + formatGermanDateTime(updatedAt) + ' (aktualisiert jeden Dienstag, 09:00 Uhr)';
+}
+
+refreshBtn.addEventListener('click', () => loadStandings(true));
+
+/* ---------- Init ---------- */
+loadStandings(false);
+</script>
 
 </body>
 </html>
