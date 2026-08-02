@@ -47,6 +47,56 @@ body {
     padding: 0 25px;
 }
 
+.db-season-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #1f1f1f;
+}
+
+.db-season-select {
+    padding: 7px 10px;
+    border-radius: 6px;
+    border: 1px solid #e0ded6;
+    font-family: inherit;
+    font-size: 0.85rem;
+    background: #ffffff;
+}
+
+.db-archive-panel {
+    display: flex;
+    justify-content: center;
+    padding: 30px 0 10px;
+}
+
+.db-archive-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 40px;
+    text-align: center;
+    max-width: 480px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    border: 1px dashed #d18b2f;
+}
+
+.db-archive-card h3 {
+    color: #1f1f1f;
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+}
+
+.db-archive-card p {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+}
+
+.db-archive-hint {
+    font-size: 0.8rem !important;
+    color: #999 !important;
+    margin-top: 16px !important;
+    margin-bottom: 0 !important;
+}
+
 /* --- STATUS / ADMIN BAR --- */
 
 .db-statusbar {
@@ -514,10 +564,12 @@ table.db-board {
     <!-- STATUS / ADMIN BAR -->
     <div class="db-statusbar">
         <div class="db-status-left">
+            <label for="seasonSelect" class="db-season-label">📅 Saison:</label>
+            <select id="seasonSelect" class="db-season-select"></select>
             <span id="statusBadge" class="db-badge db-badge-test">TESTMODUS</span>
             <span id="playerDbStatus" class="db-playerdb-status">Lade Spielerdatenbank…</span>
         </div>
-        <div class="db-status-right">
+        <div class="db-status-right" id="liveAdminControls">
             <button id="adminToggleBtn" class="db-btn db-btn-secondary">🔒 Admin-Modus</button>
             <button id="editTeamsBtn" class="db-btn db-btn-secondary" style="display:none;">👥 Team-Reihenfolge</button>
             <button id="startDraftBtn" class="db-btn db-btn-primary" style="display:none;">🚀 Offiziellen Draft starten</button>
@@ -525,29 +577,44 @@ table.db-board {
         </div>
     </div>
 
-    <!-- TEAM-REIHENFOLGE PANEL -->
-    <div id="teamsPanel" class="db-teams-panel">
-        <h4>Team-Reihenfolge (Position 1–20)</h4>
-        <div class="db-teams-grid" id="teamsGrid"></div>
-        <div class="db-teams-actions">
-            <button id="importOrderBtn" class="db-btn db-btn-secondary">⬇️ Aus Draft-Reihenfolge-Generator übernehmen</button>
-            <button id="closeTeamsPanelBtn" class="db-btn db-btn-primary">Fertig</button>
+    <!-- LIVE-BOARD (aktuelle Saison) -->
+    <div id="liveBoardSection">
+
+        <!-- TEAM-REIHENFOLGE PANEL -->
+        <div id="teamsPanel" class="db-teams-panel">
+            <h4>Team-Reihenfolge (Position 1–20)</h4>
+            <div class="db-teams-grid" id="teamsGrid"></div>
+            <div class="db-teams-actions">
+                <button id="importOrderBtn" class="db-btn db-btn-secondary">⬇️ Aus Draft-Reihenfolge-Generator übernehmen</button>
+                <button id="closeTeamsPanelBtn" class="db-btn db-btn-primary">Fertig</button>
+            </div>
         </div>
+
+        <!-- LEGENDE -->
+        <div class="db-legend">
+            <span class="pos-tag pos-qb">QB</span>
+            <span class="pos-tag pos-rb">RB</span>
+            <span class="pos-tag pos-wr">WR</span>
+            <span class="pos-tag pos-te">TE</span>
+            <span class="pos-tag pos-k">K</span>
+            <span class="pos-tag pos-def">DEF</span>
+        </div>
+
+        <!-- BOARD -->
+        <div class="db-board-scroll">
+            <table class="db-board" id="boardTable"></table>
+        </div>
+
     </div>
 
-    <!-- LEGENDE -->
-    <div class="db-legend">
-        <span class="pos-tag pos-qb">QB</span>
-        <span class="pos-tag pos-rb">RB</span>
-        <span class="pos-tag pos-wr">WR</span>
-        <span class="pos-tag pos-te">TE</span>
-        <span class="pos-tag pos-k">K</span>
-        <span class="pos-tag pos-def">DEF</span>
-    </div>
-
-    <!-- BOARD -->
-    <div class="db-board-scroll">
-        <table class="db-board" id="boardTable"></table>
+    <!-- ARCHIV (vergangene Saisons) -->
+    <div id="archiveSection" class="db-archive-panel" style="display:none;">
+        <div class="db-archive-card">
+            <h3 id="archiveYearTitle">Draftboard</h3>
+            <p>Das finale Draftboard dieser Saison steht als Excel-Datei zum Download bereit.</p>
+            <a id="archiveDownloadLink" href="#" class="db-btn db-btn-primary" download>📥 Als Excel herunterladen</a>
+            <p class="db-archive-hint">Falls der Download nicht funktioniert, wurde die Datei für diese Saison noch nicht hochgeladen – bitte beim Admin melden.</p>
+        </div>
     </div>
 
 </section>
@@ -584,6 +651,13 @@ const PICKS_KEY = 'bembelBowlDraftboardPicks';
 const STATUS_KEY = 'bembelBowlDraftboardStatus';
 const ADMIN_SESSION_KEY = 'bembelBowlDraftboardAdmin';
 const IMPORT_ORDER_KEY = 'bembelBowlDraftOrder'; // vom draft-order-generator.html
+
+/* Archivierte, abgeschlossene Saisons: nach jeder Saison einen Eintrag ergänzen.
+   "file" zeigt auf die im Repo abgelegte Excel-Datei mit dem finalen Draftboard
+   (z.B. im Ordner "files/"). Die Vorlage dafür: draftboard-archiv-vorlage.xlsx */
+const ARCHIVE_SEASONS = [
+    // { year: 2025, file: 'files/draftboard-2025.xlsx' },
+];
 
 /* Fest hinterlegte Teamliste (identisch zu den anderen Tools) */
 const TEAMS = [
@@ -647,6 +721,12 @@ const teamsGrid = document.getElementById('teamsGrid');
 const importOrderBtn = document.getElementById('importOrderBtn');
 const closeTeamsPanelBtn = document.getElementById('closeTeamsPanelBtn');
 const boardTable = document.getElementById('boardTable');
+const seasonSelect = document.getElementById('seasonSelect');
+const liveBoardSection = document.getElementById('liveBoardSection');
+const liveAdminControls = document.getElementById('liveAdminControls');
+const archiveSection = document.getElementById('archiveSection');
+const archiveYearTitle = document.getElementById('archiveYearTitle');
+const archiveDownloadLink = document.getElementById('archiveDownloadLink');
 
 const pickModal = document.getElementById('pickModal');
 const modalTitle = document.getElementById('modalTitle');
@@ -1128,10 +1208,50 @@ lockDraftBtn.addEventListener('click', () => {
 });
 
 /* ==========================================================
+   SAISON-AUSWAHL: aktuelles Live-Board vs. archivierte Saisons
+   ========================================================== */
+function buildSeasonSelect() {
+    seasonSelect.innerHTML = '';
+    const currentOpt = document.createElement('option');
+    currentOpt.value = 'current';
+    currentOpt.textContent = 'Aktuelle Saison (Live-Board)';
+    seasonSelect.appendChild(currentOpt);
+
+    ARCHIVE_SEASONS
+        .slice()
+        .sort((a, b) => b.year - a.year)
+        .forEach(season => {
+            const opt = document.createElement('option');
+            opt.value = String(season.year);
+            opt.textContent = 'Saison ' + season.year + ' (Archiv)';
+            seasonSelect.appendChild(opt);
+        });
+}
+
+seasonSelect.addEventListener('change', () => {
+    if (seasonSelect.value === 'current') {
+        liveBoardSection.style.display = 'block';
+        liveAdminControls.style.display = 'flex';
+        archiveSection.style.display = 'none';
+        return;
+    }
+    const season = ARCHIVE_SEASONS.find(s => String(s.year) === seasonSelect.value);
+    liveBoardSection.style.display = 'none';
+    liveAdminControls.style.display = 'none';
+    archiveSection.style.display = 'flex';
+    if (season) {
+        archiveYearTitle.textContent = 'Draftboard ' + season.year;
+        archiveDownloadLink.href = season.file;
+        archiveDownloadLink.setAttribute('download', 'draftboard-' + season.year + '.xlsx');
+    }
+});
+
+/* ==========================================================
    INIT
    ========================================================== */
 async function init() {
     loadState();
+    buildSeasonSelect();
     renderStatusBar();
     renderBoard();
     renderTeamsPanel();
