@@ -28,6 +28,21 @@ body {
     padding-top: 70px;
 }
 
+/* Auf Mobile bricht die Navigation mehrzeilig um – ein fixierter Header
+   wäre dann so hoch, dass er Inhalte darunter verdeckt (u.a. die
+   Team-Liste). Dort daher zurück auf normales Sticky-Verhalten. */
+@media (max-width: 768px) {
+    header {
+        position: sticky !important;
+        top: 0;
+        left: auto;
+        width: auto;
+    }
+    body {
+        padding-top: 0;
+    }
+}
+
 .dog-header {
     text-align: center;
     margin: 40px auto 30px;
@@ -366,9 +381,10 @@ body {
     <div class="dog-grid" id="teamInputs"></div>
 
     <div class="dog-actions">
-        <button id="drawBtn" class="dog-btn dog-btn-primary">Draft-Reihenfolge auslosen</button>
+        <button id="drawBtn" class="dog-btn dog-btn-primary">🎲 Draft-Reihenfolge auslosen</button>
+        <button id="clearBtn" class="dog-btn dog-btn-secondary">🗑️ Gespeicherte Auslosung zurücksetzen</button>
     </div>
-    
+    <p class="dog-hint">Die Teamliste ist fest hinterlegt. Ändert sich das Line-up der Liga, einfach das TEAMS-Array oben im Script anpassen.</p>
 </section>
 
 <!-- ===== DRAFT / REVEAL VIEW ===== -->
@@ -382,6 +398,9 @@ body {
             <div id="revealName" class="dog-reveal-name">&nbsp;</div>
         </div>
         <div class="dog-progress-bar"><div id="progressFill" class="dog-progress-fill"></div></div>
+        <div class="dog-restart-wrap">
+            <button id="nextRevealBtn" class="dog-btn dog-btn-primary">🎉 Nächstes Team aufdecken</button>
+        </div>
         <p id="draftComplete" class="dog-draft-complete">✅ Auslosung abgeschlossen &amp; gespeichert!</p>
         <div class="dog-restart-wrap">
             <button id="restartBtn" class="dog-btn dog-btn-secondary" style="display:none;">↩︎ Zurück zur Übersicht</button>
@@ -405,26 +424,26 @@ body {
    Ordner images/. Ändert sich das Line-up nur hier anpassen.
    ========================================================== */
 const TEAMS = [
-    { name: "Amity Island Sharks",   logo: "images/amity_island_sharks.jpg" },
-    { name: "Beard",                 logo: "images/beard.jpg" },
-    { name: "Bishop Sycamore",       logo: "images/bishop_sycamore.jpg" },
-    { name: "Bojangles Pornstars",     logo: "images/bojangles_pstars.jpg" },
-    { name: "Brady Gaga",            logo: "images/brady_gaga.jpg" },
-    { name: "Broken Bembels ULB",    logo: "images/broken_bembels.jpg" },
-    { name: "E-Town Elephants",      logo: "images/etown_elephants.jpg" },
-    { name: "Fighting Farmers",      logo: "images/fighting_farmers.jpg" },
-    { name: "Foxboro Forever",       logo: "images/foxboro_forever.jpg" },
-    { name: "Frankfurt Bakers",      logo: "images/frankfurt_bakers.jpg" },
-    { name: "K-Town Devils",         logo: "images/ktown_devils.jpg" },
-    { name: "Pep's Band",            logo: "images/peps_band.jpg" },
-    { name: "Randy Moss Lob Jünger", logo: "images/randy_moss.jpg" },
-    { name: "Rookie One",            logo: "images/rookie_one.jpg" },
-    { name: "Steelersnation 7",      logo: "images/steelersnation.jpg" },
-    { name: "The 49vengers",         logo: "images/the49vengers.jpg" },
-    { name: "the Boys",              logo: "images/the_boys.jpg" },
-    { name: "Thunder Ducks",         logo: "images/thunder_ducks.jpg" },
-    { name: "Wiesbaden Phantoms",    logo: "images/wiesbaden_phantoms.jpg" },
-    { name: "Zeugen Ray Lewis",      logo: "images/zeugen_ray_lewis.jpg" }
+    { name: "Amity Island Sharks",   logo: "images/Amity Island Sharks.jpg" },
+    { name: "Beard",                 logo: "images/Beard.jpg" },
+    { name: "Bishop Sycamore",       logo: "images/Bishop Sycamore.jpg" },
+    { name: "Bojangles P-Stars",     logo: "images/Bojangles P-Stars.jpg" },
+    { name: "Brady Gaga",            logo: "images/Brady Gaga.jpg" },
+    { name: "Broken Bembels ULB",    logo: "images/Broken Bembels ULB.jpg" },
+    { name: "E-Town Elephants",      logo: "images/E-Town Elephants.jpg" },
+    { name: "Fighting Farmers",      logo: "images/Fighting Farmers.jpg" },
+    { name: "Foxboro Forever",       logo: "images/Foxboro Forever.jpg" },
+    { name: "Frankfurt Bakers",      logo: "images/Frankfurt Bakers.jpg" },
+    { name: "K-Town Devils",         logo: "images/K-Town Devils.jpg" },
+    { name: "Pep's Band",            logo: "images/Pep's Band.jpg" },
+    { name: "Randy Moss Lob Jünger", logo: "images/Randy Moss Lob Jünger.jpg" },
+    { name: "Rookie One",            logo: "images/Rookie One.jpg" },
+    { name: "Steelersnation 7",      logo: "images/Steelersnation 7.jpg" },
+    { name: "The 49vengers",         logo: "images/The 49vengers.jpg" },
+    { name: "the Boys",              logo: "images/the Boys.jpg" },
+    { name: "Thunder Ducks",         logo: "images/Thunder Ducks.jpg" },
+    { name: "Wiesbaden Phantoms",    logo: "images/Wiesbaden Phantoms.jpg" },
+    { name: "Zeugen Ray Lewis",      logo: "images/Zeugen Ray Lewis.jpg" }
 ];
 
 const REVEAL_INTERVAL_MS = 5000;
@@ -442,6 +461,7 @@ const progressFill = document.getElementById('progressFill');
 const resultList = document.getElementById('resultList');
 const draftComplete = document.getElementById('draftComplete');
 const restartBtn = document.getElementById('restartBtn');
+const nextRevealBtn = document.getElementById('nextRevealBtn');
 
 /* ---------- Logo-Handling ---------- */
 // Nutzt den fest hinterlegten Pfad aus TEAMS. Falls die Endung/der Dateiname
@@ -556,7 +576,6 @@ function addResultRow(place, team) {
 
 let revealOrder = []; // Reihenfolge der Enthüllung: zuerst Platz 20, zuletzt Platz 1
 let revealIndex = 0;
-let revealTimer = null;
 
 drawBtn.addEventListener('click', () => {
     const shuffled = shuffle(TEAMS);
@@ -573,17 +592,35 @@ drawBtn.addEventListener('click', () => {
     draftComplete.classList.remove('show');
     restartBtn.style.display = 'none';
 
+    revealPlace.textContent = 'Bereit zur Auslosung';
+    revealName.textContent = '';
+    revealLogo.classList.remove('show');
+    revealName.classList.remove('show');
+    revealLogo.removeAttribute('src');
+
+    nextRevealBtn.style.display = 'inline-block';
+    nextRevealBtn.disabled = false;
+});
+
+nextRevealBtn.addEventListener('click', () => {
+    if (revealIndex >= revealOrder.length) return;
+    nextRevealBtn.disabled = true;
     revealNext();
-    revealTimer = setInterval(revealNext, REVEAL_INTERVAL_MS);
+
+    // Anzeigedauer nach dem Knopfdruck bleibt wie bisher 5 Sekunden,
+    // erst danach kann der nächste Pick aufgedeckt werden.
+    setTimeout(() => {
+        if (revealIndex >= revealOrder.length) {
+            finishDraft();
+            nextRevealBtn.style.display = 'none';
+        } else {
+            nextRevealBtn.disabled = false;
+        }
+    }, REVEAL_INTERVAL_MS);
 });
 
 function revealNext() {
-    if (revealIndex >= revealOrder.length) {
-        clearInterval(revealTimer);
-        revealTimer = null;
-        finishDraft();
-        return;
-    }
+    if (revealIndex >= revealOrder.length) return;
 
     const current = revealOrder[revealIndex];
     revealIndex++;
