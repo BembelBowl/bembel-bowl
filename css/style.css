@@ -534,47 +534,62 @@ body.teams-page {
     .teams-grid { grid-template-columns: 1fr; gap: 15px; }
 }
 
-/* EHEMALIGE TEAMS – schlichte Liste statt Flipcard */
-.past-teams-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-width: 800px;
+/* EHEMALIGE TEAMS – schlichtes Grid statt Flipcard */
+.past-teams-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    max-width: 1100px;
     margin: 0 auto;
 }
 
 .past-team-item {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 14px;
+    text-align: center;
+    gap: 8px;
     background-color: #f8f6f0;
-    border-left: 3px solid #d18b2f;
-    border-radius: 6px;
-    padding: 10px 16px;
+    border-top: 3px solid #d18b2f;
+    border-radius: 8px;
+    padding: 20px 14px;
+}
+
+/* Gründungsmitglieder: goldener Rahmen, analog zu den aktiven Teams */
+.past-team-item.founder {
+    border: 3px solid #d18b2f;
+    box-shadow: 0 4px 20px rgba(209, 139, 47, 0.25);
 }
 
 .past-team-logo {
-    width: 36px;
-    height: 36px;
-    border-radius: 5px;
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
     object-fit: cover;
-    opacity: 0.8;
-    filter: grayscale(25%);
-    flex-shrink: 0;
+    opacity: 0.9;
+    filter: grayscale(15%);
 }
 
 .past-team-info h4 {
-    font-size: 0.98rem;
+    font-size: 1rem;
     color: #1f1f1f;
     margin-bottom: 2px;
 }
 
 .past-team-meta {
     display: flex;
-    flex-wrap: wrap;
-    gap: 4px 12px;
+    flex-direction: column;
+    gap: 3px;
     font-size: 0.78rem;
     color: #888;
+}
+
+@media (max-width: 1024px) {
+    .past-teams-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 600px) {
+    .past-teams-grid { grid-template-columns: 1fr; }
 }
 
 /* =========================
