@@ -220,7 +220,7 @@ footer {
    ========================= */
 
 body.rules-page {
-    background-image: url("../images/rules_back.png");
+    background-image: url("../images/XXX");
     background-attachment: fixed;
     background-size: cover;
     background-position: center;
@@ -350,7 +350,7 @@ body.rules-page {
 }
 
 body.teams-page {
-    background-image: url("../images/teams_back.jpg");
+    background-image: url("../images/XXX.jpg");
     background-attachment: fixed;
     background-size: cover;
     background-position: center;
@@ -550,7 +550,7 @@ body.teams-page {
 }
 
 body.draft-center-page {
-    background-image: url("../images/draft_center_back.jpg");
+    background-image: url("../images/XXX.jpg");
     background-attachment: fixed;
     background-size: cover;
     background-position: center;
@@ -586,7 +586,7 @@ body.draft-center-page {
 }
 
 body.rules-page {
-    background-image: url("../images/hall_of_fame_back.png");
+    background-image: url("../images/XXX.png");
     background-attachment: fixed;
     background-size: cover;
     background-position: center;
@@ -784,13 +784,3 @@ body.rules-page {
 .pos-k   { background-color: #9a6600; }
 .pos-def { background-color: #6e7781; }
 
-/* HINTERGRUND FÜR HALL OF FAME */
-body.hof-page {
-    background-image: url("../images/hof_back.png");
-    background-attachment: fixed;
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-color: rgba(244, 241, 234, 0.88);
-    background-blend-mode: overlay;
-}
