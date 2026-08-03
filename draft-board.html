@@ -97,6 +97,56 @@ body {
     margin-bottom: 0 !important;
 }
 
+.db-import-hint {
+    font-size: 0.85rem;
+    color: #777;
+    margin-bottom: 14px;
+}
+
+.db-import-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+}
+
+.db-import-row .db-team-slot {
+    min-width: 220px;
+}
+
+.db-import-row input[type="number"],
+.db-import-row input[type="file"] {
+    padding: 7px 8px;
+    border-radius: 6px;
+    border: 1px solid #e0ded6;
+    font-family: inherit;
+    font-size: 0.85rem;
+}
+
+.db-import-status {
+    margin-top: 10px;
+    font-size: 0.85rem;
+    color: #555;
+}
+
+.db-archive-panel {
+    flex-wrap: wrap;
+}
+
+.db-archive-board-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+
+.db-archive-board-head h3 {
+    color: #1f1f1f;
+    font-size: 1.4rem;
+}
+
 /* --- STATUS / ADMIN BAR --- */
 
 .db-statusbar {
@@ -537,6 +587,7 @@ table.db-board {
     }
 }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -564,16 +615,17 @@ table.db-board {
     <!-- STATUS / ADMIN BAR -->
     <div class="db-statusbar">
         <div class="db-status-left">
-            <label for="seasonSelect" class="db-season-label">Saison:</label>
+            <label for="seasonSelect" class="db-season-label">📅 Saison:</label>
             <select id="seasonSelect" class="db-season-select"></select>
             <span id="statusBadge" class="db-badge db-badge-test">TESTMODUS</span>
             <span id="playerDbStatus" class="db-playerdb-status">Lade Spielerdatenbank…</span>
         </div>
         <div class="db-status-right" id="liveAdminControls">
-            <button id="adminToggleBtn" class="db-btn db-btn-secondary">Admin-Modus</button>
-            <button id="editTeamsBtn" class="db-btn db-btn-secondary" style="display:none;">Team-Reihenfolge</button>
-            <button id="startDraftBtn" class="db-btn db-btn-primary" style="display:none;">Offiziellen Draft starten</button>
-            <button id="lockDraftBtn" class="db-btn db-btn-dark" style="display:none;">Draft abschließen &amp; sperren</button>
+            <button id="adminToggleBtn" class="db-btn db-btn-secondary">🔒 Admin-Modus</button>
+            <button id="editTeamsBtn" class="db-btn db-btn-secondary" style="display:none;">👥 Team-Reihenfolge</button>
+            <button id="editImportBtn" class="db-btn db-btn-secondary" style="display:none;">📂 Draft importieren</button>
+            <button id="startDraftBtn" class="db-btn db-btn-primary" style="display:none;">🚀 Offiziellen Draft starten</button>
+            <button id="lockDraftBtn" class="db-btn db-btn-dark" style="display:none;">🔒 Draft abschließen &amp; sperren</button>
         </div>
     </div>
 
@@ -585,9 +637,32 @@ table.db-board {
             <h4>Team-Reihenfolge (Position 1–20)</h4>
             <div class="db-teams-grid" id="teamsGrid"></div>
             <div class="db-teams-actions">
-                <button id="importOrderBtn" class="db-btn db-btn-secondary">Aus Draft-Reihenfolge-Generator übernehmen</button>
+                <button id="importOrderBtn" class="db-btn db-btn-secondary">⬇️ Aus Draft-Reihenfolge-Generator übernehmen</button>
                 <button id="closeTeamsPanelBtn" class="db-btn db-btn-primary">Fertig</button>
             </div>
+        </div>
+
+        <!-- IMPORT PANEL (vergangene Draftboards aus Excel) -->
+        <div id="importPanel" class="db-teams-panel">
+            <h4>Vergangenen Draft importieren</h4>
+            <p class="db-import-hint">
+                Erwartet wird die gleiche Struktur wie im offiziellen Draft-Excel (Sheet „Draft Board", 20 Team-Spalten, 15 Runden mit Spieler, NFL-Team und Position je Pick).
+            </p>
+            <div class="db-import-row">
+                <div class="db-team-slot">
+                    <label for="importYearInput">Saison / Jahr</label>
+                    <input type="number" id="importYearInput" placeholder="z.B. 2025" min="2000" max="2100">
+                </div>
+                <div class="db-team-slot">
+                    <label for="importFileInput">Excel-Datei (.xlsx)</label>
+                    <input type="file" id="importFileInput" accept=".xlsx">
+                </div>
+            </div>
+            <div class="db-teams-actions">
+                <button id="runImportBtn" class="db-btn db-btn-primary">📥 Importieren &amp; anzeigen</button>
+                <button id="closeImportPanelBtn" class="db-btn db-btn-secondary">Schließen</button>
+            </div>
+            <p id="importStatus" class="db-import-status"></p>
         </div>
 
         <!-- LEGENDE -->
@@ -609,12 +684,37 @@ table.db-board {
 
     <!-- ARCHIV (vergangene Saisons) -->
     <div id="archiveSection" class="db-archive-panel" style="display:none;">
-        <div class="db-archive-card">
+
+        <div id="archiveBoardWrap" style="display:none; width:100%;">
+            <div class="db-archive-board-head">
+                <h3 id="archiveBoardTitle">Draftboard</h3>
+                <button id="deleteImportBtn" class="db-btn db-btn-danger" style="display:none;">🗑️ Diesen Import löschen</button>
+            </div>
+            <div class="db-legend">
+                <span class="pos-tag pos-qb">QB</span>
+                <span class="pos-tag pos-rb">RB</span>
+                <span class="pos-tag pos-wr">WR</span>
+                <span class="pos-tag pos-te">TE</span>
+                <span class="pos-tag pos-k">K</span>
+                <span class="pos-tag pos-def">DEF</span>
+            </div>
+            <div class="db-board-scroll">
+                <table class="db-board" id="archiveBoardTable"></table>
+            </div>
+        </div>
+
+        <div id="archiveDownloadCard" class="db-archive-card" style="display:none;">
             <h3 id="archiveYearTitle">Draftboard</h3>
             <p>Das finale Draftboard dieser Saison steht als Excel-Datei zum Download bereit.</p>
-            <a id="archiveDownloadLink" href="#" class="db-btn db-btn-primary" download>Als Excel herunterladen</a>
+            <a id="archiveDownloadLink" href="#" class="db-btn db-btn-primary" download>📥 Als Excel herunterladen</a>
             <p class="db-archive-hint">Falls der Download nicht funktioniert, wurde die Datei für diese Saison noch nicht hochgeladen – bitte beim Admin melden.</p>
         </div>
+
+        <div id="archiveEmptyMsg" class="db-archive-card" style="display:none;">
+            <h3>Kein Draftboard hinterlegt</h3>
+            <p>Für diese Saison wurde noch kein Draftboard importiert oder als Excel hinterlegt.</p>
+        </div>
+
     </div>
 
 </section>
@@ -654,33 +754,39 @@ const IMPORT_ORDER_KEY = 'bembelBowlDraftOrder'; // vom draft-order-generator.ht
 
 /* Archivierte, abgeschlossene Saisons: nach jeder Saison einen Eintrag ergänzen.
    "file" zeigt auf die im Repo abgelegte Excel-Datei mit dem finalen Draftboard
-   (z.B. im Ordner "files/"). Die Vorlage dafür: draftboard-archiv-vorlage.xlsx */
+   (z.B. im Ordner "files/"). Die Vorlage dafür: draftboard-archiv-vorlage.xlsx
+   Alternativ (oder zusätzlich): über den Admin-Modus direkt eine Excel-Datei
+   mit der Struktur des Original-Draft-Excels importieren – die wird dann
+   interaktiv als Board angezeigt (lokal im Browser gespeichert). */
 const ARCHIVE_SEASONS = [
     // { year: 2025, file: 'files/draftboard-2025.xlsx' },
 ];
 
+const ARCHIVE_BOARD_PREFIX = 'bembelBowlArchiveBoard_'; // + Jahr
+const ARCHIVE_IMPORTED_LIST_KEY = 'bembelBowlArchiveImportedYears';
+
 /* Fest hinterlegte Teamliste (identisch zu den anderen Tools) */
 const TEAMS = [
-    { name: "Amity Island Sharks",   logo: "images/amity_island_sharks.jpg" },
-    { name: "Beard",                 logo: "images/beard.jpg" },
-    { name: "Bishop Sycamore",       logo: "images/bishop_sycamore.jpg" },
-    { name: "Bojangles Pornstars",     logo: "images/bojangles_pstars.jpg" },
-    { name: "Brady Gaga",            logo: "images/brady_gaga.jpg" },
-    { name: "Broken Bembels ULB",    logo: "images/broken_bembels.jpg" },
-    { name: "E-Town Elephants",      logo: "images/etown_elephants.jpg" },
-    { name: "Fighting Farmers",      logo: "images/fighting_farmers.jpg" },
-    { name: "Foxboro Forever",       logo: "images/foxboro_forever.jpg" },
-    { name: "Frankfurt Bakers",      logo: "images/frankfurt_bakers.jpg" },
-    { name: "K-Town Devils",         logo: "images/ktown_devils.jpg" },
-    { name: "Pep's Band",            logo: "images/peps_band.jpg" },
-    { name: "Randy Moss Lob Jünger", logo: "images/randy_moss.jpg" },
-    { name: "Rookie One",            logo: "images/rookie_one.jpg" },
-    { name: "Steelersnation 7",      logo: "images/steelersnation.jpg" },
-    { name: "The 49vengers",         logo: "images/the49vengers.jpg" },
-    { name: "the Boys",              logo: "images/the_boys.jpg" },
-    { name: "Thunder Ducks",         logo: "images/thunder_ducks.jpg" },
-    { name: "Wiesbaden Phantoms",    logo: "images/wiesbaden_phantoms.jpg" },
-    { name: "Zeugen Ray Lewis",      logo: "images/zeugen_ray_lewis.jpg" }
+    { name: "Amity Island Sharks",   logo: "images/Amity Island Sharks.jpg" },
+    { name: "Beard",                 logo: "images/Beard.jpg" },
+    { name: "Bishop Sycamore",       logo: "images/Bishop Sycamore.jpg" },
+    { name: "Bojangles P-Stars",     logo: "images/Bojangles P-Stars.jpg" },
+    { name: "Brady Gaga",            logo: "images/Brady Gaga.jpg" },
+    { name: "Broken Bembels ULB",    logo: "images/Broken Bembels ULB.jpg" },
+    { name: "E-Town Elephants",      logo: "images/E-Town Elephants.jpg" },
+    { name: "Fighting Farmers",      logo: "images/Fighting Farmers.jpg" },
+    { name: "Foxboro Forever",       logo: "images/Foxboro Forever.jpg" },
+    { name: "Frankfurt Bakers",      logo: "images/Frankfurt Bakers.jpg" },
+    { name: "K-Town Devils",         logo: "images/K-Town Devils.jpg" },
+    { name: "Pep's Band",            logo: "images/Pep's Band.jpg" },
+    { name: "Randy Moss Lob Jünger", logo: "images/Randy Moss Lob Jünger.jpg" },
+    { name: "Rookie One",            logo: "images/Rookie One.jpg" },
+    { name: "Steelersnation 7",      logo: "images/Steelersnation 7.jpg" },
+    { name: "The 49vengers",         logo: "images/The 49vengers.jpg" },
+    { name: "the Boys",              logo: "images/the Boys.jpg" },
+    { name: "Thunder Ducks",         logo: "images/Thunder Ducks.jpg" },
+    { name: "Wiesbaden Phantoms",    logo: "images/Wiesbaden Phantoms.jpg" },
+    { name: "Zeugen Ray Lewis",      logo: "images/Zeugen Ray Lewis.jpg" }
 ];
 
 /* Notfall-Liste, falls weder ESPN- noch Sleeper-API erreichbar sind (z.B. CORS) */
@@ -727,6 +833,19 @@ const liveAdminControls = document.getElementById('liveAdminControls');
 const archiveSection = document.getElementById('archiveSection');
 const archiveYearTitle = document.getElementById('archiveYearTitle');
 const archiveDownloadLink = document.getElementById('archiveDownloadLink');
+const archiveDownloadCard = document.getElementById('archiveDownloadCard');
+const archiveBoardWrap = document.getElementById('archiveBoardWrap');
+const archiveBoardTitle = document.getElementById('archiveBoardTitle');
+const archiveBoardTable = document.getElementById('archiveBoardTable');
+const archiveEmptyMsg = document.getElementById('archiveEmptyMsg');
+const deleteImportBtn = document.getElementById('deleteImportBtn');
+const editImportBtn = document.getElementById('editImportBtn');
+const importPanel = document.getElementById('importPanel');
+const closeImportPanelBtn = document.getElementById('closeImportPanelBtn');
+const importYearInput = document.getElementById('importYearInput');
+const importFileInput = document.getElementById('importFileInput');
+const runImportBtn = document.getElementById('runImportBtn');
+const importStatus = document.getElementById('importStatus');
 
 const pickModal = document.getElementById('pickModal');
 const modalTitle = document.getElementById('modalTitle');
@@ -897,6 +1016,7 @@ function renderStatusBar() {
 
     const showAdminControls = isAdmin && !status.locked;
     editTeamsBtn.style.display = showAdminControls ? 'inline-block' : 'none';
+    editImportBtn.style.display = showAdminControls ? 'inline-block' : 'none';
     startDraftBtn.style.display = (showAdminControls && !status.started) ? 'inline-block' : 'none';
     lockDraftBtn.style.display = (showAdminControls && status.started) ? 'inline-block' : 'none';
 }
@@ -965,6 +1085,7 @@ closeTeamsPanelBtn.addEventListener('click', () => {
 });
 
 editTeamsBtn.addEventListener('click', () => {
+    importPanel.classList.remove('show');
     renderTeamsPanel();
     teamsPanel.classList.toggle('show');
 });
@@ -1163,6 +1284,7 @@ adminToggleBtn.addEventListener('click', () => {
         isAdmin = false;
         sessionStorage.removeItem(ADMIN_SESSION_KEY);
         teamsPanel.classList.remove('show');
+        importPanel.classList.remove('show');
     } else {
         const pw = prompt('Admin-Passwort eingeben:');
         if (pw === null) return;
@@ -1203,9 +1325,207 @@ lockDraftBtn.addEventListener('click', () => {
     isAdmin = false;
     sessionStorage.removeItem(ADMIN_SESSION_KEY);
     teamsPanel.classList.remove('show');
+    importPanel.classList.remove('show');
     renderStatusBar();
     renderBoard();
 });
+
+/* ==========================================================
+   ARCHIV-BOARDS: Speichern / Lesen / Löschen (localStorage)
+   ========================================================== */
+function getImportedYears() {
+    try { return JSON.parse(localStorage.getItem(ARCHIVE_IMPORTED_LIST_KEY) || '[]'); } catch (e) { return []; }
+}
+
+function saveImportedYears(list) {
+    try { localStorage.setItem(ARCHIVE_IMPORTED_LIST_KEY, JSON.stringify(list)); } catch (e) {}
+}
+
+function getImportedBoard(year) {
+    try { return JSON.parse(localStorage.getItem(ARCHIVE_BOARD_PREFIX + year) || 'null'); } catch (e) { return null; }
+}
+
+function saveImportedBoard(year, data) {
+    try { localStorage.setItem(ARCHIVE_BOARD_PREFIX + year, JSON.stringify(data)); } catch (e) {}
+    const list = getImportedYears();
+    if (!list.includes(year)) {
+        list.push(year);
+        saveImportedYears(list);
+    }
+}
+
+function deleteImportedBoard(year) {
+    try { localStorage.removeItem(ARCHIVE_BOARD_PREFIX + year); } catch (e) {}
+    saveImportedYears(getImportedYears().filter(y => y !== year));
+}
+
+/* ==========================================================
+   EXCEL-IMPORT: parst eine Datei mit der Struktur des
+   Original-Draft-Excels (Sheet "Draft Board")
+   ========================================================== */
+async function parseDraftBoardWorkbook(file) {
+    const buffer = await file.arrayBuffer();
+    const wb = XLSX.read(buffer, { type: 'array' });
+
+    let sheetName = wb.SheetNames.find(n => n.trim().toLowerCase() === 'draft board');
+    if (!sheetName) sheetName = wb.SheetNames[0];
+    const sheet = wb.Sheets[sheetName];
+    const grid = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, raw: true });
+
+    function cell(r, c) {
+        const rowArr = grid[r - 1];
+        if (!rowArr) return null;
+        const v = rowArr[c - 1];
+        return (v === undefined || v === null || v === '') ? null : v;
+    }
+
+    const teamNames = [];
+    for (let i = 0; i < TEAM_COUNT; i++) {
+        const col = 4 + 5 * i; // Team-Blöcke starten bei Spalte D, dann alle 5 Spalten
+        teamNames.push(cell(2, col) ? String(cell(2, col)) : ('Team ' + (i + 1)));
+    }
+
+    const picks = {};
+    let pickCount = 0;
+    for (let r = 0; r < ROUND_COUNT; r++) {
+        const nameRow = 4 + 3 * r; // Runden-Block: Name-Zeile, Detail-Zeile, Leerzeile
+        const detailRow = nameRow + 1;
+        for (let i = 0; i < TEAM_COUNT; i++) {
+            const col = 4 + 5 * i;
+            const playerName = cell(nameRow, col);
+            if (!playerName) continue;
+            const nflTeam = cell(detailRow, col);
+            const position = cell(detailRow, col + 2);
+            picks[(r + 1) + '-' + (i + 1)] = {
+                name: String(playerName),
+                position: position ? String(position).toUpperCase().trim() : '',
+                nflTeam: nflTeam ? String(nflTeam) : ''
+            };
+            pickCount++;
+        }
+    }
+
+    if (pickCount === 0) {
+        throw new Error('Es konnten keine Picks aus dem Sheet "' + sheetName + '" gelesen werden. Bitte Struktur prüfen.');
+    }
+
+    return { teamNames, picks, pickCount, sheetUsed: sheetName };
+}
+
+editImportBtn.addEventListener('click', () => {
+    teamsPanel.classList.remove('show');
+    importPanel.classList.toggle('show');
+});
+closeImportPanelBtn.addEventListener('click', () => {
+    importPanel.classList.remove('show');
+});
+
+runImportBtn.addEventListener('click', async () => {
+    const year = parseInt(importYearInput.value, 10);
+    const file = importFileInput.files[0];
+    if (!year || year < 2000 || year > 2100) {
+        importStatus.textContent = '⚠️ Bitte ein gültiges Jahr angeben.';
+        return;
+    }
+    if (!file) {
+        importStatus.textContent = '⚠️ Bitte eine .xlsx-Datei auswählen.';
+        return;
+    }
+    importStatus.textContent = 'Importiere „' + file.name + '" …';
+    try {
+        const parsed = await parseDraftBoardWorkbook(file);
+        saveImportedBoard(year, parsed);
+        importStatus.textContent = '✅ Draftboard ' + year + ' importiert (' + parsed.pickCount + ' Picks aus Sheet "' + parsed.sheetUsed + '").';
+        buildSeasonSelect();
+        seasonSelect.value = String(year);
+        seasonSelect.dispatchEvent(new Event('change'));
+        importPanel.classList.remove('show');
+    } catch (e) {
+        console.error(e);
+        importStatus.textContent = '❌ Import fehlgeschlagen: ' + e.message;
+    }
+});
+
+/* ==========================================================
+   RENDER: ARCHIVIERTES (READ-ONLY) BOARD
+   ========================================================== */
+function renderArchiveBoard(year, data) {
+    archiveBoardTitle.textContent = 'Draftboard ' + year;
+    archiveBoardTable.innerHTML = '';
+
+    const thead = document.createElement('thead');
+    const headRow = document.createElement('tr');
+    const cornerHead = document.createElement('th');
+    cornerHead.className = 'db-round-head';
+    cornerHead.textContent = 'Runde';
+    headRow.appendChild(cornerHead);
+
+    data.teamNames.forEach(name => {
+        const th = document.createElement('th');
+        th.className = 'db-col-head';
+        const img = document.createElement('img');
+        setTeamLogo(img, { name: name, logo: 'images/' + encodeURIComponent(name) + '.jpg' });
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'db-col-head-name';
+        nameDiv.textContent = name;
+        th.appendChild(img);
+        th.appendChild(nameDiv);
+        headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    archiveBoardTable.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    for (let round = 1; round <= ROUND_COUNT; round++) {
+        const tr = document.createElement('tr');
+        const roundTh = document.createElement('th');
+        roundTh.className = 'db-round-head';
+        roundTh.textContent = 'R' + round;
+        tr.appendChild(roundTh);
+
+        for (let pos = 1; pos <= TEAM_COUNT; pos++) {
+            const td = document.createElement('td');
+            const pick = data.picks[pickKey(round, pos)];
+            td.className = 'db-cell' + (pick ? ' filled' : '');
+
+            const numSpan = document.createElement('span');
+            numSpan.className = 'db-pick-num';
+            numSpan.textContent = '#' + pickNumber(round, pos);
+            td.appendChild(numSpan);
+
+            if (pick) {
+                const tag = document.createElement('span');
+                tag.className = 'pos-tag ' + posClass(pick.position);
+                tag.textContent = pick.position || '?';
+                td.appendChild(tag);
+
+                const nameDiv = document.createElement('div');
+                nameDiv.className = 'db-player-name';
+                nameDiv.textContent = pick.name;
+                td.appendChild(nameDiv);
+
+                if (pick.nflTeam) {
+                    const nflDiv = document.createElement('div');
+                    nflDiv.className = 'db-player-nfl';
+                    nflDiv.textContent = pick.nflTeam;
+                    td.appendChild(nflDiv);
+                }
+            }
+            tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+    }
+    archiveBoardTable.appendChild(tbody);
+
+    deleteImportBtn.style.display = isAdmin ? 'inline-block' : 'none';
+    deleteImportBtn.onclick = () => {
+        if (!confirm('Importiertes Draftboard ' + year + ' wirklich löschen?')) return;
+        deleteImportedBoard(year);
+        buildSeasonSelect();
+        seasonSelect.value = 'current';
+        seasonSelect.dispatchEvent(new Event('change'));
+    };
+}
 
 /* ==========================================================
    SAISON-AUSWAHL: aktuelles Live-Board vs. archivierte Saisons
@@ -1217,15 +1537,17 @@ function buildSeasonSelect() {
     currentOpt.textContent = 'Aktuelle Saison (Live-Board)';
     seasonSelect.appendChild(currentOpt);
 
-    ARCHIVE_SEASONS
-        .slice()
-        .sort((a, b) => b.year - a.year)
-        .forEach(season => {
-            const opt = document.createElement('option');
-            opt.value = String(season.year);
-            opt.textContent = 'Saison ' + season.year + ' (Archiv)';
-            seasonSelect.appendChild(opt);
-        });
+    const years = new Set([
+        ...ARCHIVE_SEASONS.map(s => s.year),
+        ...getImportedYears()
+    ]);
+
+    [...years].sort((a, b) => b - a).forEach(year => {
+        const opt = document.createElement('option');
+        opt.value = String(year);
+        opt.textContent = 'Saison ' + year + ' (Archiv)' + (getImportedBoard(year) ? ' – importiert' : '');
+        seasonSelect.appendChild(opt);
+    });
 }
 
 seasonSelect.addEventListener('change', () => {
@@ -1235,14 +1557,29 @@ seasonSelect.addEventListener('change', () => {
         archiveSection.style.display = 'none';
         return;
     }
-    const season = ARCHIVE_SEASONS.find(s => String(s.year) === seasonSelect.value);
+
+    const year = parseInt(seasonSelect.value, 10);
     liveBoardSection.style.display = 'none';
     liveAdminControls.style.display = 'none';
     archiveSection.style.display = 'flex';
-    if (season) {
-        archiveYearTitle.textContent = 'Draftboard ' + season.year;
-        archiveDownloadLink.href = season.file;
-        archiveDownloadLink.setAttribute('download', 'draftboard-' + season.year + '.xlsx');
+
+    archiveDownloadCard.style.display = 'none';
+    archiveBoardWrap.style.display = 'none';
+    archiveEmptyMsg.style.display = 'none';
+
+    const imported = getImportedBoard(year);
+    const staticConfig = ARCHIVE_SEASONS.find(s => s.year === year);
+
+    if (imported) {
+        renderArchiveBoard(year, imported);
+        archiveBoardWrap.style.display = 'block';
+    } else if (staticConfig) {
+        archiveYearTitle.textContent = 'Draftboard ' + year;
+        archiveDownloadLink.href = staticConfig.file;
+        archiveDownloadLink.setAttribute('download', 'draftboard-' + year + '.xlsx');
+        archiveDownloadCard.style.display = 'block';
+    } else {
+        archiveEmptyMsg.style.display = 'block';
     }
 });
 
