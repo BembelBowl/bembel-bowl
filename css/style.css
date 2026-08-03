@@ -753,6 +753,62 @@ body.rules-page {
     margin: 0;
 }
 
+/* HALL OF FAME – SPOTLIGHT (aktueller Champion / Toilet-Inhaber) */
+.hof-spotlight {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    background-color: #1f1f1f;
+    border: 2px solid #d18b2f;
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+}
+
+.hof-spotlight.toilet-spotlight {
+    border-color: #8c6d58;
+}
+
+.hof-spotlight-logo {
+    width: 90px;
+    height: 90px;
+    border-radius: 10px;
+    object-fit: cover;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    flex-shrink: 0;
+    background-color: #333;
+}
+
+.hof-spotlight-badge {
+    display: inline-block;
+    background-color: #d18b2f;
+    color: #1f1f1f;
+    font-weight: 700;
+    font-size: 0.8rem;
+    padding: 4px 12px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.toilet-spotlight .hof-spotlight-badge {
+    background-color: #8c6d58;
+    color: #ffffff;
+}
+
+.hof-spotlight-name {
+    color: #ffffff;
+    font-size: 2rem;
+    margin-bottom: 6px;
+}
+
+.hof-spotlight-sub {
+    color: #cccccc;
+    font-size: 0.95rem;
+}
+
 /* TABELLEN */
 .table-responsive {
     overflow-x: auto;
