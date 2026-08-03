@@ -809,32 +809,163 @@ body.rules-page {
     font-size: 0.95rem;
 }
 
-/* TABELLEN */
-.table-responsive {
-    overflow-x: auto;
+/* HALL OF FAME – Historie als kleine Kacheln statt Tabelle */
+.hof-history-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
 }
 
-.hof-table {
-    width: 100%;
-    border-collapse: collapse;
-    text-align: left;
-    margin-top: 10px;
-}
-
-.hof-table th, .hof-table td {
-    padding: 12px 15px;
-    border-bottom: 1px solid #e0ded6;
-}
-
-.hof-table th {
-    background-color: #1f1f1f;
-    color: #d18b2f;
-    font-weight: 600;
-}
-
-.hof-table tbody tr:hover {
+.hof-history-tile {
     background-color: #f8f6f0;
+    border-top: 3px solid #d18b2f;
+    border-radius: 8px;
+    padding: 14px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
 }
+
+.hof-history-tile.toilet {
+    border-top-color: #8c6d58;
+}
+
+.hof-history-logo {
+    width: 44px;
+    height: 44px;
+    border-radius: 6px;
+    object-fit: cover;
+    background-color: #1f1f1f;
+}
+
+.hof-history-year {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #d18b2f;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.hof-history-tile.toilet .hof-history-year {
+    color: #8c6d58;
+}
+
+.hof-history-team {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #1f1f1f;
+}
+
+.hof-history-sub {
+    font-size: 0.68rem;
+    color: #999;
+}
+
+@media (max-width: 1024px) {
+    .hof-history-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 600px) {
+    .hof-history-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+<!-- Frühere Champions -->
+<div class="hof-history-grid">
+    <div class="hof-history-tile">
+        <img class="hof-history-logo" src="images/beard.jpg" alt="BearD" onerror="this.style.display='none'">
+        <span class="hof-history-year">2024</span>
+        <span class="hof-history-team">BearD</span>
+        <span class="hof-history-sub">vs. Zeugen Ray Lewis · 133.84–79.10</span>
+    </div>
+    <div class="hof-history-tile">
+        <img class="hof-history-logo" src="images/bojangles_pstars.jpg" alt="Bojangles Pornstars" onerror="this.style.display='none'">
+        <span class="hof-history-year">2023</span>
+        <span class="hof-history-team">Bojangles Pornstars</span>
+        <span class="hof-history-sub">vs. Steelersnation 7 · 131.26–91.88</span>
+    </div>
+    <div class="hof-history-tile">
+        <img class="hof-history-logo" src="images/bernem_bembels.jpg" alt="Bernem Bembels" onerror="this.style.display='none'">
+        <span class="hof-history-year">2022</span>
+        <span class="hof-history-team">Bernem Bembels</span>
+        <span class="hof-history-sub">vs. Fighting Farmers · 77.30–60.60</span>
+    </div>
+    <div class="hof-history-tile">
+        <img class="hof-history-logo" src="images/the_boys.jpg" alt="the Boys" onerror="this.style.display='none'">
+        <span class="hof-history-year">2021</span>
+        <span class="hof-history-team">the Boys</span>
+        <span class="hof-history-sub">vs. Thudner Ducks · 151.74–117.10</span>
+    </div>
+    <div class="hof-history-tile">
+        <img class="hof-history-logo" src="images/bernem_bembels.jpg" alt="Bernem Bembels" onerror="this.style.display='none'">
+        <span class="hof-history-year">2020</span>
+        <span class="hof-history-team">Bernem Bembels</span>
+        <span class="hof-history-sub">vs. Amity Island Sharks · 132.00–81.84</span>
+    </div>
+    <div class="hof-history-tile">
+        <img class="hof-history-logo" src="images/bojangles_pornstars.jpg" alt="Bojangles Pornstars" onerror="this.style.display='none'">
+        <span class="hof-history-year">2019</span>
+        <span class="hof-history-team">Bojangles Pornstars</span>
+        <span class="hof-history-sub">vs. K-Town Devils · 109.34–93.58</span>
+    </div>
+    <div class="hof-history-tile">
+        <img class="hof-history-logo" src="images/johnny_manziel.jpg" alt="Johnny Manziel and Friends" onerror="this.style.display='none'">
+        <span class="hof-history-year">2018</span>
+        <span class="hof-history-team">Johnny Manziel and Friends</span>
+        <span class="hof-history-sub">vs. Bojangles Pornstars · 94.74–93.74</span>
+    </div>
+    <div class="hof-history-tile">
+        <img class="hof-history-logo" src="images/team_hyde.jpg" alt="Team Hyde" onerror="this.style.display='none'">
+        <span class="hof-history-year">2017</span>
+        <span class="hof-history-team">Team Hyde</span>
+        <span class="hof-history-sub">vs. Johnny Manziel and Friends · 88.76–74.00</span>
+    </div>
+</div>
+
+<!-- Frühere Toilet-Bowl-Gewinner -->
+<div class="hof-history-grid">
+    <div class="hof-history-tile toilet">
+        <img class="hof-history-logo" src="images/fighting_farmers.jpg" alt="Fighting Farmers" onerror="this.style.display='none'">
+        <span class="hof-history-year">2024</span>
+        <span class="hof-history-team">Fighting Farmers</span>
+    </div>
+    <div class="hof-history-tile toilet">
+        <img class="hof-history-logo" src="images/fighting_farmers.jpg" alt="Fighting Farmers" onerror="this.style.display='none'">
+        <span class="hof-history-year">2023</span>
+        <span class="hof-history-team">Fighting Farmers</span>
+    </div>
+    <div class="hof-history-tile toilet">
+        <img class="hof-history-logo" src="images/thunder_ducks.jpg" alt="Thunder Ducks" onerror="this.style.display='none'">
+        <span class="hof-history-year">2022</span>
+        <span class="hof-history-team">Thunder Ducks</span>
+    </div>
+    <div class="hof-history-tile toilet">
+        <img class="hof-history-logo" src="images/amity_island_sharks.jpg" alt="Amity Island Sharks" onerror="this.style.display='none'">
+        <span class="hof-history-year">2021</span>
+        <span class="hof-history-team">Amity Island Sharks</span>
+    </div>
+    <div class="hof-history-tile toilet">
+        <img class="hof-history-logo" src="images/the_49vengers.jpg" alt="The 49vengers" onerror="this.style.display='none'">
+        <span class="hof-history-year">2020</span>
+        <span class="hof-history-team">The 49vengers</span>
+    </div>
+    <div class="hof-history-tile toilet">
+        <img class="hof-history-logo" src="images/lynchmob.jpg" alt="Lynchmob" onerror="this.style.display='none'">
+        <span class="hof-history-year">2019</span>
+        <span class="hof-history-team">Lynchmob</span>
+    </div>
+    <div class="hof-history-tile toilet">
+        <img class="hof-history-logo" src="images/thunder_ducks.jpg" alt="Thunder Ducks" onerror="this.style.display='none'">
+        <span class="hof-history-year">2018</span>
+        <span class="hof-history-team">Thunder Ducks</span>
+    </div>
+    <div class="hof-history-tile toilet">
+        <img class="hof-history-logo" src="images/12th_man_army.jpg" alt="12th Man Army" onerror="this.style.display='none'">
+        <span class="hof-history-year">2017</span>
+        <span class="hof-history-team">12th Man Army</span>
+    </div>
+</div>
 
 /* REKORDE GRID & BADGES */
 .records-grid {
