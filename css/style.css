@@ -534,6 +534,49 @@ body.teams-page {
     .teams-grid { grid-template-columns: 1fr; gap: 15px; }
 }
 
+/* EHEMALIGE TEAMS – schlichte Liste statt Flipcard */
+.past-teams-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.past-team-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background-color: #f8f6f0;
+    border-left: 3px solid #d18b2f;
+    border-radius: 6px;
+    padding: 10px 16px;
+}
+
+.past-team-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 5px;
+    object-fit: cover;
+    opacity: 0.8;
+    filter: grayscale(25%);
+    flex-shrink: 0;
+}
+
+.past-team-info h4 {
+    font-size: 0.98rem;
+    color: #1f1f1f;
+    margin-bottom: 2px;
+}
+
+.past-team-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    font-size: 0.78rem;
+    color: #888;
+}
+
 /* =========================
   DRAFT CENTER STYLES
    ========================= */
