@@ -349,6 +349,16 @@ body.rules-page {
     margin-bottom: 10px;
 }
 
+body.teams-page {
+    background-image: url("../images/teams_back.jpg");
+    background-attachment: fixed;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-color: rgba(244, 241, 234, 0.88);
+    background-blend-mode: overlay;
+}
+
 /* 0. Das Grid-System (4 Kacheln pro Reihe) */
 .teams-grid {
     display: grid;
