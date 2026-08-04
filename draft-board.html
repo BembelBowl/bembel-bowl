@@ -831,15 +831,21 @@ table.db-board {
    Absicherung erfolgt über die Firestore-Sicherheitsregeln, nicht
    über Geheimhaltung dieses Schlüssels.
    ========================================================== */
+
+// Your web app's Firebase configuration
 const firebaseConfig = {
-    apiKey: "HIER_DEINEN_API_KEY_EINTRAGEN",
-    authDomain: "HIER_EINTRAGEN.firebaseapp.com",
-    projectId: "HIER_EINTRAGEN",
-    storageBucket: "HIER_EINTRAGEN.appspot.com",
-    messagingSenderId: "HIER_EINTRAGEN",
-    appId: "HIER_EINTRAGEN"
+  apiKey: "AIzaSyALAGTVbpTqMYmqmmf3dJyes0A39483iUE",
+  authDomain: "bembel-bowl.firebaseapp.com",
+  projectId: "bembel-bowl",
+  storageBucket: "bembel-bowl.firebasestorage.app",
+  messagingSenderId: "836256439134",
+  appId: "1:836256439134:web:c39ef91c216da594020dcf"
 };
 
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+
+   
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
