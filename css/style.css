@@ -764,7 +764,12 @@ body.rules-page {
    margin-top: 10px;
 }
 
-.hof-table th {
+.hof-table th, .hof-table td {
+   padding: 18px 15px;
+   border-bottom: 1px solid #e0ded6;
+}
+
+.hof-table th, {
    background-color: #1f1f1f;
    color: #d18b2f;
       font-weight: 600;
