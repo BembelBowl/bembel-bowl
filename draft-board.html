@@ -696,7 +696,7 @@ table.db-board {
             <label for="seasonSelect" class="db-season-label">📅 Saison:</label>
             <select id="seasonSelect" class="db-season-select"></select>
             <span id="modeBadge" class="db-badge db-badge-view">ANSICHTSMODUS</span>
-            <span id="syncBadge" class="db-badge db-badge-sync">🟢 Live</span>
+            <span id="syncBadge" class="db-badge db-badge-sync" style="display:none;">🟢 Live</span>
             <span id="playerDbStatus" class="db-playerdb-status">Lade Spielerdatenbank…</span>
         </div>
         <div class="db-status-right" id="liveAdminControls">
@@ -1150,9 +1150,11 @@ function renderStatusBar() {
     if (isAdmin) {
         modeBadge.textContent = 'ADMIN-MODUS';
         modeBadge.className = 'db-badge db-badge-admin';
+       syncBadge.style.display = 'inline-block';
     } else {
         modeBadge.textContent = 'ANSICHTSMODUS';
         modeBadge.className = 'db-badge db-badge-view';
+       syncBadge.style.display = 'none';
     }
     adminToggleBtn.textContent = isAdmin ? '🔓 Abmelden' : '🔒 Admin-Modus';
     editTeamsBtn.style.display = isAdmin ? 'inline-block' : 'none';
