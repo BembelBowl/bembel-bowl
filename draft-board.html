@@ -842,8 +842,8 @@ const firebaseConfig = {
   appId: "1:836256439134:web:c39ef91c216da594020dcf"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase //
+// const app = initializeApp(firebaseConfig); //
 
    
 firebase.initializeApp(firebaseConfig);
@@ -862,7 +862,15 @@ const ROUND_COUNT = 15;
    das Jahr ergänzen. Struktur identisch zum offiziellen Draft-Excel
    (Sheet "Draft Board", 20 Team-Spalten, 15 Runden). */
 const ARCHIVE_YEARS = [
-    // 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017
+   2025, 
+   2024, 
+   2023,
+   2022,
+   2021,
+   2020,
+   2019,
+   2018,
+   2017
 ];
 
 function archiveFilePath(year) {
@@ -1060,7 +1068,7 @@ function setTeamLogo(imgEl, team) {
     if (!team) { imgEl.style.visibility = 'hidden'; return; }
     imgEl.style.visibility = 'visible';
     const baseNoExt = team.logo.replace(/\.[a-zA-Z0-9]+$/, '');
-    const attempts = [team.logo, baseNoExt + '.jpeg', baseNoExt + '.png', baseNoExt + '.webp'];
+    const attempts = [team.logo, baseNoExt + '.jpg', baseNoExt + '.png', baseNoExt + '.webp'];
     let i = 0;
     function tryNext() {
         if (i >= attempts.length) { imgEl.onerror = null; imgEl.src = initialsAvatar(team.name); return; }
@@ -1546,7 +1554,11 @@ function renderArchiveBoard(year, data) {
         const th = document.createElement('th');
         th.className = 'db-col-head';
         const img = document.createElement('img');
-        setTeamLogo(img, { name: name, logo: 'images/' + encodeURIComponent(name) + '.jpg' });
+        //setTeamLogo(img, { name: name, logo: 'images/' + encodeURIComponent(name) + '.jpg' });  inaktive gesetzt als Fehler von Copilot ersetzt, ersetzt durch setTeam.....jpg //
+       const teamObj = TEAMS.find(t => t.name === name);
+      if(teamObj){
+      setTeamLogo(img, teamObj);
+      }
         const nameDiv = document.createElement('div');
         nameDiv.className = 'db-col-head-name';
         nameDiv.textContent = name;
