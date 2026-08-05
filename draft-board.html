@@ -1560,6 +1560,7 @@ archiveFullscreenBtn.addEventListener('click', () => {
    ========================================================== */
 function parseDraftBoardWorkbook(arrayBuffer) {
     const wb = XLSX.read(arrayBuffer, { type: 'array' });
+    console.log('Gefundene Excel-Sheets:', wb.SheetNames);
 
     // Robustes Sheet-Matching: exakter Name "Draft Board" bevorzugt, sonst
     // jedes Sheet, dessen Name sowohl "draft" als auch "board" enthält
@@ -1774,10 +1775,48 @@ seasonSelect.addEventListener('change', async () => {
                 };
             } else {
                 // Datei-basiertes Archiv (files/bembelbowl_draft_<jahr>.xlsx im Repo)
-                const res = await fetch(archiveFilePath(year));
-                if (!res.ok) throw new Error('Datei nicht gefunden (HTTP ' + res.status + ')');
-                const buf = await res.arrayBuffer();
-                archiveCache[year] = parseDraftBoardWorkbook(buf);
+const filePath = archiveFilePath(year);
+
+console.log(
+    'Lade Draft-Archiv:',
+    year,
+    new URL(filePath, window.location.href).href
+);
+
+const res = await fetch(filePath, {
+    cache: 'no-store'
+});
+
+if (!res.ok) {
+    throw new Error(
+        'Datei nicht gefunden: ' +
+        new URL(filePath, window.location.href).href +
+        ' | HTTP ' + res.status
+    );
+}
+
+const contentType = res.headers.get('content-type') || '';
+
+console.log(
+    'Archiv-Datei gefunden:',
+    filePath,
+    '| Content-Type:',
+    contentType,
+    '| Größe:',
+    res.headers.get('content-length') || 'unbekannt'
+);
+
+const buf = await res.arrayBuffer();
+
+if (buf.byteLength < 1000) {
+    throw new Error(
+        'Die geladene Datei ist ungewöhnlich klein (' +
+        buf.byteLength +
+        ' Byte). Möglicherweise wurde statt der Excel-Datei eine Fehlerseite geladen.'
+    );
+}
+
+archiveCache[year] = parseDraftBoardWorkbook(buf);
             }
         }
         renderArchiveBoard(year, archiveCache[year]);
