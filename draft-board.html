@@ -702,6 +702,7 @@ table.db-board {
         <div class="db-status-right" id="liveAdminControls">
             <button id="adminToggleBtn" class="db-btn db-btn-secondary">🔒 Admin-Modus</button>
             <button id="editTeamsBtn" class="db-btn db-btn-secondary" style="display:none;">👥 Team-Reihenfolge</button>
+            <button id="archiveDraftBtn" class="db-btn db-btn-dark" style="display:none;">📦 Draft abschließen &amp; archivieren</button>
         </div>
     </div>
 
@@ -850,6 +851,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 const boardDocRef = db.collection('draftboard').doc('current');
+const archiveCollectionRef = db.collection('draftboard_archive');
 
 /* ==========================================================
    KONFIGURATION
@@ -863,14 +865,14 @@ const ROUND_COUNT = 15;
    (Sheet "Draft Board", 20 Team-Spalten, 15 Runden). */
 const ARCHIVE_YEARS = [
    2025, 
-   2024,
+   2024, 
    2023,
    2022,
    2021,
    2020,
    2019,
    2018,
-   2017,
+   2017
 ];
 
 function archiveFilePath(year) {
@@ -900,6 +902,32 @@ const TEAMS = [
     { name: "Wiesbaden Phantoms",    logo: "images/wiesbaden_phantoms.jpg" },
     { name: "Zeugen Ray Lewis",      logo: "images/zeugen_ray_lewis.jpg" }
 ];
+
+/* Logos für ehemalige / umbenannte / ausgeschiedene Teams – NUR für die
+   Anzeige alter Draftboards im Archiv. Diese Teams tauchen bewusst NICHT
+   in der TEAMS-Liste oben auf, damit sie nicht in der Team-Reihenfolge-
+   Auswahl für den aktuellen Draft erscheinen. Namen müssen exakt so
+   geschrieben sein wie in den jeweiligen Draft-Excel-Dateien. */
+const FORMER_TEAM_LOGOS = {
+    "Johnny Manziel and Friends": "images/johnny_manziel.jpg",
+    "Team Hyde":                  "images/team_hyde.jpg",
+    "Bernem Bembels":             "images/bernem_bembels.jpg",
+    "Lynchmob":                   "images/lynchmob.jpg",
+    "12th Man Arym":              "images/12th_man_arym.jpg",
+    "Bojangles Pornstars":        "images/bojangles_pornstars.jpg",
+    "Frankfurt Packers":          "images/frankfurt_packers.jpg",
+    "Rookie One":                 "images/rookie_one.jpg"
+    // weitere ehemalige/umbenannte Teams hier ergänzen: "Name im Excel": "images/dateiname.jpg"
+};
+
+// Ermittelt den Logo-Pfad für einen Teamnamen aus einem Archiv-Board:
+// zuerst aktuelle Teams, dann ehemalige/umbenannte Teams, sonst generischer Rateversuch.
+function resolveArchiveLogo(name) {
+    const active = TEAMS.find(t => t.name === name);
+    if (active) return active.logo;
+    if (FORMER_TEAM_LOGOS[name]) return FORMER_TEAM_LOGOS[name];
+    return 'images/' + encodeURIComponent(name) + '.jpg';
+}
 
 /* Notfall-Liste, falls weder ESPN- noch Sleeper-API erreichbar sind (z.B. CORS) */
 const FALLBACK_PLAYERS = [
@@ -935,6 +963,7 @@ const syncBadge = document.getElementById('syncBadge');
 const playerDbStatus = document.getElementById('playerDbStatus');
 const adminToggleBtn = document.getElementById('adminToggleBtn');
 const editTeamsBtn = document.getElementById('editTeamsBtn');
+const archiveDraftBtn = document.getElementById('archiveDraftBtn');
 const teamsPanel = document.getElementById('teamsPanel');
 const teamsGrid = document.getElementById('teamsGrid');
 const importOrderBtn = document.getElementById('importOrderBtn');
@@ -1086,6 +1115,15 @@ function pickNumber(round, position) {
     return (round - 1) * TEAM_COUNT + (TEAM_COUNT - position + 1);
 }
 
+// Gleiche Snake-Logik, aber parametrisiert für Archiv-Boards mit abweichender
+// Teamzahl (z.B. 2017: 16 statt 20 Teams).
+function pickNumberFor(round, position, teamCount) {
+    if (round % 2 === 1) {
+        return (round - 1) * teamCount + position;
+    }
+    return (round - 1) * teamCount + (teamCount - position + 1);
+}
+
 function pickKey(round, position) {
     return round + '-' + position;
 }
@@ -1136,11 +1174,25 @@ function saveTeamsToCloud() {
     }, { merge: true }).catch(err => alert('Speichern fehlgeschlagen: ' + err.message));
 }
 
-function savePicksToCloud() {
-    boardDocRef.set({
-        picks: picks,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true }).catch(err => alert('Speichern fehlgeschlagen: ' + err.message));
+// Setzt genau EINEN Pick (Firestore-merge auf Feld-Ebene reicht hier aus).
+function savePickToCloud(key, pickData) {
+    const update = {};
+    update['picks.' + key] = pickData;
+    update.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+    boardDocRef.set({}, { merge: true })
+        .then(() => boardDocRef.update(update))
+        .catch(err => alert('Speichern fehlgeschlagen: ' + err.message));
+}
+
+// Löscht genau EINEN Pick. Wichtig: FieldValue.delete() statt einfach das
+// picks-Objekt ohne den Key neu zu speichern – merge:true würde einen
+// fehlenden Key sonst NICHT entfernen, der Pick käme über den Realtime-
+// Listener sofort zurück (das war der Bug beim "Pick löschen"-Button).
+function deletePickFromCloud(key) {
+    const update = {};
+    update['picks.' + key] = firebase.firestore.FieldValue.delete();
+    update.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+    boardDocRef.update(update).catch(err => alert('Löschen fehlgeschlagen: ' + err.message));
 }
 
 /* ==========================================================
@@ -1158,6 +1210,7 @@ function renderStatusBar() {
     }
     adminToggleBtn.textContent = isAdmin ? '🔓 Abmelden' : '🔒 Admin-Modus';
     editTeamsBtn.style.display = isAdmin ? 'inline-block' : 'none';
+    archiveDraftBtn.style.display = isAdmin ? 'inline-block' : 'none';
 }
 
 /* ==========================================================
@@ -1397,12 +1450,13 @@ playerSearch.addEventListener('input', () => {
                 duplicateWarning.classList.add('show');
                 return;
             }
-            picks[key] = {
+            const newPick = {
                 name: p.name,
                 position: p.position,
                 nflTeam: p.nflTeam
             };
-            savePicksToCloud();
+            picks[key] = newPick;
+            savePickToCloud(key, newPick);
             closeModal();
         });
         playerResults.appendChild(row);
@@ -1411,8 +1465,9 @@ playerSearch.addEventListener('input', () => {
 
 clearPickBtn.addEventListener('click', () => {
     if (!currentEdit) return;
-    delete picks[pickKey(currentEdit.round, currentEdit.position)];
-    savePicksToCloud();
+    const key = pickKey(currentEdit.round, currentEdit.position);
+    delete picks[key];
+    deletePickFromCloud(key);
     closeModal();
 });
 
@@ -1499,8 +1554,21 @@ archiveFullscreenBtn.addEventListener('click', () => {
    ========================================================== */
 function parseDraftBoardWorkbook(arrayBuffer) {
     const wb = XLSX.read(arrayBuffer, { type: 'array' });
+
+    // Robustes Sheet-Matching: exakter Name "Draft Board" bevorzugt, sonst
+    // jedes Sheet, dessen Name sowohl "draft" als auch "board" enthält
+    // (fängt z.B. "DraftBoard", "Draft-Board", Tippfehler/Leerzeichen ab –
+    // das war vermutlich die Ursache, warum manche Archiv-Dateien trotz
+    // "identischem" Template nicht geladen wurden).
     let sheetName = wb.SheetNames.find(n => n.trim().toLowerCase() === 'draft board');
+    if (!sheetName) {
+        sheetName = wb.SheetNames.find(n => {
+            const norm = n.trim().toLowerCase();
+            return norm.includes('draft') && norm.includes('board');
+        });
+    }
     if (!sheetName) sheetName = wb.SheetNames[0];
+
     const sheet = wb.Sheets[sheetName];
     const grid = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, raw: true });
 
@@ -1511,17 +1579,38 @@ function parseDraftBoardWorkbook(arrayBuffer) {
         return (v === undefined || v === null || v === '') ? null : v;
     }
 
+    // Team-Anzahl erkennen: Team-Header stehen ab Spalte D, alle 5 Spalten,
+    // solange bis keine weitere Team-Bezeichnung mehr folgt (z.B. 16 statt
+    // 20 Teams beim allerersten Draft 2017).
+    let teamCount = 0;
+    for (let i = 0; i < 24; i++) { // großzügige Obergrenze, falls die Liga mal größer wird
+        const col = 4 + 5 * i;
+        if (cell(2, col)) teamCount = i + 1;
+        else break;
+    }
+    if (teamCount === 0) teamCount = TEAM_COUNT;
+
+    // Rundenzahl erkennen: "N. Runde"-Label steht in Spalte B, alle 3 Zeilen ab Zeile 4.
+    let roundCount = 0;
+    for (let r = 0; r < 30; r++) { // großzügige Obergrenze
+        const nameRow = 4 + 3 * r;
+        if (cell(nameRow, 2)) roundCount = r + 1;
+        else break;
+    }
+    if (roundCount === 0) roundCount = ROUND_COUNT;
+
     const teamNames = [];
-    for (let i = 0; i < TEAM_COUNT; i++) {
+    for (let i = 0; i < teamCount; i++) {
         const col = 4 + 5 * i;
         teamNames.push(cell(2, col) ? String(cell(2, col)) : ('Team ' + (i + 1)));
     }
 
     const picksParsed = {};
-    for (let r = 0; r < ROUND_COUNT; r++) {
+    let pickCount = 0;
+    for (let r = 0; r < roundCount; r++) {
         const nameRow = 4 + 3 * r;
         const detailRow = nameRow + 1;
-        for (let i = 0; i < TEAM_COUNT; i++) {
+        for (let i = 0; i < teamCount; i++) {
             const col = 4 + 5 * i;
             const playerName = cell(nameRow, col);
             if (!playerName) continue;
@@ -1532,17 +1621,25 @@ function parseDraftBoardWorkbook(arrayBuffer) {
                 position: position ? String(position).toUpperCase().trim() : '',
                 nflTeam: nflTeam ? String(nflTeam) : ''
             };
+            pickCount++;
         }
     }
 
-    return { teamNames, picks: picksParsed };
+    if (pickCount === 0) {
+        throw new Error('Im Sheet "' + sheetName + '" wurden keine Picks gefunden. Bitte Struktur/Sheetname der Datei prüfen (gefundene Sheets: ' + wb.SheetNames.join(', ') + ').');
+    }
+
+    return { teamNames, picks: picksParsed, teamCount, roundCount };
 }
 
 /* ==========================================================
    RENDER: ARCHIVIERTES (READ-ONLY) BOARD
    ========================================================== */
 function renderArchiveBoard(year, data) {
-    archiveBoardTitle.textContent = 'Draftboard ' + year;
+    const teamCount = data.teamCount || data.teamNames.length || TEAM_COUNT;
+    const roundCount = data.roundCount || ROUND_COUNT;
+
+    archiveBoardTitle.textContent = 'Draftboard ' + year + (teamCount !== TEAM_COUNT ? ' (' + teamCount + ' Teams)' : '');
     archiveBoardTable.innerHTML = '';
 
     const thead = document.createElement('thead');
@@ -1556,11 +1653,7 @@ function renderArchiveBoard(year, data) {
         const th = document.createElement('th');
         th.className = 'db-col-head';
         const img = document.createElement('img');
-        //setTeamLogo(img, { name: name, logo: 'images/' + encodeURIComponent(name) + '.jpg' });  inaktive gesetzt als Fehler von Copilot ersetzt, ersetzt durch setTeam.....jpg //
-       const teamObj = TEAMS.find(t => t.name === name);
-      if(teamObj){
-      setTeamLogo(img, teamObj);
-      }
+        setTeamLogo(img, { name: name, logo: resolveArchiveLogo(name) });
         const nameDiv = document.createElement('div');
         nameDiv.className = 'db-col-head-name';
         nameDiv.textContent = name;
@@ -1572,21 +1665,21 @@ function renderArchiveBoard(year, data) {
     archiveBoardTable.appendChild(thead);
 
     const tbody = document.createElement('tbody');
-    for (let round = 1; round <= ROUND_COUNT; round++) {
+    for (let round = 1; round <= roundCount; round++) {
         const tr = document.createElement('tr');
         const roundTh = document.createElement('th');
         roundTh.className = 'db-round-head';
         roundTh.textContent = 'R' + round;
         tr.appendChild(roundTh);
 
-        for (let pos = 1; pos <= TEAM_COUNT; pos++) {
+        for (let pos = 1; pos <= teamCount; pos++) {
             const td = document.createElement('td');
             const pick = data.picks[pickKey(round, pos)];
             td.className = 'db-cell' + (pick ? ' filled' : '');
 
             const numSpan = document.createElement('span');
             numSpan.className = 'db-pick-num';
-            numSpan.textContent = '#' + pickNumber(round, pos);
+            numSpan.textContent = '#' + pickNumberFor(round, pos, teamCount);
             td.appendChild(numSpan);
 
             if (pick) {
@@ -1617,6 +1710,8 @@ function renderArchiveBoard(year, data) {
 /* ==========================================================
    SAISON-AUSWAHL: aktuelles Live-Board vs. archivierte Saisons
    ========================================================== */
+let firestoreArchiveYears = []; // aus draftboard_archive geladene Jahre (z.B. 2026 und später)
+
 function buildSeasonSelect() {
     seasonSelect.innerHTML = '';
     const currentOpt = document.createElement('option');
@@ -1624,13 +1719,24 @@ function buildSeasonSelect() {
     currentOpt.textContent = 'Aktuelle Saison (Live-Board)';
     seasonSelect.appendChild(currentOpt);
 
-    ARCHIVE_YEARS.slice().sort((a, b) => b - a).forEach(year => {
+    const allYears = new Set([...ARCHIVE_YEARS, ...firestoreArchiveYears]);
+    [...allYears].sort((a, b) => b - a).forEach(year => {
         const opt = document.createElement('option');
         opt.value = String(year);
         opt.textContent = 'Saison ' + year + ' (Archiv)';
         seasonSelect.appendChild(opt);
     });
 }
+
+// Lädt die Liste der in Firebase archivierten Saisons (z.B. nach "Draft abschließen")
+archiveCollectionRef.onSnapshot((snap) => {
+    firestoreArchiveYears = snap.docs.map(d => parseInt(d.id, 10)).filter(y => !isNaN(y));
+    const previousValue = seasonSelect.value;
+    buildSeasonSelect();
+    if ([...seasonSelect.options].some(o => o.value === previousValue)) {
+        seasonSelect.value = previousValue;
+    }
+});
 
 seasonSelect.addEventListener('change', async () => {
     if (seasonSelect.value === 'current') {
@@ -1649,10 +1755,24 @@ seasonSelect.addEventListener('change', async () => {
 
     try {
         if (!archiveCache[year]) {
-            const res = await fetch(archiveFilePath(year));
-            if (!res.ok) throw new Error('Datei nicht gefunden (HTTP ' + res.status + ')');
-            const buf = await res.arrayBuffer();
-            archiveCache[year] = parseDraftBoardWorkbook(buf);
+            if (firestoreArchiveYears.includes(year)) {
+                // In Firebase archivierter, über "Draft abschließen" gespeicherter Draft
+                const doc = await archiveCollectionRef.doc(String(year)).get();
+                if (!doc.exists) throw new Error('Archiv-Dokument nicht gefunden');
+                const data = doc.data();
+                archiveCache[year] = {
+                    teamNames: data.teamNames || [],
+                    picks: data.picks || {},
+                    teamCount: (data.teamNames || []).length || TEAM_COUNT,
+                    roundCount: data.roundCount || ROUND_COUNT
+                };
+            } else {
+                // Datei-basiertes Archiv (files/bembelbowl_draft_<jahr>.xlsx im Repo)
+                const res = await fetch(archiveFilePath(year));
+                if (!res.ok) throw new Error('Datei nicht gefunden (HTTP ' + res.status + ')');
+                const buf = await res.arrayBuffer();
+                archiveCache[year] = parseDraftBoardWorkbook(buf);
+            }
         }
         renderArchiveBoard(year, archiveCache[year]);
         archiveBoardWrap.style.display = 'block';
@@ -1661,8 +1781,54 @@ seasonSelect.addEventListener('change', async () => {
     } catch (e) {
         console.error(e);
         archiveEmptyTitle.textContent = 'Draftboard ' + year + ' nicht verfügbar';
-        archiveEmptyText.textContent = 'Die Datei "' + archiveFilePath(year) + '" konnte nicht geladen werden. Bitte prüfen, ob sie im Repo hochgeladen wurde.';
+        archiveEmptyText.textContent = firestoreArchiveYears.includes(year)
+            ? 'Das archivierte Draftboard konnte nicht geladen werden: ' + e.message
+            : 'Die Datei "' + archiveFilePath(year) + '" konnte nicht geladen werden. Häufigste Ursachen: Dateiname/Groß-Kleinschreibung stimmt nicht exakt überein, oder das Sheet heißt nicht "Draft Board". (' + e.message + ')';
         archiveEmptyMsg.style.display = 'block';
+    }
+});
+
+/* ==========================================================
+   DRAFT ABSCHLIESSEN & ARCHIVIEREN (nur Admin)
+   Speichert das aktuelle Live-Board dauerhaft unter dem
+   angegebenen Jahr in Firebase und setzt das Live-Board danach
+   auf ein neues, leeres Board zurück.
+   ========================================================== */
+archiveDraftBtn.addEventListener('click', async () => {
+    const suggestedYear = new Date().getFullYear();
+    const input = prompt('Aktuellen Draft dauerhaft archivieren – als welches Jahr speichern?', String(suggestedYear));
+    if (input === null) return;
+    const year = parseInt(input.trim(), 10);
+    if (!year || year < 2000 || year > 2100) {
+        alert('Bitte ein gültiges Jahr eingeben.');
+        return;
+    }
+    const pickCount = Object.keys(picks).length;
+    if (!confirm(
+        'Saison ' + year + ' wird dauerhaft archiviert (' + pickCount + ' Picks) und ' +
+        'anschließend ein neues, leeres Draftboard angelegt. Diese Aktion kann nicht rückgängig gemacht werden. Fortfahren?'
+    )) return;
+
+    try {
+        await archiveCollectionRef.doc(String(year)).set({
+            teamNames: boardTeams.map(t => t ? t.name : null),
+            picks: picks,
+            teamCount: TEAM_COUNT,
+            roundCount: ROUND_COUNT,
+            archivedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Live-Board vollständig zurücksetzen (bewusst ohne merge:true, damit
+        // wirklich alle alten Picks/Team-Zuordnungen verschwinden)
+        await boardDocRef.set({
+            teams: new Array(TEAM_COUNT).fill(null),
+            picks: {},
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        alert('Saison ' + year + ' wurde archiviert. Das Live-Board ist jetzt leer für den nächsten Draft.');
+    } catch (e) {
+        alert('Archivieren fehlgeschlagen: ' + e.message);
     }
 });
 
