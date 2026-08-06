@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Division-Auslosung | Bembel Bowl</title>
+
+<link rel="icon" type="image/jpeg" href="images/favicon.jpg">
+<link rel="stylesheet" href="css/style.css">
+
+<style>
+/* =========================
+   DIVISION ORDER GENERATOR (DIVOG) STYLES
+   ========================= */
+
+header {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 100%;
+}
+
+.dog-header {
+    text-align: center;
+    margin: 40px auto 20px;
+    padding: 0 25px;
+}
+
+.dog-header h2 {
+    color: #d18b2f;
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+}
+
+.dog-header p {
+    color: #666;
+    font-size: 1.05rem;
+}
+
+.dog-container {
+    max-width: 1300px;
+    margin: 0 auto 60px;
+    padding: 0 25px;
+}
+
+/* --- CONTROL BAR --- */
+
+.dog-controlbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 18px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+}
+
+.dog-control-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.dog-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #1f1f1f;
+}
+
+.dog-select {
+    padding: 7px 10px;
+    border-radius: 6px;
+    border: 1px solid #e0ded6;
+    font-family: inherit;
+    font-size: 0.85rem;
+    background: #ffffff;
+}
+
+.dog-badge {
+    display: inline-block;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+}
+
+.dog-badge-view {
+    background: #e0ded6;
+    color: #444;
+}
+
+.dog-badge-admin {
+    background: #d18b2f;
+    color: #ffffff;
+}
+
+.dog-control-right {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.dog-btn {
+    padding: 12px 22px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    white-space: nowrap;
+}
+
+.dog-btn-primary {
+    background-color: #d18b2f;
+    color: #ffffff;
+}
+
+.dog-btn-primary:hover:not(:disabled) {
+    background-color: #b8781f;
+}
+
+.dog-btn-secondary {
+    background-color: #ffffff;
+    color: #1f1f1f;
+    border: 2px solid #1f1f1f;
+}
+
+.dog-btn-secondary:hover {
+    background-color: #1f1f1f;
+    color: #ffffff;
+}
+
+.dog-btn-dark {
+    background-color: #1f1f1f;
+    color: #ffffff;
+}
+
+.dog-btn-dark:hover {
+    background-color: #333;
+}
+
+.dog-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* --- STATIC DIVISIONS DISPLAY --- */
+
+.dog-loading, .dog-error, .dog-empty {
+    text-align: center;
+    color: #888;
+    padding: 30px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+}
+
+.dog-error {
+    color: #c92a2a;
+    background: #fff5f5;
+    border: 1px solid #ffc9c9;
+}
+
+.dog-division-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 30px;
+}
+
+.dog-division-col {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+}
+
+.dog-division-title {
+    text-align: center;
+    font-weight: 700;
+    color: #ffffff;
+    background-color: #1f1f1f;
+    border-radius: 8px;
+    padding: 8px;
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+}
+
+.dog-division-title .div-letter {
+    color: #d18b2f;
+}
+
+.dog-division-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+    background-color: #f8f6f0;
+    border: 2px dashed #e0ded6;
+    border-radius: 8px;
+    padding: 12px 8px;
+    margin-bottom: 10px;
+    min-height: 92px;
+    justify-content: center;
+    transition: all 0.4s ease;
+}
+
+.dog-division-slot.filled {
+    border: 2px solid #d18b2f;
+    background-color: #fff8ec;
+}
+
+@keyframes dogSlotIn {
+    from { transform: scale(0.85); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.dog-division-slot.animate-in {
+    animation: dogSlotIn 0.5s ease;
+}
+
+.dog-slot-logo {
+    width: 44px;
+    height: 44px;
+    border-radius: 6px;
+    object-fit: cover;
+    background-color: #1f1f1f;
+    display: none;
+}
+
+.dog-division-slot.filled .dog-slot-logo {
+    display: block;
+}
+
+.dog-slot-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #bbb;
+    line-height: 1.2;
+}
+
+.dog-division-slot.filled .dog-slot-name {
+    color: #1f1f1f;
+}
+
+.dog-slot-placeholder {
+    font-size: 1.4rem;
+    color: #ccc;
+}
+
+.dog-division-slot.filled .dog-slot-placeholder {
+    display: none;
+}
+
+/* --- SPIELPLAN --- */
+
+.dog-schedule-title {
+    color: #1f1f1f;
+    border-bottom: 3px solid #d18b2f;
+    padding-bottom: 8px;
+    margin: 10px 0 20px;
+    font-size: 1.4rem;
+}
+
+.dog-schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.dog-week-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 16px 18px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+}
+
+.dog-week-title {
+    font-weight: 700;
+    color: #d18b2f;
+    font-size: 0.95rem;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.dog-game-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px dashed #e0ded6;
+    font-size: 0.85rem;
+    color: #1f1f1f;
+}
+
+.dog-game-row:last-child {
+    border-bottom: none;
+}
+
+.dog-game-team {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.dog-game-team img {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.dog-game-team span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dog-game-team.away {
+    flex-direction: row-reverse;
+    text-align: right;
+}
+
+.dog-vs {
+    flex: 0 0 auto;
+    color: #ccc;
+    font-weight: 700;
+    font-size: 0.75rem;
+}
+
+/* --- REVEAL VIEW (nur Admin, während neuer Auslosung) --- */
+
+.dog-draft-container {
+    max-width: 1300px;
+    margin: 0 auto 30px;
+    display: grid;
+    grid-template-columns: 1fr 1.3fr;
+    gap: 30px;
+    align-items: start;
+}
+
+.dog-draft-left h3,
+.dog-draft-right h3 {
+    color: #1f1f1f;
+    border-bottom: 3px solid #d18b2f;
+    padding-bottom: 8px;
+    margin-bottom: 20px;
+    font-size: 1.4rem;
+}
+
+.dog-reveal-stage {
+    background-color: #1f1f1f;
+    border: 3px solid #d18b2f;
+    border-radius: 12px;
+    min-height: 420px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+}
+
+.dog-reveal-place {
+    color: #d18b2f;
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 18px;
+    text-transform: uppercase;
+    text-align: center;
+}
+
+#revealLogo {
+    width: 190px;
+    height: 190px;
+    object-fit: cover;
+    border-radius: 14px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    margin-bottom: 22px;
+    opacity: 0;
+    transform: scale(0.85);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+#revealLogo.show {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.dog-reveal-name {
+    color: #ffffff;
+    font-size: 1.9rem;
+    font-weight: 700;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+.dog-reveal-name.show {
+    opacity: 1;
+}
+
+.dog-progress-bar {
+    width: 100%;
+    height: 6px;
+    background-color: #e0ded6;
+    border-radius: 4px;
+    margin-top: 25px;
+    overflow: hidden;
+}
+
+.dog-progress-fill {
+    height: 100%;
+    width: 0%;
+    background-color: #d18b2f;
+    border-radius: 4px;
+}
+
+.dog-progress-fill.animate {
+    width: 100%;
+    transition: width 5s linear;
+}
+
+.dog-draft-complete {
+    text-align: center;
+    color: #d18b2f;
+    font-weight: 700;
+    font-size: 1rem;
+    margin-top: 16px;
+    display: none;
+}
+
+.dog-draft-complete.show {
+    display: block;
+}
+
+.dog-restart-wrap {
+    text-align: center;
+    margin-top: 25px;
+}
+
+@media (max-width: 1024px) {
+    .dog-draft-container {
+        grid-template-columns: 1fr;
+    }
+    .dog-division-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .dog-schedule-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 900px) {
+    .dog-controlbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .dog-reveal-stage {
+        min-height: 320px;
+    }
+}
+
+@media (max-width: 600px) {
+    .dog-division-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+</head>
+<body>
+
+<header>
+    <nav>
+        <a href="index.html">Home</a>
+        <a href="rules.html">Regeln</a>
+        <a href="teams.html">Teams</a>
+        <a href="draft-center.html" class="active">Draft Center</a>
+        <a href="standings.html">Tabellen</a>
+        <a href="reports.html">Spielberichte</a>
+        <a href="hall-of-fame.html">Hall of Fame</a>
+        <a href="archive.html">Archiv</a>
+        <a href="https://fantasy.espn.com/football/league?leagueId=843833275" class="espn-btn" target="_blank">ESPN Fantasy Login</a>
+    </nav>
+</header>
+
+<section class="dog-header">
+    <h2>Division-Auslosung &amp; Spielplan</h2>
+    <p>Verteilung der 20 Teams auf 4 Divisions &ndash; inkl. automatisch generiertem 14-Spieltage-Spielplan.</p>
+</section>
+
+<section class="dog-container">
+
+    <!-- CONTROL BAR -->
+    <div class="dog-controlbar">
+        <div class="dog-control-left">
+            <label for="seasonSelect" class="dog-label">📅 Saison:</label>
+            <select id="seasonSelect" class="dog-select"></select>
+            <span id="modeBadge" class="dog-badge dog-badge-view">ANSICHTSMODUS</span>
+        </div>
+        <div class="dog-control-right" id="adminControls">
+            <button id="adminToggleBtn" class="dog-btn dog-btn-secondary">🔒 Admin-Modus</button>
+            <button id="newDrawBtn" class="dog-btn dog-btn-primary" style="display:none;">🎲 Neue Auslosung starten</button>
+            <button id="archiveDrawBtn" class="dog-btn dog-btn-dark" style="display:none;">📦 Auslosung archivieren &amp; neu starten</button>
+        </div>
+    </div>
+
+    <!-- STATISCHE ANSICHT (aktuelle oder archivierte Saison) -->
+    <div id="staticView">
+        <div id="statusArea"></div>
+        <div id="staticDivisionGrid" class="dog-division-grid"></div>
+        <div id="scheduleSection" style="display:none;">
+            <h3 class="dog-schedule-title">Spielplan</h3>
+            <div id="scheduleGrid" class="dog-schedule-grid"></div>
+        </div>
+    </div>
+
+    <!-- REVEAL VIEW (nur beim Durchführen einer neuen Auslosung, Admin) -->
+    <section id="draftView" class="dog-draft-container" style="display:none;">
+        <div class="dog-draft-left">
+            <h3>Auslosung läuft…</h3>
+            <div class="dog-reveal-stage">
+                <div id="revealPlace" class="dog-reveal-place">&nbsp;</div>
+                <img id="revealLogo" src="" alt="">
+                <div id="revealName" class="dog-reveal-name">&nbsp;</div>
+            </div>
+            <div class="dog-progress-bar"><div id="progressFill" class="dog-progress-fill"></div></div>
+            <div class="dog-restart-wrap">
+                <button id="nextRevealBtn" class="dog-btn dog-btn-primary">Nächstes Team aufdecken</button>
+            </div>
+            <p id="draftComplete" class="dog-draft-complete">✅ Divisions-Auslosung abgeschlossen &amp; gespeichert!</p>
+            <div class="dog-restart-wrap">
+                <button id="restartBtn" class="dog-btn dog-btn-secondary" style="display:none;">↩︎ Zurück zur Übersicht</button>
+            </div>
+        </div>
+        <div class="dog-draft-right">
+            <h3>Divisions</h3>
+            <div class="dog-division-grid" id="divisionGrid"></div>
+        </div>
+    </section>
+
+</section>
+
+<footer>
+    <p>© 2026 Bembel Bowl Fantasy Football League</p>
+</footer>
+
+<!-- ADMIN-LOGIN MODAL -->
+<div id="authModalOverlay" style="position:fixed; inset:0; background:rgba(0,0,0,0.55); display:none; align-items:center; justify-content:center; z-index:2000; padding:20px;">
+    <div style="background:#fff; border-radius:12px; padding:26px; width:100%; max-width:400px; position:relative; box-shadow:0 10px 40px rgba(0,0,0,0.3);">
+        <button id="authModalCloseBtn" style="position:absolute; top:14px; right:14px; background:none; border:none; font-size:1.2rem; cursor:pointer; color:#888;">✕</button>
+        <h4 style="color:#1f1f1f; margin-bottom:4px;">Admin-Anmeldung</h4>
+        <p style="color:#888; font-size:0.85rem; margin-bottom:16px;">Nur hinterlegte Admin-Konten können eine neue Auslosung starten oder archivieren.</p>
+        <div id="authError" style="background:#fff5f5; border:1px solid #ffc9c9; color:#c92a2a; border-radius:8px; padding:10px 12px; font-size:0.85rem; margin-bottom:12px; display:none;"></div>
+        <label style="font-size:0.8rem; font-weight:700; color:#555; display:block; margin-bottom:4px;">E-Mail</label>
+        <input type="email" id="authEmail" autocomplete="username" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid #e0ded6; font-size:0.95rem; margin-bottom:12px;">
+        <label style="font-size:0.8rem; font-weight:700; color:#555; display:block; margin-bottom:4px;">Passwort</label>
+        <input type="password" id="authPassword" autocomplete="current-password" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid #e0ded6; font-size:0.95rem; margin-bottom:12px;">
+        <button id="authSubmitBtn" class="dog-btn dog-btn-primary" style="width:100%;">Anmelden</button>
+    </div>
+</div>
+
+<script>
+/* ==========================================================
+   FIREBASE-KONFIGURATION
+   Gleiche Werte wie in draft-board.html / reports.html eintragen
+   (dasselbe Firebase-Projekt).
+   ========================================================== */
+const firebaseConfig = {
+    apiKey: "HIER_DEINEN_API_KEY_EINTRAGEN",
+    authDomain: "HIER_EINTRAGEN.firebaseapp.com",
+    projectId: "HIER_EINTRAGEN",
+    storageBucket: "HIER_EINTRAGEN.appspot.com",
+    messagingSenderId: "HIER_EINTRAGEN",
+    appId: "HIER_EINTRAGEN"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+const currentDocRef = db.collection('divisionOrder').doc('current');
+const archiveCollectionRef = db.collection('divisionOrder_archive');
+
+/* ==========================================================
+   TEAMS - fest hinterlegt, identisch zu den anderen Tools.
+   ========================================================== */
+const TEAMS = [
+    { name: "Amity Island Sharks",   logo: "images/amity_island_sharks.jpg" },
+    { name: "Beard",                 logo: "images/beard.jpg" },
+    { name: "Bishop Sycamore",       logo: "images/bishop_sycamore.jpg" },
+    { name: "Bojangles Pornstars",   logo: "images/bojangles_pstars.jpg" },
+    { name: "Brady Gaga",            logo: "images/brady_gaga.jpg" },
+    { name: "Broken Bembels ULB",    logo: "images/broken_bembels.jpg" },
+    { name: "E-Town Elephants",      logo: "images/etown_elephants.jpg" },
+    { name: "Fighting Farmers",      logo: "images/fighting_farmers.jpg" },
+    { name: "Foxboro Forever",       logo: "images/foxboro_forever.jpg" },
+    { name: "Frankfurt Bakers",      logo: "images/frankfurt_bakers.jpg" },
+    { name: "K-Town Devils",         logo: "images/ktown_devils.jpg" },
+    { name: "Packers Ultras",        logo: "images/packers_ultras.jpg" },
+    { name: "Pep's Band",            logo: "images/peps_band.jpg" },
+    { name: "Randy Moss Lob Jünger", logo: "images/randy_moss.jpg" },
+    { name: "Steelersnation 7",      logo: "images/steelersnation.jpg" },
+    { name: "The 49vengers",         logo: "images/the49vengers.jpg" },
+    { name: "the Boys",              logo: "images/the_boys.jpg" },
+    { name: "Thunder Ducks",         logo: "images/thunder_ducks.jpg" },
+    { name: "Wiesbaden Phantoms",    logo: "images/wiesbaden_phantoms.jpg" },
+    { name: "Zeugen Ray Lewis",      logo: "images/zeugen_ray_lewis.jpg" }
+];
+
+const DIV_LETTERS = ['A', 'B', 'C', 'D'];
+const SLOTS_PER_DIVISION = 5;
+const REVEAL_INTERVAL_MS = 5000;
+
+/* ==========================================================
+   SPIELPLAN-MATRIX (fest, aus dem vorgeschlagenen Excel-Template)
+   Woche -> Position -> Gegner-Position. Jedes Team spielt 2x gegen
+   jedes Team der eigenen Division und 2x gegen die Teams derselben
+   Positionsnummer in den anderen 3 Divisions = 8 + 6 = 14 Spiele,
+   keine Bye-Week.
+   ========================================================== */
+const SCHEDULE_MATRIX = {
+"1":{"A1":"A2","A2":"A1","A3":"A4","A4":"A3","A5":"C5","B1":"B2","B2":"B1","B3":"B4","B4":"B3","B5":"D5","C1":"C2","C2":"C1","C3":"C4","C4":"C3","C5":"A5","D1":"D2","D2":"D1","D3":"D4","D4":"D3","D5":"B5"},
+"2":{"A1":"A3","A2":"C2","A3":"A1","A4":"A5","A5":"A4","B1":"B3","B2":"D2","B3":"B1","B4":"B5","B5":"B4","C1":"C3","C2":"A2","C3":"C1","C4":"C5","C5":"C4","D1":"D3","D2":"B2","D3":"D1","D4":"D5","D5":"D4"},
+"3":{"A1":"A4","A2":"A5","A3":"C3","A4":"A1","A5":"A2","B1":"B4","B2":"B5","B3":"D3","B4":"B1","B5":"B2","C1":"C4","C2":"C5","C3":"A3","C4":"C1","C5":"C2","D1":"D4","D2":"D5","D3":"B3","D4":"D1","D5":"D2"},
+"4":{"A1":"A5","A2":"A3","A3":"A2","A4":"C4","A5":"A1","B1":"B5","B2":"B3","B3":"B2","B4":"D4","B5":"B1","C1":"C5","C2":"C3","C3":"C2","C4":"A4","C5":"C1","D1":"D5","D2":"D3","D3":"D2","D4":"B4","D5":"D1"},
+"5":{"A1":"C1","A2":"A4","A3":"A5","A4":"A2","A5":"A3","B1":"D1","B2":"B4","B3":"B5","B4":"B2","B5":"B3","C1":"A1","C2":"C4","C3":"C5","C4":"C2","C5":"C3","D1":"B1","D2":"D4","D3":"D5","D4":"D2","D5":"D3"},
+"6":{"A1":"B1","A2":"B2","A3":"B3","A4":"B4","A5":"B5","B1":"A1","B2":"A2","B3":"A3","B4":"A4","B5":"A5","C1":"D1","C2":"D2","C3":"D3","C4":"D4","C5":"D5","D1":"C1","D2":"C2","D3":"C3","D4":"C4","D5":"C5"},
+"7":{"A1":"D1","A2":"D2","A3":"D3","A4":"D4","A5":"D5","B1":"C1","B2":"C2","B3":"C3","B4":"C4","B5":"C5","C1":"B1","C2":"B2","C3":"B3","C4":"B4","C5":"B5","D1":"A1","D2":"A2","D3":"A3","D4":"A4","D5":"A5"},
+"8":{"A1":"D1","A2":"D2","A3":"D3","A4":"D4","A5":"D5","B1":"C1","B2":"C2","B3":"C3","B4":"C4","B5":"C5","C1":"B1","C2":"B2","C3":"B3","C4":"B4","C5":"B5","D1":"A1","D2":"A2","D3":"A3","D4":"A4","D5":"A5"},
+"9":{"A1":"B1","A2":"B2","A3":"B3","A4":"B4","A5":"B5","B1":"A1","B2":"A2","B3":"A3","B4":"A4","B5":"A5","C1":"D1","C2":"D2","C3":"D3","C4":"D4","C5":"D5","D1":"C1","D2":"C2","D3":"C3","D4":"C4","D5":"C5"},
+"10":{"A1":"C1","A2":"A4","A3":"A5","A4":"A2","A5":"A3","B1":"D1","B2":"B4","B3":"B5","B4":"B2","B5":"B3","C1":"A1","C2":"C4","C3":"C5","C4":"C2","C5":"C3","D1":"B1","D2":"D4","D3":"D5","D4":"D2","D5":"D3"},
+"11":{"A1":"A5","A2":"A3","A3":"A2","A4":"C4","A5":"A1","B1":"B5","B2":"B3","B3":"B2","B4":"D4","B5":"B1","C1":"C5","C2":"C3","C3":"C2","C4":"A4","C5":"C1","D1":"D5","D2":"D3","D3":"D2","D4":"B4","D5":"D1"},
+"12":{"A1":"A4","A2":"A5","A3":"C3","A4":"A1","A5":"A2","B1":"B4","B2":"B5","B3":"D3","B4":"B1","B5":"B2","C1":"C4","C2":"C5","C3":"A3","C4":"C1","C5":"C2","D1":"D4","D2":"D5","D3":"B3","D4":"D1","D5":"D2"},
+"13":{"A1":"A3","A2":"C2","A3":"A1","A4":"A5","A5":"A4","B1":"B3","B2":"D2","B3":"B1","B4":"B5","B5":"B4","C1":"C3","C2":"A2","C3":"C1","C4":"C5","C5":"C4","D1":"D3","D2":"B2","D3":"D1","D4":"D5","D5":"D4"},
+"14":{"A1":"A2","A2":"A1","A3":"A4","A4":"A3","A5":"C5","B1":"B2","B2":"B1","B3":"B4","B4":"B3","B5":"D5","C1":"C2","C2":"C1","C3":"C4","C4":"C3","C5":"A5","D1":"D2","D2":"D1","D3":"D4","D4":"D3","D5":"B5"}
+};
+const WEEK_COUNT = 14;
+
+let isAdmin = false;
+let currentDivisions = null; // {A:[...5], B:[...], C:[...], D:[...]}
+let viewingYear = 'current';
+let firestoreArchiveYears = [];
+
+/* ==========================================================
+   DOM
+   ========================================================== */
+const seasonSelect = document.getElementById('seasonSelect');
+const modeBadge = document.getElementById('modeBadge');
+const adminToggleBtn = document.getElementById('adminToggleBtn');
+const newDrawBtn = document.getElementById('newDrawBtn');
+const archiveDrawBtn = document.getElementById('archiveDrawBtn');
+const staticView = document.getElementById('staticView');
+const statusArea = document.getElementById('statusArea');
+const staticDivisionGrid = document.getElementById('staticDivisionGrid');
+const scheduleSection = document.getElementById('scheduleSection');
+const scheduleGrid = document.getElementById('scheduleGrid');
+
+const draftView = document.getElementById('draftView');
+const revealPlace = document.getElementById('revealPlace');
+const revealLogo = document.getElementById('revealLogo');
+const revealName = document.getElementById('revealName');
+const progressFill = document.getElementById('progressFill');
+const divisionGrid = document.getElementById('divisionGrid');
+const draftComplete = document.getElementById('draftComplete');
+const restartBtn = document.getElementById('restartBtn');
+const nextRevealBtn = document.getElementById('nextRevealBtn');
+
+const authModalOverlay = document.getElementById('authModalOverlay');
+const authModalCloseBtn = document.getElementById('authModalCloseBtn');
+const authEmail = document.getElementById('authEmail');
+const authPassword = document.getElementById('authPassword');
+const authSubmitBtn = document.getElementById('authSubmitBtn');
+const authError = document.getElementById('authError');
+
+/* ==========================================================
+   HELPERS
+   ========================================================== */
+function initialsAvatar(name) {
+    const initial = (name.trim()[0] || '?').toUpperCase();
+    const svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>"
+        + "<rect width='100' height='100' rx='16' fill='%231f1f1f'/>"
+        + "<text x='50' y='60' font-family='Segoe UI, Arial, sans-serif' font-size='42' font-weight='700' fill='%23d18b2f' text-anchor='middle'>"
+        + initial + "</text></svg>";
+    return 'data:image/svg+xml,' + encodeURIComponent(svg).replace(/'/g, '%27');
+}
+
+function setTeamLogoByObj(imgEl, team) {
+    const baseNoExt = team.logo.replace(/\.[a-zA-Z0-9]+$/, '');
+    const attempts = [team.logo, baseNoExt + '.jpeg', baseNoExt + '.png', baseNoExt + '.webp'];
+    let i = 0;
+    function tryNext() {
+        if (i >= attempts.length) { imgEl.onerror = null; imgEl.src = initialsAvatar(team.name); return; }
+        imgEl.src = attempts[i]; i++;
+    }
+    imgEl.onerror = tryNext;
+    tryNext();
+}
+
+function setTeamLogoByName(imgEl, name) {
+    const known = TEAMS.find(t => t.name === name);
+    setTeamLogoByObj(imgEl, known || { name: name, logo: 'images/' + encodeURIComponent(name) + '.jpg' });
+}
+
+/* ==========================================================
+   SPIELPLAN AUS DIVISIONS BERECHNEN
+   ========================================================== */
+function computeSchedule(divisions) {
+    const posToTeam = {};
+    DIV_LETTERS.forEach(letter => {
+        (divisions[letter] || []).forEach((team, idx) => {
+            if (team) posToTeam[letter + (idx + 1)] = team;
+        });
+    });
+
+    const weeks = [];
+    for (let w = 1; w <= WEEK_COUNT; w++) {
+        const matchupsMap = SCHEDULE_MATRIX[String(w)];
+        const seen = new Set();
+        const games = [];
+        Object.keys(matchupsMap).forEach(pos => {
+            const opp = matchupsMap[pos];
+            const key = [pos, opp].sort().join('-');
+            if (seen.has(key)) return;
+            seen.add(key);
+            games.push({
+                home: posToTeam[pos] || pos,
+                away: posToTeam[opp] || opp
+            });
+        });
+        weeks.push({ week: w, games });
+    }
+    return weeks;
+}
+
+function renderSchedule(divisions) {
+    scheduleGrid.innerHTML = '';
+    const weeks = computeSchedule(divisions);
+    weeks.forEach(w => {
+        const card = document.createElement('div');
+        card.className = 'dog-week-card';
+        const title = document.createElement('div');
+        title.className = 'dog-week-title';
+        title.textContent = 'Spieltag ' + w.week;
+        card.appendChild(title);
+        w.games.forEach(g => {
+            const row = document.createElement('div');
+            row.className = 'dog-game-row';
+
+            const homeEl = document.createElement('div');
+            homeEl.className = 'dog-game-team';
+            const homeImg = document.createElement('img');
+            setTeamLogoByName(homeImg, g.home);
+            const homeSpan = document.createElement('span');
+            homeSpan.textContent = g.home;
+            homeEl.appendChild(homeImg);
+            homeEl.appendChild(homeSpan);
+
+            const vs = document.createElement('span');
+            vs.className = 'dog-vs';
+            vs.textContent = 'VS';
+
+            const awayEl = document.createElement('div');
+            awayEl.className = 'dog-game-team away';
+            const awayImg = document.createElement('img');
+            setTeamLogoByName(awayImg, g.away);
+            const awaySpan = document.createElement('span');
+            awaySpan.textContent = g.away;
+            awayEl.appendChild(awayImg);
+            awayEl.appendChild(awaySpan);
+
+            row.appendChild(homeEl);
+            row.appendChild(vs);
+            row.appendChild(awayEl);
+            card.appendChild(row);
+        });
+        scheduleGrid.appendChild(card);
+    });
+    scheduleSection.style.display = 'block';
+}
+
+/* ==========================================================
+   STATISCHE ANSICHT RENDERN (aktuelle oder archivierte Saison)
+   ========================================================== */
+function renderStaticDivisions(divisions) {
+    staticDivisionGrid.innerHTML = '';
+    DIV_LETTERS.forEach(letter => {
+        const col = document.createElement('div');
+        col.className = 'dog-division-col';
+
+        const title = document.createElement('div');
+        title.className = 'dog-division-title';
+        title.innerHTML = 'Division <span class="div-letter">' + letter + '</span>';
+        col.appendChild(title);
+
+        const teamsInDiv = (divisions[letter] || []);
+        for (let slot = 0; slot < SLOTS_PER_DIVISION; slot++) {
+            const name = teamsInDiv[slot];
+            const slotEl = document.createElement('div');
+            slotEl.className = 'dog-division-slot' + (name ? ' filled' : '');
+            if (name) {
+                const img = document.createElement('img');
+                img.className = 'dog-slot-logo';
+                setTeamLogoByName(img, name);
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'dog-slot-name';
+                nameSpan.textContent = name;
+                slotEl.appendChild(img);
+                slotEl.appendChild(nameSpan);
+            } else {
+                const ph = document.createElement('span');
+                ph.className = 'dog-slot-placeholder';
+                ph.textContent = '?';
+                slotEl.appendChild(ph);
+            }
+            col.appendChild(slotEl);
+        }
+        staticDivisionGrid.appendChild(col);
+    });
+}
+
+function hasCompleteDivisions(divisions) {
+    if (!divisions) return false;
+    return DIV_LETTERS.every(l => (divisions[l] || []).filter(Boolean).length === SLOTS_PER_DIVISION);
+}
+
+function showStaticData(divisions) {
+    staticView.style.display = 'block';
+    draftView.style.display = 'none';
+    if (hasCompleteDivisions(divisions)) {
+        statusArea.innerHTML = '';
+        renderStaticDivisions(divisions);
+        renderSchedule(divisions);
+    } else {
+        staticDivisionGrid.innerHTML = '';
+        scheduleSection.style.display = 'none';
+        statusArea.innerHTML = '<div class="dog-empty">Für diese Saison liegt noch keine vollständige Divisions-Auslosung vor.</div>';
+    }
+}
+
+/* ==========================================================
+   FIRESTORE: LIVE-DATEN (aktuelle Saison)
+   ========================================================== */
+currentDocRef.onSnapshot(doc => {
+    currentDivisions = doc.exists ? (doc.data().divisions || null) : null;
+    if (viewingYear === 'current') {
+        showStaticData(currentDivisions || {});
+    }
+});
+
+archiveCollectionRef.onSnapshot(snap => {
+    firestoreArchiveYears = snap.docs.map(d => parseInt(d.id, 10)).filter(y => !isNaN(y));
+    const previous = seasonSelect.value;
+    buildSeasonSelect();
+    if ([...seasonSelect.options].some(o => o.value === previous)) {
+        seasonSelect.value = previous;
+    }
+});
+
+/* ==========================================================
+   SAISON-AUSWAHL
+   ========================================================== */
+function buildSeasonSelect() {
+    seasonSelect.innerHTML = '';
+    const currentOpt = document.createElement('option');
+    currentOpt.value = 'current';
+    currentOpt.textContent = 'Aktuelle Saison';
+    seasonSelect.appendChild(currentOpt);
+
+    firestoreArchiveYears.slice().sort((a, b) => b - a).forEach(year => {
+        const opt = document.createElement('option');
+        opt.value = String(year);
+        opt.textContent = 'Saison ' + year + ' (Archiv)';
+        seasonSelect.appendChild(opt);
+    });
+}
+
+seasonSelect.addEventListener('change', async () => {
+    viewingYear = seasonSelect.value;
+    updateAdminControlsVisibility();
+
+    if (viewingYear === 'current') {
+        showStaticData(currentDivisions || {});
+        return;
+    }
+
+    statusArea.innerHTML = '<div class="dog-loading">Lade archivierte Saison…</div>';
+    staticDivisionGrid.innerHTML = '';
+    scheduleSection.style.display = 'none';
+    try {
+        const doc = await archiveCollectionRef.doc(viewingYear).get();
+        if (!doc.exists) throw new Error('Archiv nicht gefunden');
+        showStaticData(doc.data().divisions || {});
+    } catch (e) {
+        statusArea.innerHTML = '<div class="dog-error">Archivierte Saison konnte nicht geladen werden: ' + e.message + '</div>';
+    }
+});
+
+/* ==========================================================
+   ADMIN-ANMELDUNG
+   ========================================================== */
+function updateAdminControlsVisibility() {
+    const onCurrent = viewingYear === 'current';
+    newDrawBtn.style.display = (isAdmin && onCurrent) ? 'inline-block' : 'none';
+    archiveDrawBtn.style.display = (isAdmin && onCurrent && hasCompleteDivisions(currentDivisions)) ? 'inline-block' : 'none';
+}
+
+adminToggleBtn.addEventListener('click', () => {
+    if (isAdmin) {
+        auth.signOut();
+    } else {
+        authError.style.display = 'none';
+        authEmail.value = '';
+        authPassword.value = '';
+        authModalOverlay.style.display = 'flex';
+        setTimeout(() => authEmail.focus(), 50);
+    }
+});
+
+authModalCloseBtn.addEventListener('click', () => authModalOverlay.style.display = 'none');
+authModalOverlay.addEventListener('click', (e) => {
+    if (e.target === authModalOverlay) authModalOverlay.style.display = 'none';
+});
+
+authSubmitBtn.addEventListener('click', async () => {
+    authError.style.display = 'none';
+    try {
+        await auth.signInWithEmailAndPassword(authEmail.value.trim(), authPassword.value);
+        authModalOverlay.style.display = 'none';
+    } catch (err) {
+        authError.textContent = 'Anmeldung fehlgeschlagen: E-Mail oder Passwort falsch.';
+        authError.style.display = 'block';
+    }
+});
+
+authPassword.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') authSubmitBtn.click();
+});
+
+auth.onAuthStateChanged((user) => {
+    isAdmin = !!user;
+    modeBadge.textContent = isAdmin ? 'ADMIN-MODUS' : 'ANSICHTSMODUS';
+    modeBadge.className = 'dog-badge ' + (isAdmin ? 'dog-badge-admin' : 'dog-badge-view');
+    adminToggleBtn.textContent = isAdmin ? '🔓 Abmelden' : '🔒 Admin-Modus';
+    updateAdminControlsVisibility();
+});
+
+/* ==========================================================
+   NEUE AUSLOSUNG (Reveal-Animation, nur Admin)
+   ========================================================== */
+function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
+function buildDivisionSkeleton() {
+    divisionGrid.innerHTML = '';
+    DIV_LETTERS.forEach(letter => {
+        const col = document.createElement('div');
+        col.className = 'dog-division-col';
+        col.dataset.division = letter;
+
+        const title = document.createElement('div');
+        title.className = 'dog-division-title';
+        title.innerHTML = 'Division <span class="div-letter">' + letter + '</span>';
+        col.appendChild(title);
+
+        for (let slot = 1; slot <= SLOTS_PER_DIVISION; slot++) {
+            const slotEl = document.createElement('div');
+            slotEl.className = 'dog-division-slot';
+            slotEl.dataset.division = letter;
+            slotEl.dataset.slot = slot;
+            slotEl.innerHTML =
+                '<span class="dog-slot-placeholder">?</span>' +
+                '<img class="dog-slot-logo" src="" alt="">' +
+                '<span class="dog-slot-name"></span>';
+            col.appendChild(slotEl);
+        }
+        divisionGrid.appendChild(col);
+    });
+}
+
+let revealOrder = [];
+let revealIndex = 0;
+
+newDrawBtn.addEventListener('click', () => {
+    if (!isAdmin) return;
+    if (hasCompleteDivisions(currentDivisions)) {
+        if (!confirm('Es gibt bereits eine aktuelle Auslosung. Diese wird dabei überschrieben (vorher ggf. über "Archivieren" sichern). Trotzdem eine neue Auslosung starten?')) return;
+    }
+    const shuffled = shuffle(TEAMS);
+    revealOrder = shuffled.map((team, idx) => ({
+        division: DIV_LETTERS[idx % DIV_LETTERS.length],
+        slot: Math.floor(idx / DIV_LETTERS.length) + 1,
+        team: team
+    }));
+    revealIndex = 0;
+
+    buildDivisionSkeleton();
+    staticView.style.display = 'none';
+    draftView.style.display = 'grid';
+    draftComplete.classList.remove('show');
+    restartBtn.style.display = 'none';
+
+    revealPlace.textContent = 'Bereit zur Auslosung';
+    revealName.textContent = '';
+    revealLogo.classList.remove('show');
+    revealName.classList.remove('show');
+    revealLogo.removeAttribute('src');
+
+    nextRevealBtn.style.display = 'inline-block';
+    nextRevealBtn.disabled = false;
+});
+
+nextRevealBtn.addEventListener('click', () => {
+    if (revealIndex >= revealOrder.length) return;
+    nextRevealBtn.disabled = true;
+    revealNext();
+
+    setTimeout(() => {
+        if (revealIndex >= revealOrder.length) {
+            finishDraft();
+            nextRevealBtn.style.display = 'none';
+        } else {
+            nextRevealBtn.disabled = false;
+        }
+    }, REVEAL_INTERVAL_MS);
+});
+
+function revealNext() {
+    if (revealIndex >= revealOrder.length) return;
+    const current = revealOrder[revealIndex];
+    revealIndex++;
+
+    revealLogo.classList.remove('show');
+    revealName.classList.remove('show');
+    revealPlace.textContent = 'Division ' + current.division + ' \u2013 Platz ' + current.slot;
+
+    setTeamLogoByObj(revealLogo, current.team);
+    revealName.textContent = current.team.name;
+
+    requestAnimationFrame(() => {
+        revealLogo.classList.add('show');
+        revealName.classList.add('show');
+    });
+
+    progressFill.classList.remove('animate');
+    void progressFill.offsetWidth;
+    progressFill.classList.add('animate');
+
+    const slotEl = divisionGrid.querySelector(
+        '.dog-division-slot[data-division="' + current.division + '"][data-slot="' + current.slot + '"]'
+    );
+    if (slotEl) {
+        setTeamLogoByObj(slotEl.querySelector('.dog-slot-logo'), current.team);
+        slotEl.querySelector('.dog-slot-name').textContent = current.team.name;
+        slotEl.classList.add('filled', 'animate-in');
+    }
+}
+
+function finishDraft() {
+    progressFill.classList.remove('animate');
+    revealPlace.textContent = 'Fertig!';
+    draftComplete.classList.add('show');
+    restartBtn.style.display = 'inline-block';
+    saveDivisionOrderToCloud();
+}
+
+function saveDivisionOrderToCloud() {
+    const result = {};
+    DIV_LETTERS.forEach(letter => { result[letter] = []; });
+    revealOrder.forEach(r => {
+        result[r.division][r.slot - 1] = r.team.name;
+    });
+    currentDocRef.set({
+        divisions: result,
+        drawnAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(err => alert('Speichern fehlgeschlagen: ' + err.message));
+}
+
+restartBtn.addEventListener('click', () => {
+    draftView.style.display = 'none';
+    staticView.style.display = 'block';
+});
+
+/* ==========================================================
+   AUSLOSUNG ARCHIVIEREN & NEU STARTEN (nur Admin)
+   ========================================================== */
+archiveDrawBtn.addEventListener('click', async () => {
+    if (!isAdmin || !hasCompleteDivisions(currentDivisions)) return;
+    const suggestedYear = new Date().getFullYear();
+    const input = prompt('Aktuelle Divisions-Auslosung & Spielplan dauerhaft archivieren – als welches Jahr speichern?', String(suggestedYear));
+    if (input === null) return;
+    const year = parseInt(input.trim(), 10);
+    if (!year || year < 2000 || year > 2100) {
+        alert('Bitte ein gültiges Jahr eingeben.');
+        return;
+    }
+    if (!confirm('Saison ' + year + ' wird dauerhaft archiviert. Anschließend wird die aktuelle Auslosung geleert, bereit für eine neue Auslosung. Fortfahren?')) return;
+
+    try {
+        await archiveCollectionRef.doc(String(year)).set({
+            divisions: currentDivisions,
+            archivedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        await currentDocRef.set({ divisions: null });
+        alert('Saison ' + year + ' wurde archiviert. Die aktuelle Auslosung ist jetzt leer.');
+    } catch (e) {
+        alert('Archivieren fehlgeschlagen: ' + e.message);
+    }
+});
+
+/* ==========================================================
+   HEADER-OFFSET (robust bei Zeilenumbruch der Navigation)
+   ========================================================== */
+function adjustHeaderOffset() {
+    const header = document.querySelector('header');
+    if (header) {
+        document.body.style.paddingTop = header.offsetHeight + 'px';
+    }
+}
+window.addEventListener('resize', adjustHeaderOffset);
+window.addEventListener('load', adjustHeaderOffset);
+
+/* ==========================================================
+   INIT
+   ========================================================== */
+adjustHeaderOffset();
+buildSeasonSelect();
+setTimeout(adjustHeaderOffset, 300);
+</script>
+
+</body>
+</html>
