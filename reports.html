@@ -153,22 +153,23 @@ body {
 }
 
 .rp-quicknav {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 8px;
-    padding: 10px 14px;
+    padding: 12px;
     background: #ffffff;
     border-radius: 16px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    max-width: 900px;
+    margin: 0 auto;
 }
 
 .rp-quicknav-pill {
-    flex: 0 0 auto;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
-    padding: 6px 14px;
+    padding: 6px 12px;
     border-radius: 20px;
     background: #f8f6f0;
     color: #1f1f1f;
@@ -176,6 +177,7 @@ body {
     font-weight: 600;
     text-decoration: none;
     white-space: nowrap;
+    overflow: hidden;
     transition: background 0.2s ease;
 }
 
@@ -346,6 +348,10 @@ body {
     align-items: center;
     gap: 6px;
     min-width: 0;
+}
+
+.rp-boxscore-player.reversed {
+    justify-content: flex-end;
 }
 
 .rp-boxscore-player span {
@@ -788,8 +794,8 @@ function renderMatchups(year, week, matchups) {
             boxToggle.textContent = '📋 Box Score anzeigen';
             const boxPanel = document.createElement('div');
             boxPanel.className = 'rp-boxscore';
-            boxPanel.appendChild(buildBoxScoreColumn(m.homeBoxScore));
-            boxPanel.appendChild(buildBoxScoreColumn(m.awayBoxScore));
+            boxPanel.appendChild(buildBoxScoreColumn(m.homeBoxScore, false));
+            boxPanel.appendChild(buildBoxScoreColumn(m.awayBoxScore, true));
             boxToggle.addEventListener('click', () => {
                 const showing = boxPanel.classList.toggle('show');
                 boxToggle.textContent = showing ? '📋 Box Score ausblenden' : '📋 Box Score anzeigen';
@@ -879,7 +885,7 @@ function renderMatchups(year, week, matchups) {
     });
 }
 
-function buildBoxScoreColumn(players) {
+function buildBoxScoreColumn(players, reversed) {
     const col = document.createElement('div');
     col.className = 'rp-boxscore-col';
     if (!players || players.length === 0) {
@@ -891,24 +897,36 @@ function buildBoxScoreColumn(players) {
     }
     players.forEach(p => {
         const row = document.createElement('div');
-        row.className = 'rp-boxscore-row';
+        row.className = 'rp-boxscore-row' + (reversed ? ' reversed' : '');
 
         const left = document.createElement('div');
-        left.className = 'rp-boxscore-player';
+        left.className = 'rp-boxscore-player' + (reversed ? ' reversed' : '');
         const tag = document.createElement('span');
         tag.className = 'pos-tag ' + (POS_TAG_CLASS[p.position] || 'pos-def');
         tag.textContent = p.position;
         const nameSpan = document.createElement('span');
         nameSpan.textContent = p.name;
-        left.appendChild(tag);
-        left.appendChild(nameSpan);
+        if (reversed) {
+            left.appendChild(nameSpan);
+            left.appendChild(tag);
+        } else {
+            left.appendChild(tag);
+            left.appendChild(nameSpan);
+        }
 
         const pts = document.createElement('span');
         pts.className = 'rp-boxscore-pts';
         pts.textContent = p.points.toFixed(1);
 
-        row.appendChild(left);
-        row.appendChild(pts);
+        // Punkte sollen bei beiden Spalten zur Mitte hin stehen: links = außen->innen (Name...Punkt),
+        // rechts gespiegelt (Punkt...Name), daher hier die Kindreihenfolge umdrehen.
+        if (reversed) {
+            row.appendChild(pts);
+            row.appendChild(left);
+        } else {
+            row.appendChild(left);
+            row.appendChild(pts);
+        }
         col.appendChild(row);
     });
     return col;
