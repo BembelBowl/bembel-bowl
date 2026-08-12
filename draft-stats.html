@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Draft-Statistiken | Bembel Bowl</title>
+
+<link rel="icon" type="image/jpeg" href="images/favicon.jpg">
+<link rel="stylesheet" href="css/style.css">
+
+<style>
+header {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 100%;
+}
+
+.ds-header {
+    text-align: center;
+    margin: 40px auto 10px;
+    padding: 0 25px;
+}
+
+.ds-header h2 {
+    color: #d18b2f;
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+}
+
+.ds-header p {
+    color: #666;
+    font-size: 1.05rem;
+}
+
+.ds-back-link {
+    display: block;
+    text-align: center;
+    color: #999;
+    font-size: 0.85rem;
+    margin-bottom: 30px;
+    text-decoration: none;
+}
+
+.ds-back-link:hover {
+    color: #d18b2f;
+}
+
+.ds-wrap {
+    max-width: 1200px;
+    margin: 0 auto 60px;
+    padding: 0 25px;
+}
+
+.ds-section {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 28px 30px;
+    margin-bottom: 28px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+}
+
+.ds-section h3 {
+    color: #1f1f1f;
+    border-bottom: 3px solid #d18b2f;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+    font-size: 1.4rem;
+}
+
+.ds-section-sub {
+    color: #888;
+    font-size: 0.85rem;
+    margin-bottom: 20px;
+}
+
+.ds-loading, .ds-error {
+    text-align: center;
+    color: #888;
+    padding: 30px;
+}
+
+.ds-error {
+    color: #c92a2a;
+}
+
+/* --- LIVE STATS --- */
+
+.ds-progress {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+}
+
+.ds-progress-bar-track {
+    flex: 1 1 auto;
+    height: 12px;
+    background: #e0ded6;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.ds-progress-bar-fill {
+    height: 100%;
+    background: #d18b2f;
+    border-radius: 6px;
+    transition: width 0.4s ease;
+}
+
+.ds-progress-label {
+    flex: 0 0 auto;
+    font-weight: 700;
+    color: #1f1f1f;
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+.ds-live-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+.ds-pos-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ds-pos-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ds-pos-bar-row .pos-tag {
+    flex: 0 0 44px;
+    text-align: center;
+}
+
+.ds-pos-bar-track {
+    flex: 1 1 auto;
+    height: 10px;
+    background: #f8f6f0;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.ds-pos-bar-fill {
+    height: 100%;
+    border-radius: 5px;
+    background: #d18b2f;
+}
+
+.ds-pos-bar-count {
+    flex: 0 0 28px;
+    text-align: right;
+    font-size: 0.8rem;
+    color: #666;
+    font-weight: 700;
+}
+
+.ds-recent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ds-recent-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+    padding: 6px 10px;
+    background: #f8f6f0;
+    border-radius: 6px;
+}
+
+.ds-recent-item .pos-tag {
+    font-size: 0.65rem;
+}
+
+.ds-recent-pick-num {
+    color: #999;
+    font-size: 0.75rem;
+    flex: 0 0 auto;
+}
+
+.ds-recent-team {
+    color: #999;
+    font-size: 0.75rem;
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+/* --- POSITION-MATRIX --- */
+
+.ds-matrix-table th, .ds-matrix-table td {
+    text-align: center;
+}
+
+.ds-matrix-cell {
+    position: relative;
+    font-weight: 700;
+}
+
+.ds-matrix-round {
+    text-align: left !important;
+    font-weight: 700;
+    color: #1f1f1f;
+}
+
+/* --- DRAFT-HISTORIE --- */
+
+.ds-source-tag {
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: #e0ded6;
+    color: #555;
+}
+
+@media (max-width: 800px) {
+    .ds-live-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<header>
+    <nav>
+        <a href="index.html">Home</a>
+        <a href="rules.html">Regeln</a>
+        <a href="teams.html">Teams</a>
+        <a href="draft-center.html">Draft Center</a>
+        <a href="standings.html">Tabellen</a>
+        <a href="reports.html">Spielberichte</a>
+        <a href="hall-of-fame.html">Hall of Fame</a>
+        <a href="archive.html">Archiv</a>
+        <a href="https://fantasy.espn.com/football/league?leagueId=843833275" class="espn-btn" target="_blank">ESPN Fantasy Login</a>
+    </nav>
+</header>
+
+<section class="ds-header">
+    <h2>Draft-Statistiken</h2>
+    <p>Zahlen &amp; Muster aus allen bisherigen Drafts, als Entscheidungshilfe für den aktuellen</p>
+</section>
+<a href="draft-board.html" class="ds-back-link">← Zurück zum Draftboard</a>
+
+<section class="ds-wrap">
+
+    <div id="statusArea"></div>
+
+    <!-- AKTUELLER DRAFT -->
+    <div id="liveSection" class="ds-section" style="display:none;">
+        <h3>Aktueller Draft</h3>
+        <p class="ds-section-sub">Live-Auswertung des laufenden Draftboards</p>
+
+        <div class="ds-progress">
+            <div class="ds-progress-bar-track"><div id="liveProgressFill" class="ds-progress-bar-fill" style="width:0%;"></div></div>
+            <div id="liveProgressLabel" class="ds-progress-label">0 / 0 Picks</div>
+        </div>
+
+        <div class="ds-live-grid">
+            <div>
+                <h4 style="margin-bottom:10px; color:#1f1f1f; font-size:1rem;">Positionsverteilung bisher</h4>
+                <div id="livePosBars" class="ds-pos-bars"></div>
+            </div>
+            <div>
+                <h4 style="margin-bottom:10px; color:#1f1f1f; font-size:1rem;">Zuletzt getätigte Picks</h4>
+                <div id="liveRecentPicks" class="ds-recent-list"></div>
+            </div>
+        </div>
+
+        <h4 style="margin:24px 0 10px; color:#1f1f1f; font-size:1rem;">Picks pro Team</h4>
+        <div class="table-responsive">
+            <table class="hof-table" id="livePicksPerTeamTable">
+                <thead><tr><th>Team</th><th>Picks bisher</th><th>Letzter Pick</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- POSITIONSVERTEILUNG JE RUNDE (HISTORISCH) -->
+    <div id="matrixSection" class="ds-section" style="display:none;">
+        <h3>Positionsverteilung je Runde (alle vergangenen Drafts)</h3>
+        <p class="ds-section-sub">Wie oft welche Position historisch in welcher Runde gepickt wurde – als Orientierung für die eigene Strategie.</p>
+        <div class="table-responsive">
+            <table class="hof-table ds-matrix-table" id="matrixTable"></table>
+        </div>
+    </div>
+
+    <!-- MEISTGEDRAFTETE SPIELER -->
+    <div id="topPlayersSection" class="ds-section" style="display:none;">
+        <h3>Meistgedraftete Spieler</h3>
+        <p class="ds-section-sub">Über alle vergangenen Drafts hinweg</p>
+        <div class="table-responsive">
+            <table class="hof-table">
+                <thead><tr><th>#</th><th>Spieler</th><th>Position</th><th>Gedraftet</th><th>Ø Runde</th><th>Früheste Runde</th></tr></thead>
+                <tbody id="topPlayersBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- DRAFT-HISTORIE -->
+    <div id="historySection" class="ds-section" style="display:none;">
+        <h3>Draft-Historie</h3>
+        <div class="table-responsive">
+            <table class="hof-table">
+                <thead><tr><th>Jahr</th><th>Teams</th><th>Runden</th><th>Picks erfasst</th><th>Quelle</th></tr></thead>
+                <tbody id="historyBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+</section>
+
+<footer>
+    <p>© 2026 Bembel Bowl Fantasy Football League</p>
+</footer>
+
+<script>
+/* ==========================================================
+   FIREBASE-KONFIGURATION
+   Gleiche Werte wie in draft-board.html eintragen (dasselbe Firebase-Projekt).
+   ========================================================== */
+const firebaseConfig = {
+    apiKey: "HIER_DEINEN_API_KEY_EINTRAGEN",
+    authDomain: "HIER_EINTRAGEN.firebaseapp.com",
+    projectId: "HIER_EINTRAGEN",
+    storageBucket: "HIER_EINTRAGEN.appspot.com",
+    messagingSenderId: "HIER_EINTRAGEN",
+    appId: "HIER_EINTRAGEN"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const boardDocRef = db.collection('draftboard').doc('current');
+const archiveCollectionRef = db.collection('draftboard_archive');
+
+/* ==========================================================
+   KONFIGURATION - identisch zu draft-board.html halten
+   ========================================================== */
+const TEAM_COUNT = 20;
+const ROUND_COUNT = 15;
+
+const ARCHIVE_YEARS = [
+    2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017
+];
+
+function archiveFilePath(year) {
+    return 'files/bembelbowl_draft_' + year + '.xlsx';
+}
+
+const TEAMS = [
+    { name: "Amity Island Sharks",   logo: "images/amity_island_sharks.jpg" },
+    { name: "Beard",                 logo: "images/beard.jpg" },
+    { name: "Bishop Sycamore",       logo: "images/bishop_sycamore.jpg" },
+    { name: "Bojangles P-Stars",     logo: "images/bojangles_pstars.jpg" },
+    { name: "Brady Gaga",            logo: "images/brady_gaga.jpg" },
+    { name: "Broken Bembels ULB",    logo: "images/broken_bembels.jpg" },
+    { name: "E-Town Elephants",      logo: "images/etown_elephants.jpg" },
+    { name: "Fighting Farmers",      logo: "images/fighting_farmers.jpg" },
+    { name: "Foxboro Forever",       logo: "images/foxboro_forever.jpg" },
+    { name: "Frankfurt Bakers",      logo: "images/frankfurt_bakers.jpg" },
+    { name: "K-Town Devils",         logo: "images/ktown_devils.jpg" },
+    { name: "Packers Ultras",        logo: "images/packers_ultras.jpg" },
+    { name: "Pep's Band",            logo: "images/peps_band.jpg" },
+    { name: "Randy Moss Lob Jünger", logo: "images/randy_moss.jpg" },
+    { name: "Steelersnation 7",      logo: "images/steelersnation.jpg" },
+    { name: "The 49vengers",         logo: "images/the49vengers.jpg" },
+    { name: "the Boys",              logo: "images/the_boys.jpg" },
+    { name: "Thunder Ducks",         logo: "images/thunder_ducks.jpg" },
+    { name: "Wiesbaden Phantoms",    logo: "images/wiesbaden_phantoms.jpg" },
+    { name: "Zeugen Ray Lewis",      logo: "images/zeugen_ray_lewis.jpg" }
+];
+
+const POS_TAG_CLASS = { QB: 'pos-qb', RB: 'pos-rb', WR: 'pos-wr', TE: 'pos-te', K: 'pos-k', DEF: 'pos-def' };
+const SLOT_ORDER = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
+
+const statusArea = document.getElementById('statusArea');
+
+/* ==========================================================
+   HELPERS
+   ========================================================== */
+function posClass(pos) {
+    return POS_TAG_CLASS[pos] || 'pos-def';
+}
+
+function pickKey(round, position) {
+    return round + '-' + position;
+}
+
+function pickNumberFor(round, position, teamCount) {
+    if (round % 2 === 1) return (round - 1) * teamCount + position;
+    return (round - 1) * teamCount + (teamCount - position + 1);
+}
+
+/* ==========================================================
+   EXCEL-PARSING (identisch zu draft-board.html, für Datei-Archive)
+   ========================================================== */
+function parseDraftBoardWorkbook(arrayBuffer) {
+    const wb = XLSX.read(arrayBuffer, { type: 'array' });
+    let sheetName = wb.SheetNames.find(n => n.trim().toLowerCase() === 'draft board');
+    if (!sheetName) {
+        sheetName = wb.SheetNames.find(n => {
+            const norm = n.trim().toLowerCase();
+            return norm.includes('draft') && norm.includes('board');
+        });
+    }
+    if (!sheetName) sheetName = wb.SheetNames[0];
+
+    const sheet = wb.Sheets[sheetName];
+    const grid = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, raw: true });
+
+    function cell(r, c) {
+        const rowArr = grid[r - 1];
+        if (!rowArr) return null;
+        const v = rowArr[c - 1];
+        return (v === undefined || v === null || v === '') ? null : v;
+    }
+
+    let teamCount = 0;
+    for (let i = 0; i < 24; i++) {
+        const col = 4 + 5 * i;
+        if (cell(2, col)) teamCount = i + 1;
+        else break;
+    }
+    if (teamCount === 0) teamCount = TEAM_COUNT;
+
+    let roundCount = 0;
+    for (let r = 0; r < 30; r++) {
+        const nameRow = 4 + 3 * r;
+        if (cell(nameRow, 2)) roundCount = r + 1;
+        else break;
+    }
+    if (roundCount === 0) roundCount = ROUND_COUNT;
+
+    const teamNames = [];
+    for (let i = 0; i < teamCount; i++) {
+        const col = 4 + 5 * i;
+        teamNames.push(cell(2, col) ? String(cell(2, col)) : ('Team ' + (i + 1)));
+    }
+
+    const picksParsed = {};
+    let pickCount = 0;
+    for (let r = 0; r < roundCount; r++) {
+        const nameRow = 4 + 3 * r;
+        const detailRow = nameRow + 1;
+        for (let i = 0; i < teamCount; i++) {
+            const col = 4 + 5 * i;
+            const playerName = cell(nameRow, col);
+            if (!playerName) continue;
+            const nflTeam = cell(detailRow, col);
+            const position = cell(detailRow, col + 2);
+            picksParsed[(r + 1) + '-' + (i + 1)] = {
+                name: String(playerName),
+                position: position ? String(position).toUpperCase().trim() : '',
+                nflTeam: nflTeam ? String(nflTeam) : ''
+            };
+            pickCount++;
+        }
+    }
+    if (pickCount === 0) throw new Error('Keine Picks im Sheet "' + sheetName + '" gefunden.');
+    return { teamNames, picks: picksParsed, teamCount, roundCount };
+}
+
+/* ==========================================================
+   DATEN LADEN: LIVE-BOARD + ALLE ARCHIVE (Firestore + Repo-Dateien)
+   ========================================================== */
+let historicalDrafts = []; // [{year, teamNames, picks, teamCount, roundCount, source}]
+
+async function loadAllData() {
+    statusArea.innerHTML = '<div class="ds-loading">Lade Draft-Daten…</div>';
+
+    // 1. Live-Board (Echtzeit)
+    boardDocRef.onSnapshot(doc => {
+        const data = doc.exists ? doc.data() : null;
+        renderLiveSection(data);
+    });
+
+    // 2. Firestore-Archiv
+    const firestoreYears = new Set();
+    try {
+        const snap = await archiveCollectionRef.get();
+        snap.forEach(doc => {
+            const year = parseInt(doc.id, 10);
+            if (isNaN(year)) return;
+            firestoreYears.add(year);
+            const data = doc.data();
+            historicalDrafts.push({
+                year: year,
+                teamNames: data.teamNames || [],
+                picks: data.picks || {},
+                teamCount: (data.teamNames || []).length || TEAM_COUNT,
+                roundCount: data.roundCount || ROUND_COUNT,
+                source: 'Firebase-Archiv'
+            });
+        });
+    } catch (e) {
+        console.warn('Firestore-Archiv konnte nicht geladen werden:', e);
+    }
+
+    // 3. Datei-Archiv (Repo-Excel-Dateien) für Jahre, die nicht schon in Firestore sind
+    const fileYears = ARCHIVE_YEARS.filter(y => !firestoreYears.has(y));
+    await Promise.all(fileYears.map(async year => {
+        try {
+            const res = await fetch(archiveFilePath(year));
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const buf = await res.arrayBuffer();
+            const parsed = parseDraftBoardWorkbook(buf);
+            historicalDrafts.push({
+                year: year,
+                teamNames: parsed.teamNames,
+                picks: parsed.picks,
+                teamCount: parsed.teamCount,
+                roundCount: parsed.roundCount,
+                source: 'Datei-Archiv'
+            });
+        } catch (e) {
+            console.warn('Draft ' + year + ' konnte nicht geladen werden:', e.message);
+        }
+    }));
+
+    historicalDrafts.sort((a, b) => b.year - a.year);
+
+    if (historicalDrafts.length === 0) {
+        statusArea.innerHTML = '<div class="ds-error">Es konnten keine historischen Draft-Daten geladen werden (weder aus Firebase noch aus Repo-Dateien).</div>';
+    } else {
+        statusArea.innerHTML = '';
+    }
+
+    renderMatrixSection();
+    renderTopPlayersSection();
+    renderHistorySection();
+}
+
+/* ==========================================================
+   AKTUELLER DRAFT (LIVE)
+   ========================================================== */
+function renderLiveSection(data) {
+    const liveSection = document.getElementById('liveSection');
+    const picks = (data && data.picks) || {};
+    const teamNamesRaw = (data && data.teams) || [];
+    const pickCount = Object.keys(picks).length;
+
+    if (pickCount === 0) {
+        liveSection.style.display = 'none';
+        return;
+    }
+    liveSection.style.display = 'block';
+
+    const totalSlots = TEAM_COUNT * ROUND_COUNT;
+    document.getElementById('liveProgressFill').style.width = Math.round((pickCount / totalSlots) * 100) + '%';
+    document.getElementById('liveProgressLabel').textContent = pickCount + ' / ' + totalSlots + ' Picks';
+
+    // Positionsverteilung bisher
+    const posCounts = {};
+    SLOT_ORDER.forEach(p => posCounts[p] = 0);
+    Object.values(picks).forEach(p => {
+        const pos = SLOT_ORDER.includes(p.position) ? p.position : null;
+        if (pos) posCounts[pos]++;
+    });
+    const maxPos = Math.max(1, ...Object.values(posCounts));
+    const posBarsEl = document.getElementById('livePosBars');
+    posBarsEl.innerHTML = '';
+    SLOT_ORDER.forEach(pos => {
+        const row = document.createElement('div');
+        row.className = 'ds-pos-bar-row';
+        row.innerHTML =
+            '<span class="pos-tag ' + posClass(pos) + '">' + pos + '</span>' +
+            '<div class="ds-pos-bar-track"><div class="ds-pos-bar-fill" style="width:' + (posCounts[pos] / maxPos * 100) + '%;"></div></div>' +
+            '<span class="ds-pos-bar-count">' + posCounts[pos] + '</span>';
+        posBarsEl.appendChild(row);
+    });
+
+    // Zuletzt getätigte Picks (höchste Pick-Nummern zuerst als Näherung für "zuletzt")
+    const entries = Object.keys(picks).map(key => {
+        const [round, pos] = key.split('-').map(Number);
+        const team = teamNamesRaw[pos - 1] || ('Position ' + pos);
+        return { round, pos, team, pick: picks[key], num: pickNumberFor(round, pos, TEAM_COUNT) };
+    });
+    entries.sort((a, b) => b.num - a.num);
+    const recentEl = document.getElementById('liveRecentPicks');
+    recentEl.innerHTML = '';
+    entries.slice(0, 10).forEach(e => {
+        const row = document.createElement('div');
+        row.className = 'ds-recent-item';
+        row.innerHTML =
+            '<span class="ds-recent-pick-num">#' + e.num + '</span>' +
+            '<span class="pos-tag ' + posClass(e.pick.position) + '">' + (e.pick.position || '?') + '</span>' +
+            '<span>' + e.pick.name + '</span>' +
+            '<span class="ds-recent-team">' + e.team + '</span>';
+        recentEl.appendChild(row);
+    });
+
+    // Picks pro Team
+    const perTeam = {};
+    teamNamesRaw.forEach((name, i) => {
+        if (name) perTeam[i + 1] = { name, count: 0, lastNum: 0 };
+    });
+    entries.forEach(e => {
+        if (!perTeam[e.pos]) return;
+        perTeam[e.pos].count++;
+        if (e.num > perTeam[e.pos].lastNum) perTeam[e.pos].lastNum = e.num;
+    });
+    const tbody = document.querySelector('#livePicksPerTeamTable tbody');
+    tbody.innerHTML = '';
+    Object.values(perTeam)
+        .sort((a, b) => a.count - b.count)
+        .forEach(t => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td>' + t.name + '</td><td>' + t.count + '</td><td>' + (t.lastNum ? '#' + t.lastNum : '–') + '</td>';
+            tbody.appendChild(tr);
+        });
+}
+
+/* ==========================================================
+   POSITIONSVERTEILUNG JE RUNDE (HISTORISCH)
+   ========================================================== */
+function renderMatrixSection() {
+    if (historicalDrafts.length === 0) return;
+    const section = document.getElementById('matrixSection');
+    section.style.display = 'block';
+
+    const maxRounds = Math.max(...historicalDrafts.map(d => d.roundCount));
+    const counts = {}; // round -> pos -> count
+    const totals = {}; // round -> total
+    for (let r = 1; r <= maxRounds; r++) {
+        counts[r] = {}; SLOT_ORDER.forEach(p => counts[r][p] = 0);
+        totals[r] = 0;
+    }
+
+    historicalDrafts.forEach(draft => {
+        Object.keys(draft.picks).forEach(key => {
+            const [round] = key.split('-').map(Number);
+            const pos = draft.picks[key].position;
+            if (!counts[round]) return;
+            if (SLOT_ORDER.includes(pos)) counts[round][pos]++;
+            totals[round]++;
+        });
+    });
+
+    const table = document.getElementById('matrixTable');
+    let html = '<thead><tr><th>Runde</th>' + SLOT_ORDER.map(p => '<th>' + p + '</th>').join('') + '</tr></thead><tbody>';
+    for (let r = 1; r <= maxRounds; r++) {
+        html += '<tr><td class="ds-matrix-round">Runde ' + r + '</td>';
+        SLOT_ORDER.forEach(pos => {
+            const pct = totals[r] ? Math.round((counts[r][pos] / totals[r]) * 100) : 0;
+            html += '<td class="ds-matrix-cell">' + (totals[r] ? pct + '%' : '–') + '</td>';
+        });
+        html += '</tr>';
+    }
+    html += '</tbody>';
+    table.innerHTML = html;
+}
+
+/* ==========================================================
+   MEISTGEDRAFTETE SPIELER
+   ========================================================== */
+function renderTopPlayersSection() {
+    if (historicalDrafts.length === 0) return;
+    const section = document.getElementById('topPlayersSection');
+    section.style.display = 'block';
+
+    const playerStats = {}; // name -> {position, count, rounds:[]}
+    historicalDrafts.forEach(draft => {
+        Object.keys(draft.picks).forEach(key => {
+            const [round] = key.split('-').map(Number);
+            const pick = draft.picks[key];
+            if (!pick.name) return;
+            const key2 = pick.name.trim();
+            if (!playerStats[key2]) playerStats[key2] = { name: key2, position: pick.position, count: 0, rounds: [] };
+            playerStats[key2].count++;
+            playerStats[key2].rounds.push(round);
+        });
+    });
+
+    const top = Object.values(playerStats)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 20);
+
+    const tbody = document.getElementById('topPlayersBody');
+    tbody.innerHTML = '';
+    top.forEach((p, i) => {
+        const avgRound = (p.rounds.reduce((s, r) => s + r, 0) / p.rounds.length).toFixed(1);
+        const minRound = Math.min(...p.rounds);
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td>' + (i + 1) + '</td>' +
+            '<td>' + p.name + '</td>' +
+            '<td><span class="pos-tag ' + posClass(p.position) + '">' + (p.position || '?') + '</span></td>' +
+            '<td>' + p.count + 'x</td>' +
+            '<td>Runde ' + avgRound + '</td>' +
+            '<td>Runde ' + minRound + '</td>';
+        tbody.appendChild(tr);
+    });
+}
+
+/* ==========================================================
+   DRAFT-HISTORIE ÜBERSICHT
+   ========================================================== */
+function renderHistorySection() {
+    if (historicalDrafts.length === 0) return;
+    const section = document.getElementById('historySection');
+    section.style.display = 'block';
+
+    const tbody = document.getElementById('historyBody');
+    tbody.innerHTML = '';
+    historicalDrafts.forEach(d => {
+        const pickCount = Object.keys(d.picks).length;
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td>' + d.year + '</td>' +
+            '<td>' + d.teamCount + '</td>' +
+            '<td>' + d.roundCount + '</td>' +
+            '<td>' + pickCount + '</td>' +
+            '<td><span class="ds-source-tag">' + d.source + '</span></td>';
+        tbody.appendChild(tr);
+    });
+}
+
+/* ==========================================================
+   HEADER-OFFSET
+   ========================================================== */
+function adjustHeaderOffset() {
+    const header = document.querySelector('header');
+    if (header) document.body.style.paddingTop = header.offsetHeight + 'px';
+}
+window.addEventListener('resize', adjustHeaderOffset);
+window.addEventListener('load', adjustHeaderOffset);
+
+/* ==========================================================
+   INIT
+   ========================================================== */
+adjustHeaderOffset();
+setTimeout(adjustHeaderOffset, 300);
+loadAllData();
+</script>
+
+</body>
+</html>
