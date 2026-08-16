@@ -74,6 +74,15 @@ header {
     margin-bottom: 20px;
 }
 
+.db-season-select {
+    padding: 7px 10px;
+    border-radius: 6px;
+    border: 1px solid #e0ded6;
+    font-family: inherit;
+    font-size: 0.85rem;
+    background: #ffffff;
+}
+
 .ds-loading, .ds-error {
     text-align: center;
     color: #888;
@@ -287,23 +296,38 @@ header {
         </div>
     </div>
 
-    <!-- POSITIONSVERTEILUNG JE RUNDE (HISTORISCH) -->
+    <!-- AUSWAHL FÜR DIE HISTORISCHEN AUSWERTUNGEN -->
+    <div id="statsSelectorSection" class="ds-section" style="display:none;">
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <label for="statsYearSelect" style="font-weight:700; color:#1f1f1f; font-size:0.9rem;">Ansicht:</label>
+            <select id="statsYearSelect" class="db-season-select"></select>
+        </div>
+    </div>
+
+    <!-- DURCHSCHNITTLICHE ANZAHL JE POSITION -->
+    <div id="avgPosSection" class="ds-section" style="display:none;">
+        <h3 id="avgPosTitle">Ø Anzahl gedrafteter Spieler je Position</h3>
+        <p class="ds-section-sub">Wie viele Spieler je Position werden in einem kompletten Draft im Schnitt gepickt.</p>
+        <div id="avgPosBars" class="ds-pos-bars"></div>
+    </div>
+
+    <!-- POSITIONSVERTEILUNG JE RUNDE (IN ZAHLEN) -->
     <div id="matrixSection" class="ds-section" style="display:none;">
-        <h3>Positionsverteilung je Runde (alle vergangenen Drafts)</h3>
-        <p class="ds-section-sub">Wie oft welche Position historisch in welcher Runde gepickt wurde – als Orientierung für die eigene Strategie.</p>
+        <h3 id="matrixTitle">Positionsverteilung je Runde</h3>
+        <p class="ds-section-sub">Anzahl gepickter Spieler je Position und Runde (keine Prozentwerte).</p>
         <div class="table-responsive">
             <table class="hof-table ds-matrix-table" id="matrixTable"></table>
         </div>
     </div>
 
-    <!-- MEISTGEDRAFTETE SPIELER -->
-    <div id="topPlayersSection" class="ds-section" style="display:none;">
-        <h3>Meistgedraftete Spieler</h3>
-        <p class="ds-section-sub">Über alle vergangenen Drafts hinweg</p>
+    <!-- TEAMVERTEILUNG (NFL-TEAMS) -->
+    <div id="nflTeamSection" class="ds-section" style="display:none;">
+        <h3 id="nflTeamTitle">Teamverteilung (NFL-Teams)</h3>
+        <p class="ds-section-sub">Aus welchen echten NFL-Teams die gedrafteten Spieler kommen.</p>
         <div class="table-responsive">
             <table class="hof-table">
-                <thead><tr><th>#</th><th>Spieler</th><th>Position</th><th>Gedraftet</th><th>Ø Runde</th><th>Früheste Runde</th></tr></thead>
-                <tbody id="topPlayersBody"></tbody>
+                <thead><tr><th>#</th><th>NFL-Team</th><th>Anzahl gedraftete Spieler</th></tr></thead>
+                <tbody id="nflTeamBody"></tbody>
             </table>
         </div>
     </div>
@@ -534,11 +558,145 @@ async function loadAllData() {
         statusArea.innerHTML = '<div class="ds-error">Es konnten keine historischen Draft-Daten geladen werden (weder aus Firebase noch aus Repo-Dateien).</div>';
     } else {
         statusArea.innerHTML = '';
+        buildStatsYearSelect();
+        renderHistoricalStats();
     }
 
-    renderMatrixSection();
-    renderTopPlayersSection();
     renderHistorySection();
+}
+
+function buildStatsYearSelect() {
+    document.getElementById('statsSelectorSection').style.display = 'block';
+    const select = document.getElementById('statsYearSelect');
+    select.innerHTML = '';
+    const allOpt = document.createElement('option');
+    allOpt.value = 'all';
+    allOpt.textContent = 'Alle Drafts (' + historicalDrafts.length + ' Jahre)';
+    select.appendChild(allOpt);
+    historicalDrafts.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = String(d.year);
+        opt.textContent = 'Nur Saison ' + d.year;
+        select.appendChild(opt);
+    });
+    select.addEventListener('change', renderHistoricalStats);
+}
+
+function getSelectedDrafts() {
+    const val = document.getElementById('statsYearSelect').value;
+    if (val === 'all') return historicalDrafts;
+    const year = parseInt(val, 10);
+    return historicalDrafts.filter(d => d.year === year);
+}
+
+function renderHistoricalStats() {
+    const drafts = getSelectedDrafts();
+    const isAll = document.getElementById('statsYearSelect').value === 'all';
+    renderAvgPositionSection(drafts, isAll);
+    renderMatrixSection(drafts, isAll);
+    renderNflTeamSection(drafts);
+}
+
+/* ==========================================================
+   1. Ø ANZAHL GEDRAFTETER SPIELER JE POSITION
+   ========================================================== */
+function renderAvgPositionSection(drafts, isAll) {
+    const section = document.getElementById('avgPosSection');
+    section.style.display = 'block';
+    document.getElementById('avgPosTitle').textContent = isAll
+        ? 'Ø Anzahl gedrafteter Spieler je Position'
+        : 'Anzahl gedrafteter Spieler je Position (' + drafts[0].year + ')';
+
+    const counts = {};
+    SLOT_ORDER.forEach(p => counts[p] = 0);
+    drafts.forEach(draft => {
+        Object.values(draft.picks).forEach(pick => {
+            if (SLOT_ORDER.includes(pick.position)) counts[pick.position]++;
+        });
+    });
+
+    const draftCount = Math.max(1, drafts.length);
+    const maxVal = Math.max(1, ...SLOT_ORDER.map(p => counts[p] / draftCount));
+
+    const el = document.getElementById('avgPosBars');
+    el.innerHTML = '';
+    SLOT_ORDER.forEach(pos => {
+        const value = counts[pos] / draftCount;
+        const row = document.createElement('div');
+        row.className = 'ds-pos-bar-row';
+        row.innerHTML =
+            '<span class="pos-tag ' + posClass(pos) + '">' + pos + '</span>' +
+            '<div class="ds-pos-bar-track"><div class="ds-pos-bar-fill" style="width:' + (value / maxVal * 100) + '%;"></div></div>' +
+            '<span class="ds-pos-bar-count">' + value.toFixed(1) + '</span>';
+        el.appendChild(row);
+    });
+}
+
+/* ==========================================================
+   2. POSITIONSVERTEILUNG JE RUNDE (IN ZAHLEN)
+   ========================================================== */
+function renderMatrixSection(drafts, isAll) {
+    const section = document.getElementById('matrixSection');
+    section.style.display = 'block';
+    document.getElementById('matrixTitle').textContent = isAll
+        ? 'Positionsverteilung je Runde (alle Drafts, Summe)'
+        : 'Positionsverteilung je Runde (Saison ' + drafts[0].year + ')';
+
+    const maxRounds = Math.max(...drafts.map(d => d.roundCount));
+    const counts = {}; // round -> pos -> count
+    for (let r = 1; r <= maxRounds; r++) {
+        counts[r] = {}; SLOT_ORDER.forEach(p => counts[r][p] = 0);
+    }
+
+    drafts.forEach(draft => {
+        Object.keys(draft.picks).forEach(key => {
+            const [round] = key.split('-').map(Number);
+            const pos = draft.picks[key].position;
+            if (!counts[round]) return;
+            if (SLOT_ORDER.includes(pos)) counts[round][pos]++;
+        });
+    });
+
+    const table = document.getElementById('matrixTable');
+    let html = '<thead><tr><th>Runde</th>' + SLOT_ORDER.map(p => '<th>' + p + '</th>').join('') + '</tr></thead><tbody>';
+    for (let r = 1; r <= maxRounds; r++) {
+        html += '<tr><td class="ds-matrix-round">Runde ' + r + '</td>';
+        SLOT_ORDER.forEach(pos => {
+            html += '<td class="ds-matrix-cell">' + counts[r][pos] + '</td>';
+        });
+        html += '</tr>';
+    }
+    html += '</tbody>';
+    table.innerHTML = html;
+}
+
+/* ==========================================================
+   3. TEAMVERTEILUNG (NFL-TEAMS)
+   ========================================================== */
+function renderNflTeamSection(drafts) {
+    const section = document.getElementById('nflTeamSection');
+    section.style.display = 'block';
+
+    const counts = {};
+    drafts.forEach(draft => {
+        Object.values(draft.picks).forEach(pick => {
+            const team = (pick.nflTeam || '').trim();
+            if (!team) return;
+            counts[team] = (counts[team] || 0) + 1;
+        });
+    });
+
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    const tbody = document.getElementById('nflTeamBody');
+    tbody.innerHTML = '';
+    sorted.forEach(([team, count], i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + (i + 1) + '</td><td>' + team + '</td><td>' + count + '</td>';
+        tbody.appendChild(tr);
+    });
+    if (sorted.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#999;">Keine NFL-Team-Daten in den Picks hinterlegt.</td></tr>';
+    }
 }
 
 /* ==========================================================
@@ -619,88 +777,6 @@ function renderLiveSection(data) {
             tr.innerHTML = '<td>' + t.name + '</td><td>' + t.count + '</td><td>' + (t.lastNum ? '#' + t.lastNum : '–') + '</td>';
             tbody.appendChild(tr);
         });
-}
-
-/* ==========================================================
-   POSITIONSVERTEILUNG JE RUNDE (HISTORISCH)
-   ========================================================== */
-function renderMatrixSection() {
-    if (historicalDrafts.length === 0) return;
-    const section = document.getElementById('matrixSection');
-    section.style.display = 'block';
-
-    const maxRounds = Math.max(...historicalDrafts.map(d => d.roundCount));
-    const counts = {}; // round -> pos -> count
-    const totals = {}; // round -> total
-    for (let r = 1; r <= maxRounds; r++) {
-        counts[r] = {}; SLOT_ORDER.forEach(p => counts[r][p] = 0);
-        totals[r] = 0;
-    }
-
-    historicalDrafts.forEach(draft => {
-        Object.keys(draft.picks).forEach(key => {
-            const [round] = key.split('-').map(Number);
-            const pos = draft.picks[key].position;
-            if (!counts[round]) return;
-            if (SLOT_ORDER.includes(pos)) counts[round][pos]++;
-            totals[round]++;
-        });
-    });
-
-    const table = document.getElementById('matrixTable');
-    let html = '<thead><tr><th>Runde</th>' + SLOT_ORDER.map(p => '<th>' + p + '</th>').join('') + '</tr></thead><tbody>';
-    for (let r = 1; r <= maxRounds; r++) {
-        html += '<tr><td class="ds-matrix-round">Runde ' + r + '</td>';
-        SLOT_ORDER.forEach(pos => {
-            const pct = totals[r] ? Math.round((counts[r][pos] / totals[r]) * 100) : 0;
-            html += '<td class="ds-matrix-cell">' + (totals[r] ? pct + '%' : '–') + '</td>';
-        });
-        html += '</tr>';
-    }
-    html += '</tbody>';
-    table.innerHTML = html;
-}
-
-/* ==========================================================
-   MEISTGEDRAFTETE SPIELER
-   ========================================================== */
-function renderTopPlayersSection() {
-    if (historicalDrafts.length === 0) return;
-    const section = document.getElementById('topPlayersSection');
-    section.style.display = 'block';
-
-    const playerStats = {}; // name -> {position, count, rounds:[]}
-    historicalDrafts.forEach(draft => {
-        Object.keys(draft.picks).forEach(key => {
-            const [round] = key.split('-').map(Number);
-            const pick = draft.picks[key];
-            if (!pick.name) return;
-            const key2 = pick.name.trim();
-            if (!playerStats[key2]) playerStats[key2] = { name: key2, position: pick.position, count: 0, rounds: [] };
-            playerStats[key2].count++;
-            playerStats[key2].rounds.push(round);
-        });
-    });
-
-    const top = Object.values(playerStats)
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 20);
-
-    const tbody = document.getElementById('topPlayersBody');
-    tbody.innerHTML = '';
-    top.forEach((p, i) => {
-        const avgRound = (p.rounds.reduce((s, r) => s + r, 0) / p.rounds.length).toFixed(1);
-        const minRound = Math.min(...p.rounds);
-        const tr = document.createElement('tr');
-        tr.innerHTML =
-            '<td>' + (i + 1) + '</td>' +
-            '<td>' + p.name + '</td>' +
-            '<td><span class="pos-tag ' + posClass(p.position) + '">' + (p.position || '?') + '</span></td>' +
-            '<td>' + p.count + 'x</td>' +
-            '<td>Runde ' + avgRound + '</td>' +
-            '<td>Runde ' + minRound + '</td>';
-        tbody.appendChild(tr);
-    });
 }
 
 /* ==========================================================
