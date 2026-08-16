@@ -154,35 +154,56 @@ body {
 
 .rp-quicknav {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 8px;
-    padding: 12px;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    padding: 16px;
     background: #ffffff;
+    border: 1px solid #e0ded6;
     border-radius: 16px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-    max-width: 900px;
+    max-width: 1000px;
     margin: 0 auto;
 }
 
 .rp-quicknav-pill {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: 20px;
+    gap: 4px;
+    padding: 10px 8px;
+    border-radius: 10px;
     background: #f8f6f0;
     color: #1f1f1f;
-    font-size: 0.78rem;
+    font-size: 0.72rem;
     font-weight: 600;
     text-decoration: none;
-    white-space: nowrap;
-    overflow: hidden;
+    line-height: 1.3;
+    text-align: center;
+    min-height: 64px;
     transition: background 0.2s ease;
+}
+
+.rp-quicknav-pill-logos {
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .rp-quicknav-pill:hover {
     background: #fff0d9;
+}
+
+@media (max-width: 900px) {
+    .rp-quicknav {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .rp-quicknav {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
 .rp-quicknav-pill img {
@@ -941,7 +962,13 @@ function renderMatchups(year, week, matchups) {
 
     quicknavWrap.style.display = 'block';
 
-    matchups.forEach((m, index) => {
+    matchups.forEach((m, loopIdx) => {
+        // Historische Matchups tragen bereits ihre echte, 1-basierte Firestore-Index
+        // (m.index, aus dem Dokumentnamen "...-m1", "...-m2", ...). Live-ESPN-Matchups
+        // haben kein .index-Feld, dort wird die Position in der Liste (1-basiert) genutzt.
+        // WICHTIG: beides muss auf dieselbe Zählweise wie beim Speichern/Formular passen,
+        // sonst zeigt eine Karte den Bericht eines anderen Matchups an oder gar keinen.
+        const index = (m.index != null) ? m.index : loopIdx + 1;
         const cardId = 'matchup-' + index;
         const docId = reportDocId(year, week, index);
 
@@ -949,13 +976,21 @@ function renderMatchups(year, week, matchups) {
         const pill = document.createElement('a');
         pill.className = 'rp-quicknav-pill';
         pill.href = '#' + cardId;
+
+        const logos = document.createElement('div');
+        logos.className = 'rp-quicknav-pill-logos';
         const pillImg1 = document.createElement('img');
         setTeamLogo(pillImg1, m.homeTeam);
         const pillImg2 = document.createElement('img');
         setTeamLogo(pillImg2, m.awayTeam);
-        pill.appendChild(pillImg1);
-        pill.append(shortName(m.homeTeam) + ' vs ' + shortName(m.awayTeam));
-        pill.appendChild(pillImg2);
+        logos.appendChild(pillImg1);
+        logos.appendChild(pillImg2);
+
+        const label = document.createElement('span');
+        label.textContent = shortName(m.homeTeam) + ' vs ' + shortName(m.awayTeam);
+
+        pill.appendChild(logos);
+        pill.appendChild(label);
         pill.addEventListener('click', (e) => {
             e.preventDefault();
             document.getElementById(cardId).scrollIntoView({ behavior: 'smooth', block: 'start' });
