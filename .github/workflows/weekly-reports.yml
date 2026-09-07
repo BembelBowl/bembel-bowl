@@ -1,0 +1,48 @@
+name: Weekly Reports
+
+on:
+  schedule:
+    # Zwei UTC-Zeitpunkte, um 12:00 Uhr Berliner Zeit unabhaengig von
+    # Sommer-/Winterzeit zuverlaessig abzudecken. Das Python-Skript prueft
+    # selbst die tatsaechliche Berliner Zeit und bricht ansonsten ab,
+    # d.h. es laeuft trotz zwei Cron-Eintraegen nur einmal pro Woche wirklich durch.
+    - cron: '0 10 * * 2'  # deckt 12:00 Uhr CEST (Sommerzeit) ab
+    - cron: '0 11 * * 2'  # deckt 12:00 Uhr CET (Winterzeit) ab
+  workflow_dispatch:
+    inputs:
+      week:
+        description: 'Spieltag manuell ueberschreiben (optional, z.B. "5")'
+        required: false
+        default: ''
+      force_run:
+        description: 'Zeitpruefung ueberspringen und sofort ausfuehren (zum Testen)'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  generate-reports:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repo auschecken
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Abhaengigkeiten installieren
+        run: pip install -r agent/requirements.txt
+
+      - name: Spielberichte generieren
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          ESPN_LEAGUE_ID: ${{ secrets.ESPN_LEAGUE_ID }}
+          WEEK_OVERRIDE: ${{ github.event.inputs.week }}
+          FORCE_RUN: ${{ github.event.inputs.force_run || 'false' }}
+        run: python agent/generate_reports.py
