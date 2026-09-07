@@ -289,6 +289,12 @@ body {
     text-overflow: ellipsis;
 }
 
+.rp-team-record {
+    color: #999;
+    font-size: 0.72rem;
+    line-height: 1.2;
+}
+
 .rp-team-score {
     font-size: 1.3rem;
     font-weight: 700;
@@ -694,9 +700,9 @@ const reportsCollection = db.collection('matchReports');
 const LEAGUE_ID = 843833275;
 
 /* Nur CURRENT_SEASON wird live von ESPN geladen (Score + Box Score).
-   Alle anderen SEASONS-Jahre gelten als Archiv und werden komplett aus
-   Firestore gelesen (Team, Score UND Text) – nötig, weil ESPN für
-   vergangene Saisons bei uns keine Matchup-/Score-Daten mehr liefert. */
+   Archiv-Saisons werden primär aus den statischen Markdown-Dateien unter
+   reference-reports/<Jahr>/weekNN.md geladen. Firestore bleibt als
+   Fallback und für manuelle Admin-Overrides erhalten. */
 const CURRENT_SEASON = 2026;
 const SEASONS = [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017];
 const WEEK_COUNT = 17; // Anzahl Spieltage der regulären Saison, bei Bedarf anpassen
@@ -833,7 +839,7 @@ const POS_TAG_CLASS = { QB: 'pos-qb', RB: 'pos-rb', WR: 'pos-wr', TE: 'pos-te', 
 
 async function fetchWeekMatchups(year, week) {
     if (year !== CURRENT_SEASON) {
-        return fetchHistoricalWeekFromFirestore(year, week);
+        return fetchHistoricalWeek(year, week);
     }
 
     const urls = [
@@ -855,9 +861,282 @@ async function fetchWeekMatchups(year, week) {
     throw lastErr || new Error('ESPN nicht erreichbar');
 }
 
-// Historische Saisons: ESPN liefert dafür bei uns keine Matchup-/Score-Daten
-// mehr, daher kommen Team, Score UND Text hier komplett aus Firestore
-// (dieselben Dokumente, die auch den Bericht enthalten – siehe Import-Skript).
+/* ==========================================================
+   ARCHIV: MARKDOWN + FIRESTORE-FALLBACK
+   ========================================================== */
+function archiveMarkdownPath(year, week) {
+    return 'reference-reports/' + year + '/week' + String(week).padStart(2, '0') + '.md';
+}
+
+function parseArchiveNumber(value) {
+    if (value == null) return 0;
+    const n = parseFloat(String(value).replace(',', '.'));
+    return Number.isFinite(n) ? n : 0;
+}
+
+function cleanArchiveLine(line) {
+    return String(line || '').replace(/\u00a0/g, ' ').trim();
+}
+
+function isArchiveRecordLine(line) {
+    return /^\(\s*\d+\s*-\s*\d+(?:\s*-\s*\d+)?\s*\)$/.test(line);
+}
+
+function isArchiveSectionLine(line) {
+    return /^(Division(?:\s+[A-Z]|\s+War(?:s)?)|Interdivision Games|Preview(?:\s+Week)?\b|Funfact\b|Playoffs?\b|Championship\b)/i.test(line);
+}
+
+function isArchiveSourceMissing(line) {
+    return /^\[?Source\s+Missing\]?$/i.test(line);
+}
+
+function parseModernArchiveResultLine(line) {
+    const m = line.match(/^(.+?)\s+(-?\d+(?:[.,]\d+)?)\s+FINAL\s+(-?\d+(?:[.,]\d+)?)\s+\(([^)]+)\)\s*$/i);
+    if (!m) return null;
+    return {
+        homeTeam: m[1].trim(),
+        homeScore: parseArchiveNumber(m[2]),
+        awayScore: parseArchiveNumber(m[3]),
+        awayRecord: m[4].trim()
+    };
+}
+
+function looksLikeArchiveTeamLabel(value) {
+    const text = String(value || '').trim();
+    if (!text || text.length > 60) return false;
+    if (text.split(/\s+/).length > 9) return false;
+    // Verhindert, dass Sätze wie "... FG 1:12 Minuten ..." als Matchup erkannt werden.
+    if (/[.!?;:]/.test(text)) return false;
+    return true;
+}
+
+function splitLegacyTeamRecord(value) {
+    const text = String(value || '').trim();
+    const m = text.match(/^(.*?)\s*\((\d+\s*-\s*\d+(?:\s*-\s*\d+)?)\)\s*$/);
+    if (!m) return { team: text, record: '' };
+    return { team: m[1].trim(), record: m[2].replace(/\s+/g, '') };
+}
+
+function parseLegacyArchiveMatchupLine(line) {
+    // 2018-2020: "Team A vs. Team B 123,45 : 98,76"
+    let m = line.match(/^(.+?)\s+vs\.?\s+(.+?)\s+(-?\d+(?:[.,]\d+)?)\s*:\s*(-?\d+(?:[.,]\d+)?)\s*$/i);
+    if (m && looksLikeArchiveTeamLabel(m[1]) && looksLikeArchiveTeamLabel(m[2])) {
+        const home = splitLegacyTeamRecord(m[1]);
+        const away = splitLegacyTeamRecord(m[2]);
+        return {
+            homeTeam: home.team,
+            awayTeam: away.team,
+            homeScore: parseArchiveNumber(m[3]),
+            awayScore: parseArchiveNumber(m[4]),
+            homeRecord: home.record,
+            awayRecord: away.record
+        };
+    }
+
+    // 2021 und einzelne ältere Seiten: "Team A 123.45 : 98.76 Team B"
+    m = line.match(/^(.+?)\s+(-?\d+(?:[.,]\d+)?)\s*:\s*(-?\d+(?:[.,]\d+)?)\s+(.+)$/);
+    if (m && looksLikeArchiveTeamLabel(m[1]) && looksLikeArchiveTeamLabel(m[4])) {
+        const home = splitLegacyTeamRecord(m[1]);
+        const away = splitLegacyTeamRecord(m[4]);
+        return {
+            homeTeam: home.team,
+            awayTeam: away.team,
+            homeScore: parseArchiveNumber(m[2]),
+            awayScore: parseArchiveNumber(m[3]),
+            homeRecord: home.record,
+            awayRecord: away.record
+        };
+    }
+    return null;
+}
+
+function looksLikeArchiveBoxHeader(line) {
+    return /\bQB\b/i.test(line) && /\|/.test(line);
+}
+
+function splitArchiveBoxSide(side) {
+    return side.trim().split(/\s+/).filter(Boolean);
+}
+
+function normalizeArchivePosition(position) {
+    const p = String(position || '').trim().toUpperCase();
+    if (p === 'W/R' || p === 'W/R/T') return 'FLEX';
+    return p;
+}
+
+function parseArchiveBoxScore(headerLine, valuesLine) {
+    const headerSides = headerLine.split('|');
+    const valueSides = valuesLine.split('|');
+    if (headerSides.length !== 2 || valueSides.length !== 2) {
+        return { homeBoxScore: [], awayBoxScore: [] };
+    }
+
+    const makeSide = (positionSide, valueSide) => {
+        const positions = splitArchiveBoxSide(positionSide);
+        const values = splitArchiveBoxSide(valueSide);
+        return positions.slice(0, values.length).map((position, idx) => ({
+            position: normalizeArchivePosition(position).replace(/^RB-[12]$/, 'RB').replace(/^WR-[12]$/, 'WR'),
+            label: position,
+            name: '', // alte WordPress-Boxscores enthalten nur Position + Punkte
+            points: parseArchiveNumber(values[idx])
+        }));
+    };
+
+    return {
+        homeBoxScore: makeSide(headerSides[0], valueSides[0]),
+        awayBoxScore: makeSide(headerSides[1], valueSides[1])
+    };
+}
+
+function archiveStartsMatchup(lines, index, allowLegacy) {
+    const line = lines[index];
+    if (isArchiveRecordLine(line) && index + 2 < lines.length && parseModernArchiveResultLine(lines[index + 1])) {
+        return true;
+    }
+    return !!(allowLegacy && parseLegacyArchiveMatchupLine(line));
+}
+
+function parseHistoricalMarkdown(markdown, year, week) {
+    const lines = String(markdown || '')
+        .replace(/\r/g, '')
+        .split('\n')
+        .map(cleanArchiveLine)
+        .filter(Boolean);
+
+    const games = [];
+    let i = 0;
+    let pendingLegacyGames = [];
+
+    // In frühen Jahren fasst ein Absatz teilweise zwei Divisionsspiele zusammen.
+    // Dann wird derselbe Originalabsatz bei beiden betroffenen Matchups angezeigt,
+    // statt künstlich eine Zuordnung zu erfinden.
+    function flushLegacyReport(textLines) {
+        const text = textLines.filter(line => !isArchiveSourceMissing(line)).join('\n\n').trim();
+        pendingLegacyGames.forEach(game => {
+            if (text) game.reportText = text;
+        });
+        pendingLegacyGames = [];
+    }
+
+    while (i < lines.length) {
+        const line = lines[i];
+
+        if (isArchiveSectionLine(line)) {
+            if (pendingLegacyGames.length) flushLegacyReport([]);
+            i++;
+            continue;
+        }
+
+        // Modernes Format (ab 2022): Record, Matchup-Zeile, Gegner,
+        // Positionsüberschrift, Punkte und anschließend Bericht.
+        if (isArchiveRecordLine(line) && i + 2 < lines.length) {
+            const modern = parseModernArchiveResultLine(lines[i + 1]);
+            if (modern) {
+                if (pendingLegacyGames.length) flushLegacyReport([]);
+
+                const game = {
+                    index: games.length + 1,
+                    homeTeam: modern.homeTeam,
+                    awayTeam: lines[i + 2],
+                    homeScore: modern.homeScore,
+                    awayScore: modern.awayScore,
+                    homeRecord: line.slice(1, -1).trim(),
+                    awayRecord: modern.awayRecord,
+                    homeBoxScore: [],
+                    awayBoxScore: [],
+                    reportText: '',
+                    source: 'markdown',
+                    year,
+                    week
+                };
+                i += 3;
+
+                if (i + 1 < lines.length && looksLikeArchiveBoxHeader(lines[i]) && /\|/.test(lines[i + 1])) {
+                    Object.assign(game, parseArchiveBoxScore(lines[i], lines[i + 1]));
+                    i += 2;
+                }
+
+                const reportLines = [];
+                while (i < lines.length && !archiveStartsMatchup(lines, i, year <= 2021) && !isArchiveSectionLine(lines[i])) {
+                    if (!isArchiveSourceMissing(lines[i])) reportLines.push(lines[i]);
+                    i++;
+                }
+                game.reportText = reportLines.join('\n\n').trim();
+                games.push(game);
+                continue;
+            }
+        }
+
+        // Legacy-Format (2018-2021): Matchup-Zeile + Bericht.
+        const legacy = year <= 2021 ? parseLegacyArchiveMatchupLine(line) : null;
+        if (legacy) {
+            const game = {
+                index: games.length + 1,
+                ...legacy,
+                homeBoxScore: [],
+                awayBoxScore: [],
+                reportText: '',
+                source: 'markdown',
+                year,
+                week
+            };
+            games.push(game);
+            pendingLegacyGames.push(game);
+            i++;
+
+            // Direkt folgende Matchup-Zeilen gehören zum selben alten Abschnitt.
+            // Der danach folgende Text wird allen diesen Spielen zugeordnet.
+            if (i < lines.length && !archiveStartsMatchup(lines, i, year <= 2021) && !isArchiveSectionLine(lines[i])) {
+                const reportLines = [];
+                while (i < lines.length && !archiveStartsMatchup(lines, i, year <= 2021) && !isArchiveSectionLine(lines[i])) {
+                    if (!isArchiveSourceMissing(lines[i])) reportLines.push(lines[i]);
+                    i++;
+                }
+                flushLegacyReport(reportLines);
+            }
+            continue;
+        }
+
+        i++;
+    }
+
+    if (pendingLegacyGames.length) flushLegacyReport([]);
+    return games;
+}
+
+function normalizeArchiveTeamName(name) {
+    return String(name || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/&/g, 'and')
+        .replace(/\*/g, '')
+        .replace(/[^a-z0-9]+/g, '')
+        .replace(/johny/g, 'johnny')
+        .replace(/bojangels/g, 'bojangles');
+}
+
+function archiveMatchupKey(game) {
+    return [normalizeArchiveTeamName(game.homeTeam), normalizeArchiveTeamName(game.awayTeam)]
+        .sort()
+        .join('|');
+}
+
+async function fetchHistoricalWeekFromMarkdown(year, week) {
+    const path = archiveMarkdownPath(year, week);
+    try {
+        const res = await fetch(path, { cache: 'no-store' });
+        if (res.status === 404) return [];
+        if (!res.ok) throw new Error('Markdown HTTP ' + res.status);
+        const text = await res.text();
+        return parseHistoricalMarkdown(text, year, week);
+    } catch (err) {
+        console.warn('Archiv-Markdown konnte nicht geladen werden:', path, err);
+        return [];
+    }
+}
+
+// Firestore bleibt für bereits vorhandene Archiveinträge und Admin-Overrides erhalten.
 async function fetchHistoricalWeekFromFirestore(year, week) {
     const prefix = year + '-w' + week + '-m';
     const snap = await reportsCollection
@@ -875,12 +1154,102 @@ async function fetchHistoricalWeekFromFirestore(year, week) {
             awayTeam: data.awayTeam || '?',
             homeScore: data.homeScore != null ? data.homeScore : 0,
             awayScore: data.awayScore != null ? data.awayScore : 0,
+            homeRecord: data.homeRecord || '',
+            awayRecord: data.awayRecord || '',
             homeBoxScore: Array.isArray(data.homeBoxScore) ? data.homeBoxScore : [],
-            awayBoxScore: Array.isArray(data.awayBoxScore) ? data.awayBoxScore : []
+            awayBoxScore: Array.isArray(data.awayBoxScore) ? data.awayBoxScore : [],
+            reportText: data.text || '',
+            manualOverride: data.manualOverride === true,
+            source: 'firestore'
         });
     });
     games.sort((a, b) => a.index - b.index);
     return games;
+}
+
+function mergeHistoricalSources(markdownGames, firestoreGames) {
+    if (!markdownGames.length) return firestoreGames;
+    if (!firestoreGames.length) return markdownGames;
+
+    const firestoreByKey = new Map();
+    firestoreGames.forEach(game => firestoreByKey.set(archiveMatchupKey(game), game));
+    const matchedKeys = new Set();
+    const usedIndices = new Set();
+
+    const merged = markdownGames.map((mdGame, order) => {
+        const key = archiveMatchupKey(mdGame);
+        const fsGame = firestoreByKey.get(key);
+        if (!fsGame) return { ...mdGame, _order: order };
+
+        matchedKeys.add(key);
+        usedIndices.add(fsGame.index);
+
+        // Nur explizite neue Admin-Bearbeitungen überschreiben die statischen
+        // Archivdaten vollständig. Alte Firestore-Dokumente dienen ansonsten
+        // lediglich dazu, ihre etablierte Matchup-ID beizubehalten.
+        if (fsGame.manualOverride) {
+            return {
+                ...mdGame,
+                ...fsGame,
+                index: fsGame.index,
+                source: 'markdown+firestore',
+                _order: order
+            };
+        }
+
+        return {
+            ...mdGame,
+            index: fsGame.index,
+            firestoreReportText: fsGame.reportText || '',
+            source: 'markdown',
+            _order: order
+        };
+    });
+
+    // Manuell ergänzte Firestore-Matchups, die nicht in der Markdown-Datei
+    // vorkommen, bleiben sichtbar.
+    firestoreGames.forEach(fsGame => {
+        const key = archiveMatchupKey(fsGame);
+        if (!matchedKeys.has(key)) {
+            merged.push({ ...fsGame, _order: markdownGames.length + merged.length });
+            usedIndices.add(fsGame.index);
+        }
+    });
+
+    // Falls ein reines Markdown-Matchup zufällig dieselbe Indexnummer wie ein
+    // Firestore-Eintrag trägt, bekommt es die nächste freie ID für Admin-Overrides.
+    let nextIndex = 1;
+    merged.forEach(game => {
+        if (game.source === 'markdown' && usedIndices.has(game.index) && !firestoreByKey.has(archiveMatchupKey(game))) {
+            while (usedIndices.has(nextIndex)) nextIndex++;
+            game.index = nextIndex;
+            usedIndices.add(nextIndex);
+        } else {
+            usedIndices.add(game.index);
+        }
+    });
+
+    merged.sort((a, b) => (a._order || 0) - (b._order || 0));
+    return merged.map(game => {
+        const copy = { ...game };
+        delete copy._order;
+        return copy;
+    });
+}
+
+async function fetchHistoricalWeek(year, week) {
+    const [markdownResult, firestoreResult] = await Promise.allSettled([
+        fetchHistoricalWeekFromMarkdown(year, week),
+        fetchHistoricalWeekFromFirestore(year, week)
+    ]);
+
+    const markdownGames = markdownResult.status === 'fulfilled' ? markdownResult.value : [];
+    const firestoreGames = firestoreResult.status === 'fulfilled' ? firestoreResult.value : [];
+
+    if (markdownResult.status === 'rejected') console.warn(markdownResult.reason);
+    if (firestoreResult.status === 'rejected') console.warn(firestoreResult.reason);
+
+    return mergeHistoricalSources(markdownGames, firestoreGames);
 }
 
 // Extrahiert die Starter-Riege eines Teams (Position, Spielername, Punkte dieser Woche) aus dem ESPN-Roster-Objekt.
@@ -955,7 +1324,10 @@ function renderMatchups(year, week, matchups) {
     quicknav.innerHTML = '';
 
     if (matchups.length === 0) {
-        matchupsContainer.innerHTML = '<div class="rp-empty">Für diesen Spieltag liegen noch keine Matchups vor.</div>';
+        const emptyText = year === CURRENT_SEASON
+            ? 'Für diesen Spieltag liegen noch keine Matchups vor.'
+            : 'Für Saison ' + year + ', Spieltag ' + week + ' ist kein archivierter Spielbericht verfügbar.';
+        matchupsContainer.innerHTML = '<div class="rp-empty">' + emptyText + '</div>';
         quicknavWrap.style.display = 'none';
         return;
     }
@@ -1008,12 +1380,12 @@ function renderMatchups(year, week, matchups) {
         const homeWins = m.homeScore > m.awayScore;
         const awayWins = m.awayScore > m.homeScore;
 
-        teamsRow.appendChild(buildTeamBlock(m.homeTeam, m.homeScore, homeWins, 'home'));
+        teamsRow.appendChild(buildTeamBlock(m.homeTeam, m.homeScore, homeWins, 'home', m.homeRecord));
         const vs = document.createElement('div');
         vs.className = 'rp-vs';
         vs.textContent = 'VS';
         teamsRow.appendChild(vs);
-        teamsRow.appendChild(buildTeamBlock(m.awayTeam, m.awayScore, awayWins, 'away'));
+        teamsRow.appendChild(buildTeamBlock(m.awayTeam, m.awayScore, awayWins, 'away', m.awayRecord));
 
         card.appendChild(teamsRow);
 
@@ -1035,7 +1407,8 @@ function renderMatchups(year, week, matchups) {
             card.appendChild(boxPanel);
         }
 
-        // Bericht-Anzeige
+        // Bericht-Anzeige. Archivtexte werden sofort aus Markdown angezeigt;
+        // Firestore kann sie anschließend als Admin-Override ersetzen.
         const reportText = document.createElement('div');
         reportText.className = 'rp-report-text';
         reportText.style.display = 'none';
@@ -1043,8 +1416,26 @@ function renderMatchups(year, week, matchups) {
 
         const reportEmpty = document.createElement('div');
         reportEmpty.className = 'rp-report-empty';
-        reportEmpty.textContent = 'Noch kein Spielbericht vorhanden.';
+        reportEmpty.textContent = year === CURRENT_SEASON
+            ? 'Noch kein Spielbericht vorhanden.'
+            : 'Für dieses Matchup ist kein archivierter Spielbericht verfügbar.';
         card.appendChild(reportEmpty);
+
+        const staticReportText = year === CURRENT_SEASON ? '' : (m.reportText || '');
+        function applyReportText(text) {
+            const value = String(text || '');
+            if (value.trim()) {
+                reportText.textContent = value;
+                reportText.dataset.raw = value;
+                reportText.style.display = 'block';
+                reportEmpty.style.display = 'none';
+            } else {
+                reportText.style.display = 'none';
+                reportText.dataset.raw = '';
+                reportEmpty.style.display = isAdmin ? 'none' : 'block';
+            }
+        }
+        applyReportText(staticReportText);
 
         // Admin: Bearbeiten-Button + Editor
         const editBtn = document.createElement('button');
@@ -1102,19 +1493,26 @@ function renderMatchups(year, week, matchups) {
 
         matchupsContainer.appendChild(card);
 
-        // Live-Listener für diesen Bericht
+        // Live-Listener: aktuelle Saison vollständig aus Firestore; im Archiv
+        // nur nicht-leere Alttexte bzw. explizite Admin-Overrides über Markdown legen.
         reportListeners[docId] = reportsCollection.doc(docId).onSnapshot(doc => {
-            const text = doc.exists ? (doc.data().text || '') : '';
-            if (text.trim()) {
-                reportText.textContent = text;
-                reportText.dataset.raw = text;
-                reportText.style.display = 'block';
-                reportEmpty.style.display = 'none';
-            } else {
-                reportText.style.display = 'none';
-                reportText.dataset.raw = '';
-                reportEmpty.style.display = isAdmin ? 'none' : 'block';
+            let text = staticReportText;
+            if (doc.exists) {
+                const data = doc.data();
+                const firestoreText = data.text || '';
+                if (year === CURRENT_SEASON) {
+                    text = firestoreText;
+                } else if (data.manualOverride === true) {
+                    text = firestoreText;
+                } else if (firestoreText.trim()) {
+                    text = firestoreText;
+                }
             }
+            applyReportText(text);
+            editBtn.style.display = isAdmin ? 'block' : 'none';
+        }, err => {
+            console.warn('Bericht-Override konnte nicht geladen werden:', docId, err);
+            applyReportText(staticReportText);
             editBtn.style.display = isAdmin ? 'block' : 'none';
         });
     });
@@ -1138,20 +1536,20 @@ function buildBoxScoreColumn(players, reversed) {
         left.className = 'rp-boxscore-player' + (reversed ? ' reversed' : '');
         const tag = document.createElement('span');
         tag.className = 'pos-tag ' + (POS_TAG_CLASS[p.position] || 'pos-def');
-        tag.textContent = p.position;
+        tag.textContent = p.label || p.position;
         const nameSpan = document.createElement('span');
-        nameSpan.textContent = p.name;
+        nameSpan.textContent = p.name || '';
         if (reversed) {
-            left.appendChild(nameSpan);
+            if (p.name) left.appendChild(nameSpan);
             left.appendChild(tag);
         } else {
             left.appendChild(tag);
-            left.appendChild(nameSpan);
+            if (p.name) left.appendChild(nameSpan);
         }
 
         const pts = document.createElement('span');
         pts.className = 'rp-boxscore-pts';
-        pts.textContent = p.points.toFixed(1);
+        pts.textContent = Number(p.points || 0).toFixed(2);
 
         // Punkte sollen bei beiden Spalten zur Mitte hin stehen: links = außen->innen (Name...Punkt),
         // rechts gespiegelt (Punkt...Name), daher hier die Kindreihenfolge umdrehen.
@@ -1167,7 +1565,7 @@ function buildBoxScoreColumn(players, reversed) {
     return col;
 }
 
-function buildTeamBlock(name, score, isWinner, side) {
+function buildTeamBlock(name, score, isWinner, side, record) {
     const wrap = document.createElement('div');
     wrap.className = 'rp-team' + (isWinner ? ' winner' : '') + (side === 'away' ? ' away' : '');
     const img = document.createElement('img');
@@ -1177,10 +1575,16 @@ function buildTeamBlock(name, score, isWinner, side) {
     const nameDiv = document.createElement('div');
     nameDiv.className = 'rp-team-name';
     nameDiv.textContent = name;
+    info.appendChild(nameDiv);
+    if (record) {
+        const recordDiv = document.createElement('div');
+        recordDiv.className = 'rp-team-record';
+        recordDiv.textContent = '(' + record + ')';
+        info.appendChild(recordDiv);
+    }
     const scoreDiv = document.createElement('div');
     scoreDiv.className = 'rp-team-score';
-    scoreDiv.textContent = score.toFixed(2);
-    info.appendChild(nameDiv);
+    scoreDiv.textContent = Number(score || 0).toFixed(2);
     info.appendChild(scoreDiv);
     wrap.appendChild(img);
     wrap.appendChild(info);
@@ -1233,6 +1637,7 @@ addHistoricalBtn.addEventListener('click', () => {
    ========================================================== */
 let hfCurrentDocId = null;
 let hfIsNew = false;
+let hfBaseIsMarkdown = false;
 
 function buildBoxRow(container, existing) {
     const row = document.createElement('div');
@@ -1293,6 +1698,7 @@ hfAddAwayRow.addEventListener('click', () => buildBoxRow(hfAwayBoxRows, null));
 function openHistoricalForm(year, week, index, existingMatchup, docId) {
     hfCurrentDocId = docId;
     hfIsNew = !existingMatchup;
+    hfBaseIsMarkdown = !!(existingMatchup && String(existingMatchup.source || '').includes('markdown'));
     hfTitle.textContent = hfIsNew ? 'Matchup ergänzen' : 'Matchup bearbeiten';
 
     hfHomeTeam.value = existingMatchup ? existingMatchup.homeTeam : '';
@@ -1306,12 +1712,18 @@ function openHistoricalForm(year, week, index, existingMatchup, docId) {
     (existingMatchup && existingMatchup.awayBoxScore || []).forEach(p => buildBoxRow(hfAwayBoxRows, p));
 
     hfDeleteBtn.style.display = hfIsNew ? 'none' : 'inline-block';
+    hfDeleteBtn.textContent = hfBaseIsMarkdown ? 'Änderungen zurücksetzen' : 'Matchup löschen';
 
-    // Bestehenden Text live aus Firestore nachladen (falls schon vorhanden)
-    hfText.value = '';
+    // Markdown-Bericht als Ausgangswert verwenden; ein vorhandener Firestore-
+    // Override hat Vorrang.
+    hfText.value = existingMatchup ? (existingMatchup.reportText || '') : '';
     if (!hfIsNew) {
         reportsCollection.doc(docId).get().then(doc => {
-            if (doc.exists) hfText.value = doc.data().text || '';
+            if (!doc.exists) return;
+            const data = doc.data();
+            if (data.manualOverride === true || (data.text || '').trim()) {
+                hfText.value = data.text || '';
+            }
         });
     }
 
@@ -1344,6 +1756,7 @@ hfSaveBtn.addEventListener('click', () => {
         homeBoxScore: readBoxRows(hfHomeBoxRows),
         awayBoxScore: readBoxRows(hfAwayBoxRows),
         text: hfText.value,
+        manualOverride: true,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true })
         .then(() => {
@@ -1354,7 +1767,10 @@ hfSaveBtn.addEventListener('click', () => {
 });
 
 hfDeleteBtn.addEventListener('click', () => {
-    if (!confirm('Dieses Matchup inkl. Bericht und Box Score wirklich vollständig löschen?')) return;
+    const question = hfBaseIsMarkdown
+        ? 'Manuelle Änderungen verwerfen und wieder die Markdown-Version anzeigen?'
+        : 'Dieses Matchup inkl. Bericht und Box Score wirklich vollständig löschen?';
+    if (!confirm(question)) return;
     reportsCollection.doc(hfCurrentDocId).delete()
         .then(() => {
             closeHistoricalForm();
