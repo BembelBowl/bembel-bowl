@@ -551,6 +551,18 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+.rp-special-report-title {
+    color: #d18b2f;
+    font-size: 1.35rem;
+    margin-bottom: 4px;
+}
+
+.rp-special-report-body {
+    margin-top: 12px;
+    white-space: pre-wrap;
+}
+
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
@@ -582,7 +594,7 @@ body {
         <div class="rp-controls-left">
             <label for="seasonSelect" class="rp-label">📅 Saison:</label>
             <select id="seasonSelect" class="rp-select"></select>
-            <label for="weekSelect" class="rp-label">🏈 Spieltag:</label>
+            <label for="weekSelect" class="rp-label">📖 Bericht:</label>
             <select id="weekSelect" class="rp-select"></select>
             <span id="modeBadge" class="rp-badge rp-badge-view">ANSICHTSMODUS</span>
         </div>
@@ -703,9 +715,28 @@ const LEAGUE_ID = 843833275;
    Archiv-Saisons werden primär aus den statischen Markdown-Dateien unter
    reference-reports/<Jahr>/weekNN.md geladen. Firestore bleibt als
    Fallback und für manuelle Admin-Overrides erhalten. */
-const CURRENT_SEASON = 2026;
-const SEASONS = [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017];
-const WEEK_COUNT = 17; // Anzahl Spieltage der regulären Saison, bei Bedarf anpassen
+const CURRENT_SEASON = new Date().getFullYear();
+const FIRST_ARCHIVE_SEASON = 2017;
+const WEEK_COUNT = 17;
+
+/* Standard-Sonderberichte, die ohne zusätzliche Konfiguration automatisch
+   erkannt werden. Weitere freie Formate können optional über
+   reference-reports/index.json ergänzt werden. */
+const SPECIAL_REPORT_TYPES = [
+    { slug: 'mid-season-recap',      label: 'Mid-Season Recap' },
+    { slug: 'regular-season-recap',  label: 'Regular Season Recap' },
+    { slug: 'season-recap',          label: 'Season Recap' },
+    { slug: 'championship-week',     label: 'Championship Recap' },
+    { slug: 'championship-recap',    label: 'Championship Recap' },
+    { slug: 'champion-recap',        label: 'Champion Recap' },
+    { slug: 'playoff-recap',         label: 'Playoff Recap' },
+    { slug: 'postseason-recap',      label: 'Postseason Recap' },
+    { slug: 'season-awards',         label: 'Season Awards' },
+    { slug: 'draft-recap',           label: 'Draft Recap' }
+];
+
+let reportAvailability = new Map(); // Jahr -> auswählbare Wochen/Sonderberichte
+const archiveTextCache = new Map(); // Pfad -> bereits geladener Markdown-Inhalt
 
 const TEAM_LOGOS = {
     "Amity Island Sharks":   "images/amity_island_sharks.jpg",
@@ -802,25 +833,184 @@ function reportDocId(year, week, index) {
 /* ==========================================================
    AUFBAU DER AUSWAHLFELDER
    ========================================================== */
-function buildSeasonSelect() {
+function entryValue(entry) {
+    return entry.type === 'week' ? ('week:' + entry.week) : ('special:' + entry.slug);
+}
+
+function getSelectedEntry() {
+    const year = parseInt(seasonSelect.value, 10);
+    const entries = reportAvailability.get(year) || [];
+    return entries.find(entry => entryValue(entry) === weekSelect.value) || null;
+}
+
+function buildSeasonSelect(selectedYear) {
     seasonSelect.innerHTML = '';
-    SEASONS.forEach(year => {
+    const years = Array.from(reportAvailability.keys()).sort((a, b) => b - a);
+    years.forEach(year => {
         const opt = document.createElement('option');
         opt.value = String(year);
         opt.textContent = 'Saison ' + year;
+        if (year === selectedYear) opt.selected = true;
         seasonSelect.appendChild(opt);
     });
 }
 
-function buildWeekSelect(selectedWeek) {
+function buildWeekSelect(year, selectedValue) {
     weekSelect.innerHTML = '';
-    for (let w = 1; w <= WEEK_COUNT; w++) {
-        const opt = document.createElement('option');
-        opt.value = String(w);
-        opt.textContent = 'Spieltag ' + w;
-        if (w === selectedWeek) opt.selected = true;
-        weekSelect.appendChild(opt);
+    const entries = reportAvailability.get(year) || [];
+    const weeks = entries.filter(e => e.type === 'week').sort((a, b) => a.week - b.week);
+    const specials = entries.filter(e => e.type === 'special').sort((a, b) => (a.order || 999) - (b.order || 999));
+
+    if (weeks.length) {
+        const group = document.createElement('optgroup');
+        group.label = 'Spielberichte';
+        weeks.forEach(entry => {
+            const opt = document.createElement('option');
+            opt.value = entryValue(entry);
+            opt.textContent = 'Spieltag ' + entry.week;
+            group.appendChild(opt);
+        });
+        weekSelect.appendChild(group);
     }
+
+    if (specials.length) {
+        const group = document.createElement('optgroup');
+        group.label = 'Sonderberichte';
+        specials.forEach(entry => {
+            const opt = document.createElement('option');
+            opt.value = entryValue(entry);
+            opt.textContent = entry.label;
+            group.appendChild(opt);
+        });
+        weekSelect.appendChild(group);
+    }
+
+    if (selectedValue && Array.from(weekSelect.options).some(o => o.value === selectedValue)) {
+        weekSelect.value = selectedValue;
+    }
+}
+
+function hasMeaningfulReportText(text) {
+    const cleaned = String(text || '')
+        .replace(/\[?Source\s+Missing\]?/gi, '')
+        .replace(/^\s*[#>*_-]+\s*$/gm, '')
+        .trim();
+    return cleaned.length >= 20;
+}
+
+async function fetchArchiveText(path) {
+    if (archiveTextCache.has(path)) return archiveTextCache.get(path);
+    try {
+        const res = await fetch(path, { cache: 'no-store' });
+        if (!res.ok) { archiveTextCache.set(path, ''); return ''; }
+        const text = await res.text();
+        archiveTextCache.set(path, text);
+        return text;
+    } catch (err) {
+        archiveTextCache.set(path, '');
+        return '';
+    }
+}
+
+function normalizeIndexEntry(year, raw, order) {
+    if (!raw || typeof raw !== 'object') return null;
+    if (raw.type === 'week' && Number.isInteger(Number(raw.week))) {
+        const week = Number(raw.week);
+        return { type: 'week', week, path: raw.path || archiveMarkdownPath(year, week), order };
+    }
+    if (raw.type === 'special' && raw.path) {
+        const slug = raw.slug || String(raw.path).split('/').pop().replace(/\.md$/i, '');
+        return { type: 'special', slug, label: raw.label || slug.replace(/-/g, ' '), path: raw.path, order };
+    }
+    return null;
+}
+
+async function readOptionalReportIndex() {
+    try {
+        const res = await fetch('reference-reports/index.json', { cache: 'no-store' });
+        if (!res.ok) return new Map();
+        const json = await res.json();
+        const out = new Map();
+        const years = json.years || json;
+        Object.keys(years || {}).forEach(yearKey => {
+            const year = parseInt(yearKey, 10);
+            if (!Number.isFinite(year) || !Array.isArray(years[yearKey])) return;
+            const entries = years[yearKey].map((raw, i) => normalizeIndexEntry(year, raw, i)).filter(Boolean);
+            if (entries.length) out.set(year, entries);
+        });
+        return out;
+    } catch (_) {
+        return new Map();
+    }
+}
+
+async function discoverFirestoreReportWeeks() {
+    const out = new Map();
+    try {
+        const snap = await reportsCollection.get();
+        snap.forEach(doc => {
+            const m = doc.id.match(/^(\d{4})-w(\d+)-m\d+$/);
+            if (!m) return;
+            const data = doc.data() || {};
+            if (!hasMeaningfulReportText(data.text || '')) return;
+            const year = parseInt(m[1], 10);
+            const week = parseInt(m[2], 10);
+            if (!out.has(year)) out.set(year, new Set());
+            out.get(year).add(week);
+        });
+    } catch (err) {
+        console.warn('Firestore-Verfügbarkeit konnte nicht ermittelt werden:', err);
+    }
+    return out;
+}
+
+async function discoverReportAvailability() {
+    const optionalIndex = await readOptionalReportIndex();
+    const firestoreWeeksPromise = discoverFirestoreReportWeeks();
+    const found = new Map();
+
+    const years = [];
+    for (let year = FIRST_ARCHIVE_SEASON; year <= CURRENT_SEASON; year++) years.push(year);
+
+    await Promise.all(years.map(async year => {
+        const candidates = [];
+        for (let week = 1; week <= WEEK_COUNT; week++) {
+            candidates.push({ type: 'week', week, path: archiveMarkdownPath(year, week), order: week });
+        }
+        SPECIAL_REPORT_TYPES.forEach((item, i) => {
+            candidates.push({ type: 'special', slug: item.slug, label: item.label, path: 'reference-reports/' + year + '/' + item.slug + '.md', order: 100 + i });
+        });
+        (optionalIndex.get(year) || []).forEach((entry, i) => candidates.push({ ...entry, order: entry.order != null ? entry.order : 200 + i }));
+
+        const unique = new Map();
+        candidates.forEach(entry => unique.set(entry.type === 'week' ? ('w:' + entry.week) : ('s:' + entry.slug), entry));
+
+        const checked = await Promise.all(Array.from(unique.values()).map(async entry => {
+            const text = await fetchArchiveText(entry.path);
+            if (!hasMeaningfulReportText(text)) return null;
+            if (entry.type === 'week') {
+                const games = parseHistoricalMarkdown(text, year, entry.week);
+                if (!games.some(g => hasMeaningfulReportText(g.reportText || ''))) return null;
+            }
+            return entry;
+        }));
+        const available = checked.filter(Boolean);
+        if (available.length) found.set(year, available);
+    }));
+
+    const firestoreWeeks = await firestoreWeeksPromise;
+    firestoreWeeks.forEach((weeks, year) => {
+        const entries = found.get(year) || [];
+        weeks.forEach(week => {
+            if (!entries.some(e => e.type === 'week' && e.week === week)) {
+                entries.push({ type: 'week', week, path: archiveMarkdownPath(year, week), order: week, firestoreOnly: true });
+            }
+        });
+        if (entries.length) found.set(year, entries);
+    });
+
+    found.forEach(entries => entries.sort((a, b) => (a.order || 0) - (b.order || 0)));
+    reportAvailability = found;
 }
 
 /* ==========================================================
@@ -1596,37 +1786,85 @@ function shortName(name) {
 }
 
 /* ==========================================================
+   RENDER: SONDERBERICHTE
+   ========================================================== */
+function renderSpecialReport(year, entry, text) {
+    detachReportListeners();
+    currentMatchups = [];
+    matchupsContainer.innerHTML = '';
+    quicknav.innerHTML = '';
+    quicknavWrap.style.display = 'none';
+
+    const card = document.createElement('article');
+    card.className = 'rp-matchup rp-special-report';
+
+    const title = document.createElement('h3');
+    title.className = 'rp-special-report-title';
+    title.textContent = entry.label + ' · ' + year;
+    card.appendChild(title);
+
+    const body = document.createElement('div');
+    body.className = 'rp-report-text rp-special-report-body';
+    body.style.display = 'block';
+    body.textContent = String(text || '').trim();
+    card.appendChild(body);
+    matchupsContainer.appendChild(card);
+}
+
+/* ==========================================================
    LADEN BEI AUSWAHL
    ========================================================== */
 async function loadSelectedWeek() {
     const year = parseInt(seasonSelect.value, 10);
-    const week = parseInt(weekSelect.value, 10);
-    statusArea.innerHTML = '<div class="rp-loading">Lade Spieltag…</div>';
+    const entry = getSelectedEntry();
+    if (!entry) {
+        statusArea.innerHTML = '<div class="rp-empty">Für diese Saison sind keine Berichte verfügbar.</div>';
+        matchupsContainer.innerHTML = '';
+        quicknavWrap.style.display = 'none';
+        return;
+    }
+
+    statusArea.innerHTML = '<div class="rp-loading">Lade Bericht…</div>';
     matchupsContainer.innerHTML = '';
     quicknavWrap.style.display = 'none';
     updateAddHistoricalBtnVisibility();
 
     try {
+        if (entry.type === 'special') {
+            const text = await fetchArchiveText(entry.path);
+            if (!hasMeaningfulReportText(text)) throw new Error('Bericht enthält keinen Inhalt');
+            statusArea.innerHTML = '';
+            renderSpecialReport(year, entry, text);
+            return;
+        }
+
+        const week = entry.week;
         currentMatchups = await fetchWeekMatchups(year, week);
+        // Die Auswahl enthält nur Wochen mit Bericht. Falls eine Datei zwischen
+        // Discovery und Laden entfernt wurde, zeigen wir dennoch einen klaren Hinweis.
+        if (!currentMatchups.some(m => hasMeaningfulReportText(m.reportText || '')) && year !== CURRENT_SEASON) {
+            const fs = await fetchHistoricalWeekFromFirestore(year, week);
+            currentMatchups = fs;
+        }
         statusArea.innerHTML = '';
         renderMatchups(year, week, currentMatchups);
     } catch (e) {
         console.error(e);
-        const msg = year === CURRENT_SEASON
-            ? 'Spieltag konnte nicht von ESPN geladen werden (' + e.message + '). Das kann an CORS-Beschränkungen liegen oder daran, dass dieser Spieltag noch nicht gespielt wurde.'
-            : 'Archivierter Spieltag konnte nicht geladen werden (' + e.message + ').';
-        statusArea.innerHTML = '<div class="rp-error">' + msg + '</div>';
+        statusArea.innerHTML = '<div class="rp-error">Bericht konnte nicht geladen werden (' + e.message + ').</div>';
     }
 }
 
 function updateAddHistoricalBtnVisibility() {
     const year = parseInt(seasonSelect.value, 10);
-    addHistoricalBtn.style.display = (isAdmin && year !== CURRENT_SEASON) ? 'inline-block' : 'none';
+    const entry = getSelectedEntry();
+    addHistoricalBtn.style.display = (isAdmin && entry && entry.type === 'week' && year !== CURRENT_SEASON) ? 'inline-block' : 'none';
 }
 
 addHistoricalBtn.addEventListener('click', () => {
     const year = parseInt(seasonSelect.value, 10);
-    const week = parseInt(weekSelect.value, 10);
+    const entry = getSelectedEntry();
+    if (!entry || entry.type !== 'week') return;
+    const week = entry.week;
     const nextIndex = currentMatchups.reduce((max, m) => Math.max(max, m.index || 0), 0) + 1;
     const docId = year + '-w' + week + '-m' + nextIndex;
     openHistoricalForm(year, week, nextIndex, null, docId);
@@ -1779,7 +2017,11 @@ hfDeleteBtn.addEventListener('click', () => {
         .catch(err => alert('Löschen fehlgeschlagen: ' + err.message));
 });
 
-seasonSelect.addEventListener('change', loadSelectedWeek);
+seasonSelect.addEventListener('change', () => {
+    const year = parseInt(seasonSelect.value, 10);
+    buildWeekSelect(year);
+    loadSelectedWeek();
+});
 weekSelect.addEventListener('change', loadSelectedWeek);
 
 /* ==========================================================
@@ -1832,9 +2074,28 @@ auth.onAuthStateChanged((user) => {
 /* ==========================================================
    INIT
    ========================================================== */
-buildSeasonSelect();
-buildWeekSelect(1);
-loadSelectedWeek();
+async function initReportsPage() {
+    statusArea.innerHTML = '<div class="rp-loading">Suche verfügbare Berichte…</div>';
+    seasonSelect.disabled = true;
+    weekSelect.disabled = true;
+    await discoverReportAvailability();
+
+    if (reportAvailability.size === 0) {
+        seasonSelect.innerHTML = '';
+        weekSelect.innerHTML = '';
+        statusArea.innerHTML = '<div class="rp-empty">Derzeit sind keine Spielberichte verfügbar.</div>';
+        return;
+    }
+
+    const newestYear = Math.max(...Array.from(reportAvailability.keys()));
+    buildSeasonSelect(newestYear);
+    buildWeekSelect(newestYear);
+    seasonSelect.disabled = false;
+    weekSelect.disabled = false;
+    await loadSelectedWeek();
+}
+
+initReportsPage();
 </script>
 
 </body>
