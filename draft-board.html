@@ -424,7 +424,7 @@ table.db-board {
 
 .db-cell {
     min-width: 128px;
-    height: 78px;
+    height: 94px;
     border-radius: 8px;
     background-color: #f8f6f0;
     border: 2px dashed #e0ded6;
@@ -481,6 +481,19 @@ table.db-board {
 .db-player-nfl {
     font-size: 0.72rem;
     color: #777;
+}
+
+.db-pick-meta {
+    margin-top: 3px;
+    font-size: 0.61rem;
+    line-height: 1.25;
+    color: #999;
+    white-space: nowrap;
+}
+
+.db-pick-meta span + span::before {
+    content: " · ";
+    color: #bbb;
 }
 
 /* --- MODAL --- */
@@ -971,6 +984,8 @@ let currentEdit = null; // {round, position}
 let liveZoom = 1;
 let archiveZoom = 1;
 const archiveCache = {}; // year -> {teamNames, picks}
+const byeWeekCache = {};   // year -> { TEAM_ABBR: byeWeek }
+const byeWeekLoading = {}; // year -> Promise
 
 /* ==========================================================
    DOM
@@ -1145,6 +1160,143 @@ function pickKey(round, position) {
     return round + '-' + position;
 }
 
+// NFL-Teamkürzel normalisieren (ESPN / historische Excel-Dateien verwenden
+// teilweise unterschiedliche Kürzel für dieselbe Franchise).
+function normalizeNflTeam(team) {
+    const raw = String(team || '').toUpperCase().trim();
+    const aliases = {
+        'JAC': 'JAX',
+        'LA': 'LAR',
+        'STL': 'LAR',
+        'SD': 'LAC',
+        'OAK': 'LV',
+        'WSH': 'WSH',
+        'WAS': 'WSH'
+    };
+    return aliases[raw] || raw;
+}
+
+function currentDraftSeason() {
+    return new Date().getFullYear();
+}
+
+function formatPickDuration(seconds) {
+    if (seconds === null || seconds === undefined || !isFinite(Number(seconds))) return '–';
+    const total = Math.max(0, Math.round(Number(seconds)));
+    if (total < 60) return total + 's';
+    const min = Math.floor(total / 60);
+    const sec = total % 60;
+    if (min < 60) return min + ':' + String(sec).padStart(2, '0') + ' min';
+    const hr = Math.floor(min / 60);
+    const rem = min % 60;
+    return hr + ':' + String(rem).padStart(2, '0') + ' h';
+}
+
+function pickTimestampMs(pick) {
+    if (!pick || pick.pickedAt === undefined || pick.pickedAt === null) return null;
+    if (typeof pick.pickedAt === 'number') return pick.pickedAt;
+    if (typeof pick.pickedAt === 'string' && !isNaN(Number(pick.pickedAt))) return Number(pick.pickedAt);
+    // Firestore Timestamp
+    if (pick.pickedAt && typeof pick.pickedAt.toMillis === 'function') return pick.pickedAt.toMillis();
+    if (pick.pickedAt && typeof pick.pickedAt.seconds === 'number') return pick.pickedAt.seconds * 1000;
+    return null;
+}
+
+function previousOverallPick(round, position) {
+    const overall = pickNumber(round, position);
+    if (overall <= 1) return null;
+    for (let r = 1; r <= ROUND_COUNT; r++) {
+        for (let p = 1; p <= TEAM_COUNT; p++) {
+            if (pickNumber(r, p) === overall - 1) {
+                return picks[pickKey(r, p)] || null;
+            }
+        }
+    }
+    return null;
+}
+
+async function loadByeWeeks(year) {
+    if (byeWeekCache[year]) return byeWeekCache[year];
+    if (byeWeekLoading[year]) return byeWeekLoading[year];
+
+    byeWeekLoading[year] = (async () => {
+        const maxWeek = year >= 2021 ? 18 : 17;
+        const played = {};
+
+        const requests = [];
+        for (let week = 1; week <= maxWeek; week++) {
+            const url = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard'
+                + '?dates=' + year + '&seasontype=2&week=' + week + '&limit=100';
+            requests.push(
+                fetch(url)
+                    .then(r => {
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+                        return r.json();
+                    })
+                    .then(data => ({ week, data }))
+                    .catch(err => {
+                        console.warn('Bye-Week-Spielplan konnte für ' + year + '/W' + week + ' nicht geladen werden:', err);
+                        return { week, data: null };
+                    })
+            );
+        }
+
+        const results = await Promise.all(requests);
+        results.forEach(({ week, data }) => {
+            if (!data || !Array.isArray(data.events)) return;
+            data.events.forEach(event => {
+                const comps = event && event.competitions && event.competitions[0] && event.competitions[0].competitors;
+                if (!Array.isArray(comps)) return;
+                comps.forEach(c => {
+                    const abbr = normalizeNflTeam(c && c.team && c.team.abbreviation);
+                    if (!abbr) return;
+                    if (!played[abbr]) played[abbr] = new Set();
+                    played[abbr].add(week);
+                });
+            });
+        });
+
+        const byes = {};
+        Object.keys(played).forEach(team => {
+            const missing = [];
+            for (let w = 1; w <= maxWeek; w++) {
+                if (!played[team].has(w)) missing.push(w);
+            }
+            // Eine reguläre NFL-Saison hat genau eine Bye Week. Falls die API
+            // unvollständig antwortet, lieber nichts anzeigen als falsch raten.
+            if (missing.length === 1) byes[team] = missing[0];
+        });
+
+        byeWeekCache[year] = byes;
+        delete byeWeekLoading[year];
+        return byes;
+    })();
+
+    return byeWeekLoading[year];
+}
+
+function getByeWeek(year, nflTeam) {
+    const team = normalizeNflTeam(nflTeam);
+    if (!team || !byeWeekCache[year]) return null;
+    return byeWeekCache[year][team] || null;
+}
+
+function appendPickMeta(td, pick, year) {
+    const meta = document.createElement('div');
+    meta.className = 'db-pick-meta';
+
+    const duration = document.createElement('span');
+    duration.textContent = 'Dauer: ' + formatPickDuration(pick.pickDurationSeconds);
+    meta.appendChild(duration);
+
+    const bye = document.createElement('span');
+    const byeWeek = getByeWeek(year, pick.nflTeam);
+    bye.textContent = 'Bye: ' + (byeWeek ? ('W' + byeWeek) : '–');
+    meta.appendChild(bye);
+
+    td.appendChild(meta);
+}
+
 // Prüft, ob ein Spieler (Name) bereits an anderer Stelle im Board steht.
 // excludeKey: die Zelle, die gerade bearbeitet wird, zählt nicht als Duplikat gegen sich selbst.
 function findDuplicatePick(playerName, excludeKey) {
@@ -1169,6 +1321,11 @@ function applyBoardData(data) {
     picks = (data && data.picks) || {};
     renderBoard();
     renderTeamsPanel();
+
+    const year = currentDraftSeason();
+    if (!byeWeekCache[year]) {
+        loadByeWeeks(year).then(() => renderBoard()).catch(() => {});
+    }
 }
 
 boardDocRef.onSnapshot(
@@ -1369,6 +1526,8 @@ function renderBoard() {
                     nflDiv.textContent = pick.nflTeam;
                     td.appendChild(nflDiv);
                 }
+
+                appendPickMeta(td, pick, currentDraftSeason());
             } else if (isAdmin) {
                 const hint = document.createElement('div');
                 hint.className = 'db-cell-empty-hint';
@@ -1467,10 +1626,15 @@ playerSearch.addEventListener('input', () => {
                 duplicateWarning.classList.add('show');
                 return;
             }
+            const nowMs = Date.now();
+            const prevPick = previousOverallPick(currentEdit.round, currentEdit.position);
+            const prevMs = pickTimestampMs(prevPick);
             const newPick = {
                 name: p.name,
                 position: p.position,
-                nflTeam: p.nflTeam
+                nflTeam: p.nflTeam,
+                pickedAt: nowMs,
+                pickDurationSeconds: prevMs ? Math.max(0, Math.round((nowMs - prevMs) / 1000)) : null
             };
             picks[key] = newPick;
             savePickToCloud(key, newPick);
@@ -1717,6 +1881,8 @@ function renderArchiveBoard(year, data) {
                     nflDiv.textContent = pick.nflTeam;
                     td.appendChild(nflDiv);
                 }
+
+                appendPickMeta(td, pick, year);
             }
             tr.appendChild(td);
         }
@@ -1831,6 +1997,9 @@ archiveCache[year] = parseDraftBoardWorkbook(buf);
             }
         }
         renderArchiveBoard(year, archiveCache[year]);
+        if (!byeWeekCache[year]) {
+            loadByeWeeks(year).then(() => renderArchiveBoard(year, archiveCache[year])).catch(() => {});
+        }
         archiveBoardWrap.style.display = 'block';
         archiveZoom = 1;
         applyZoom(archiveZoomInner, archiveZoom, archiveZoomLevel);
