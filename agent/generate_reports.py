@@ -133,21 +133,81 @@ def parse_box_score_side(team_side, week):
     return players
 
 
-def fetch_week_matchups(week):
-    # ESPN erwartet mehrere gleichnamige view-Parameter. Eine Python-Dict kann
-    # denselben Key nicht mehrfach enthalten, deshalb bewusst eine Tupel-Liste.
-    params = [
-        ("view", "mScoreboard"),
+def extract_team_score(team_side, week, box_score=None):
+    """Liest den Team-Score robust aus den verschiedenen ESPN-Response-Varianten."""
+    side = team_side or {}
+
+    # Klassischer Matchup-Score. Bei manchen View-Kombinationen liefert ESPN
+    # hier waehrend der laufenden Woche allerdings 0, obwohl im Roster bereits
+    # Punkte vorhanden sind. Deshalb nur direkt verwenden, wenn > 0.
+    for key in ("totalPoints", "totalPointsLive"):
+        value = side.get(key)
+        if value not in (None, ""):
+            try:
+                value = float(value)
+                if value > 0:
+                    return value
+            except (TypeError, ValueError):
+                pass
+
+    # mMatchupScore fuehrt die Werte oft zusaetzlich wochenweise.
+    by_period = side.get("pointsByScoringPeriod") or {}
+    value = by_period.get(str(week), by_period.get(week))
+    if value not in (None, ""):
+        try:
+            value = float(value)
+            if value > 0:
+                return value
+        except (TypeError, ValueError):
+            pass
+
+    # mBoxscore kann den Teamwert im Roster selbst liefern.
+    for roster_key in ("rosterForCurrentScoringPeriod", "rosterForMatchupPeriod"):
+        roster = side.get(roster_key) or {}
+        value = roster.get("appliedStatTotal")
+        if value not in (None, ""):
+            try:
+                value = float(value)
+                if value > 0:
+                    return value
+            except (TypeError, ValueError):
+                pass
+
+    # Letzter Fallback: Punkte der Starter summieren. Das ist fuer die
+    # Berichterstellung besser als 0 und stimmt in normalen Wochen bis auf
+    # eventuelle manuelle Commissioner-Adjustments mit dem Teamwert ueberein.
+    if box_score:
+        try:
+            summed = round(sum(float(p.get("points") or 0) for p in box_score), 2)
+            if summed > 0:
+                return summed
+        except (TypeError, ValueError):
+            pass
+
+
+    # 0 ist als legitimer Zwischenstand moeglich (z.B. vor dem ersten Kickoff).
+    try:
+        return float(side.get("totalPoints") or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def fetch_week_matchups(week, strict=True):
+    # Team-Metadaten und Matchup/Boxscore bewusst getrennt abrufen. ESPN kann
+    # bei grossen View-Kombinationen leicht unterschiedliche Response-Formen
+    # liefern; diese Aufteilung ist stabiler und leichter zu validieren.
+    team_data = fetch_espn([("view", "mTeam")])
+    matchup_params = [
         ("view", "mMatchupScore"),
-        ("view", "mTeam"),
         ("view", "mBoxscore"),
+        ("view", "mScoreboard"),
         ("scoringPeriodId", week),
         ("matchupPeriodId", week),
     ]
-    data = fetch_espn(params)
+    data = fetch_espn(matchup_params)
 
     teams_by_id = {}
-    for t in data.get("teams", []):
+    for t in team_data.get("teams", []):
         name = t.get("name") or f"{t.get('location', '')} {t.get('nickname', '')}".strip() or f"Team {t['id']}"
         teams_by_id[t["id"]] = name
 
@@ -159,23 +219,25 @@ def fetch_week_matchups(week):
         home, away = m.get("home"), m.get("away")
         if not home or not away:
             continue
+        home_box = parse_box_score_side(home, week)
+        away_box = parse_box_score_side(away, week)
         games.append(
             {
                 "matchupId": m.get("id"),
                 "homeTeam": teams_by_id.get(home["teamId"], f"Team {home['teamId']}"),
                 "awayTeam": teams_by_id.get(away["teamId"], f"Team {away['teamId']}"),
-                "homeScore": home.get("totalPoints", 0) or 0,
-                "awayScore": away.get("totalPoints", 0) or 0,
-                "homeBoxScore": parse_box_score_side(home, week),
-                "awayBoxScore": parse_box_score_side(away, week),
+                "homeScore": extract_team_score(home, week, home_box),
+                "awayScore": extract_team_score(away, week, away_box),
+                "homeBoxScore": home_box,
+                "awayBoxScore": away_box,
             }
         )
 
-    validate_matchups(games, week)
+    validate_matchups(games, week, strict=strict)
     return games
 
 
-def validate_matchups(games, week):
+def validate_matchups(games, week, strict=True):
     if EXPECTED_MATCHUP_COUNT and len(games) != EXPECTED_MATCHUP_COUNT:
         raise RuntimeError(
             f"ESPN lieferte fuer Woche {week} {len(games)} statt erwarteter "
@@ -183,9 +245,14 @@ def validate_matchups(games, week):
         )
 
     if games and not any((g["homeScore"] or 0) > 0 or (g["awayScore"] or 0) > 0 for g in games):
-        raise RuntimeError(
-            f"Alle Scores fuer Woche {week} sind 0. Der Spieltag ist vermutlich noch nicht abgeschlossen "
-            "oder ESPN hat bereits auf die naechste Woche umgeschaltet."
+        if strict:
+            raise RuntimeError(
+                f"Alle Scores fuer Woche {week} sind 0. Der Spieltag ist vermutlich noch nicht abgeschlossen "
+                "oder ESPN hat fuer diese View noch keine finalen Teamwerte geliefert."
+            )
+        print(
+            f"WARNUNG: Alle Scores fuer Woche {week} sind derzeit 0. "
+            "Im SMOKE_TEST ist das erlaubt, weil die Woche noch laufen kann."
         )
 
     missing_box = [
@@ -369,7 +436,7 @@ def main():
     week = determine_week()
     print(f"Saison {SEASON}, Spieltag {week}, League {LEAGUE_ID}")
 
-    matchups = fetch_week_matchups(week)
+    matchups = fetch_week_matchups(week, strict=not smoke_test)
     print(f"{len(matchups)} Match-ups gefunden und validiert.")
     for i, matchup in enumerate(matchups, start=1):
         print(
