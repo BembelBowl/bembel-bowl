@@ -460,7 +460,7 @@ def main():
             raise RuntimeError("Gemini-Smoke-Test lieferte keine Antwort.")
         print(f"Gemini erreichbar ({GEMINI_MODEL}): {ai_text[:40]!r}")
         db = init_firestore()
-        test_ref = db.collection("matchReports").document("__automation_smoke_test__")
+        test_ref = db.collection("matchReports").document("automation-smoke-test")
         test_ref.set({
             "text": "automation smoke test",
             "generatedBy": "smoke-test",
