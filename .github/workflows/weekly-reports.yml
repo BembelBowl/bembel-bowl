@@ -2,30 +2,52 @@ name: Weekly Reports
 
 on:
   schedule:
-    # Zwei UTC-Zeitpunkte, um 12:00 Uhr Berliner Zeit unabhaengig von
-    # Sommer-/Winterzeit zuverlaessig abzudecken. Das Python-Skript prueft
-    # selbst die tatsaechliche Berliner Zeit und bricht ansonsten ab,
-    # d.h. es laeuft trotz zwei Cron-Eintraegen nur einmal pro Woche wirklich durch.
-    - cron: '0 10 * * 2'  # deckt 12:00 Uhr CEST (Sommerzeit) ab
-    - cron: '0 11 * * 2'  # deckt 12:00 Uhr CET (Winterzeit) ab
+    # Dienstag 12:17 Uhr Berliner Zeit. Die Minute 17 vermeidet die besonders
+    # stark belastete volle Stunde bei GitHub Actions; timezone macht DST sicher.
+    - cron: '17 12 * * 2'
+      timezone: 'Europe/Berlin'
   workflow_dispatch:
     inputs:
       week:
-        description: 'Spieltag manuell ueberschreiben (optional, z.B. "5")'
+        description: 'Spieltag manuell ueberschreiben (optional, z.B. "1")'
         required: false
         default: ''
       force_run:
-        description: 'Zeitpruefung ueberspringen und sofort ausfuehren (zum Testen)'
+        description: 'Zeitpruefung ueberspringen und sofort ausfuehren'
         required: false
         default: 'true'
         type: choice
         options:
           - 'true'
           - 'false'
+      validate_only:
+        description: 'Nur ESPN/Daten pruefen; keine KI und kein Firestore-Schreiben'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      smoke_test:
+        description: 'Kompletter Verbindungstest: ESPN + Gemini + Firebase (Testdokument wird sofort geloescht)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-reports
+  cancel-in-progress: false
 
 jobs:
   generate-reports:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Repo auschecken
         uses: actions/checkout@v4
@@ -38,11 +60,18 @@ jobs:
       - name: Abhaengigkeiten installieren
         run: pip install -r agent/requirements.txt
 
+      - name: Python-Syntax pruefen
+        run: python -m py_compile agent/generate_reports.py scripts/build_report_index.py
+
       - name: Spielberichte generieren
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           ESPN_LEAGUE_ID: ${{ secrets.ESPN_LEAGUE_ID }}
+          GEMINI_MODEL: gemini-3.6-flash
           WEEK_OVERRIDE: ${{ github.event.inputs.week }}
           FORCE_RUN: ${{ github.event.inputs.force_run || 'false' }}
+          VALIDATE_ONLY: ${{ github.event.inputs.validate_only || 'false' }}
+          SMOKE_TEST: ${{ github.event.inputs.smoke_test || 'false' }}
+          EXPECTED_MATCHUP_COUNT: '10'
         run: python agent/generate_reports.py
