@@ -1,0 +1,535 @@
+{
+  "years": {
+    "2018": [
+      {
+        "type": "week",
+        "week": 1,
+        "path": "reference-reports/2018/week01.md"
+      },
+      {
+        "type": "week",
+        "week": 2,
+        "path": "reference-reports/2018/week02.md"
+      },
+      {
+        "type": "week",
+        "week": 3,
+        "path": "reference-reports/2018/week03.md"
+      },
+      {
+        "type": "week",
+        "week": 4,
+        "path": "reference-reports/2018/week04.md"
+      },
+      {
+        "type": "week",
+        "week": 5,
+        "path": "reference-reports/2018/week05.md"
+      },
+      {
+        "type": "week",
+        "week": 6,
+        "path": "reference-reports/2018/week06.md"
+      },
+      {
+        "type": "week",
+        "week": 7,
+        "path": "reference-reports/2018/week07.md"
+      },
+      {
+        "type": "week",
+        "week": 8,
+        "path": "reference-reports/2018/week08.md"
+      },
+      {
+        "type": "week",
+        "week": 9,
+        "path": "reference-reports/2018/week09.md"
+      },
+      {
+        "type": "week",
+        "week": 10,
+        "path": "reference-reports/2018/week10.md"
+      },
+      {
+        "type": "week",
+        "week": 11,
+        "path": "reference-reports/2018/week11.md"
+      },
+      {
+        "type": "week",
+        "week": 13,
+        "path": "reference-reports/2018/week13.md"
+      },
+      {
+        "type": "week",
+        "week": 14,
+        "path": "reference-reports/2018/week14.md"
+      },
+      {
+        "type": "special",
+        "slug": "championship-week",
+        "label": "Championship Recap",
+        "path": "reference-reports/2018/championship-week.md"
+      }
+    ],
+    "2019": [
+      {
+        "type": "week",
+        "week": 1,
+        "path": "reference-reports/2019/week01.md"
+      },
+      {
+        "type": "week",
+        "week": 2,
+        "path": "reference-reports/2019/week02.md"
+      },
+      {
+        "type": "week",
+        "week": 3,
+        "path": "reference-reports/2019/week03.md"
+      },
+      {
+        "type": "week",
+        "week": 4,
+        "path": "reference-reports/2019/week04.md"
+      },
+      {
+        "type": "week",
+        "week": 5,
+        "path": "reference-reports/2019/week05.md"
+      },
+      {
+        "type": "week",
+        "week": 6,
+        "path": "reference-reports/2019/week06.md"
+      },
+      {
+        "type": "week",
+        "week": 7,
+        "path": "reference-reports/2019/week07.md"
+      },
+      {
+        "type": "week",
+        "week": 8,
+        "path": "reference-reports/2019/week08.md"
+      },
+      {
+        "type": "week",
+        "week": 11,
+        "path": "reference-reports/2019/week11.md"
+      },
+      {
+        "type": "special",
+        "slug": "regular-season-recap",
+        "label": "Regular Season Recap",
+        "path": "reference-reports/2019/regular-season-recap.md"
+      }
+    ],
+    "2020": [
+      {
+        "type": "week",
+        "week": 1,
+        "path": "reference-reports/2020/week01.md"
+      },
+      {
+        "type": "week",
+        "week": 2,
+        "path": "reference-reports/2020/week02.md"
+      },
+      {
+        "type": "week",
+        "week": 3,
+        "path": "reference-reports/2020/week03.md"
+      },
+      {
+        "type": "week",
+        "week": 4,
+        "path": "reference-reports/2020/week04.md"
+      },
+      {
+        "type": "week",
+        "week": 6,
+        "path": "reference-reports/2020/week06.md"
+      },
+      {
+        "type": "week",
+        "week": 7,
+        "path": "reference-reports/2020/week07.md"
+      },
+      {
+        "type": "week",
+        "week": 8,
+        "path": "reference-reports/2020/week08.md"
+      },
+      {
+        "type": "week",
+        "week": 9,
+        "path": "reference-reports/2020/week09.md"
+      },
+      {
+        "type": "week",
+        "week": 10,
+        "path": "reference-reports/2020/week10.md"
+      },
+      {
+        "type": "week",
+        "week": 11,
+        "path": "reference-reports/2020/week11.md"
+      },
+      {
+        "type": "week",
+        "week": 12,
+        "path": "reference-reports/2020/week12.md"
+      },
+      {
+        "type": "week",
+        "week": 13,
+        "path": "reference-reports/2020/week13.md"
+      },
+      {
+        "type": "week",
+        "week": 14,
+        "path": "reference-reports/2020/week14.md"
+      }
+    ],
+    "2021": [
+      {
+        "type": "week",
+        "week": 1,
+        "path": "reference-reports/2021/week01.md"
+      },
+      {
+        "type": "week",
+        "week": 2,
+        "path": "reference-reports/2021/week02.md"
+      },
+      {
+        "type": "week",
+        "week": 3,
+        "path": "reference-reports/2021/week03.md"
+      },
+      {
+        "type": "week",
+        "week": 4,
+        "path": "reference-reports/2021/week04.md"
+      },
+      {
+        "type": "week",
+        "week": 5,
+        "path": "reference-reports/2021/week05.md"
+      },
+      {
+        "type": "week",
+        "week": 6,
+        "path": "reference-reports/2021/week06.md"
+      },
+      {
+        "type": "week",
+        "week": 7,
+        "path": "reference-reports/2021/week07.md"
+      },
+      {
+        "type": "week",
+        "week": 8,
+        "path": "reference-reports/2021/week08.md"
+      },
+      {
+        "type": "week",
+        "week": 9,
+        "path": "reference-reports/2021/week09.md"
+      },
+      {
+        "type": "week",
+        "week": 10,
+        "path": "reference-reports/2021/week10.md"
+      },
+      {
+        "type": "week",
+        "week": 11,
+        "path": "reference-reports/2021/week11.md"
+      },
+      {
+        "type": "week",
+        "week": 12,
+        "path": "reference-reports/2021/week12.md"
+      },
+      {
+        "type": "week",
+        "week": 13,
+        "path": "reference-reports/2021/week13.md"
+      },
+      {
+        "type": "week",
+        "week": 14,
+        "path": "reference-reports/2021/week14.md"
+      },
+      {
+        "type": "special",
+        "slug": "championship-week",
+        "label": "Championship Recap",
+        "path": "reference-reports/2021/championship-week.md"
+      },
+      {
+        "type": "special",
+        "slug": "mid-season-recap",
+        "label": "Mid-Season Recap",
+        "path": "reference-reports/2021/mid-season-recap.md"
+      },
+      {
+        "type": "special",
+        "slug": "regular-season-recap",
+        "label": "Regular Season Recap",
+        "path": "reference-reports/2021/regular-season-recap.md"
+      },
+      {
+        "type": "special",
+        "slug": "season-awards",
+        "label": "Season Awards",
+        "path": "reference-reports/2021/season-awards.md"
+      }
+    ],
+    "2022": [
+      {
+        "type": "week",
+        "week": 1,
+        "path": "reference-reports/2022/week01.md"
+      },
+      {
+        "type": "week",
+        "week": 2,
+        "path": "reference-reports/2022/week02.md"
+      },
+      {
+        "type": "week",
+        "week": 3,
+        "path": "reference-reports/2022/week03.md"
+      },
+      {
+        "type": "week",
+        "week": 4,
+        "path": "reference-reports/2022/week04.md"
+      },
+      {
+        "type": "week",
+        "week": 5,
+        "path": "reference-reports/2022/week05.md"
+      },
+      {
+        "type": "week",
+        "week": 6,
+        "path": "reference-reports/2022/week06.md"
+      },
+      {
+        "type": "week",
+        "week": 7,
+        "path": "reference-reports/2022/week07.md"
+      },
+      {
+        "type": "week",
+        "week": 8,
+        "path": "reference-reports/2022/week08.md"
+      },
+      {
+        "type": "week",
+        "week": 9,
+        "path": "reference-reports/2022/week09.md"
+      },
+      {
+        "type": "week",
+        "week": 10,
+        "path": "reference-reports/2022/week10.md"
+      },
+      {
+        "type": "week",
+        "week": 11,
+        "path": "reference-reports/2022/week11.md"
+      },
+      {
+        "type": "week",
+        "week": 12,
+        "path": "reference-reports/2022/week12.md"
+      },
+      {
+        "type": "week",
+        "week": 13,
+        "path": "reference-reports/2022/week13.md"
+      },
+      {
+        "type": "week",
+        "week": 14,
+        "path": "reference-reports/2022/week14.md"
+      },
+      {
+        "type": "special",
+        "slug": "championship-week",
+        "label": "Championship Recap",
+        "path": "reference-reports/2022/championship-week.md"
+      },
+      {
+        "type": "special",
+        "slug": "mid-season-recap",
+        "label": "Mid-Season Recap",
+        "path": "reference-reports/2022/mid-season-recap.md"
+      },
+      {
+        "type": "special",
+        "slug": "regular-season-recap",
+        "label": "Regular Season Recap",
+        "path": "reference-reports/2022/regular-season-recap.md"
+      },
+      {
+        "type": "special",
+        "slug": "season-awards",
+        "label": "Season Awards",
+        "path": "reference-reports/2022/season-awards.md"
+      }
+    ],
+    "2023": [
+      {
+        "type": "week",
+        "week": 1,
+        "path": "reference-reports/2023/week01.md"
+      },
+      {
+        "type": "week",
+        "week": 2,
+        "path": "reference-reports/2023/week02.md"
+      },
+      {
+        "type": "week",
+        "week": 3,
+        "path": "reference-reports/2023/week03.md"
+      },
+      {
+        "type": "week",
+        "week": 4,
+        "path": "reference-reports/2023/week04.md"
+      },
+      {
+        "type": "week",
+        "week": 5,
+        "path": "reference-reports/2023/week05.md"
+      },
+      {
+        "type": "week",
+        "week": 6,
+        "path": "reference-reports/2023/week06.md"
+      },
+      {
+        "type": "week",
+        "week": 7,
+        "path": "reference-reports/2023/week07.md"
+      },
+      {
+        "type": "week",
+        "week": 8,
+        "path": "reference-reports/2023/week08.md"
+      },
+      {
+        "type": "week",
+        "week": 9,
+        "path": "reference-reports/2023/week09.md"
+      },
+      {
+        "type": "week",
+        "week": 10,
+        "path": "reference-reports/2023/week10.md"
+      },
+      {
+        "type": "week",
+        "week": 11,
+        "path": "reference-reports/2023/week11.md"
+      },
+      {
+        "type": "week",
+        "week": 12,
+        "path": "reference-reports/2023/week12.md"
+      },
+      {
+        "type": "week",
+        "week": 13,
+        "path": "reference-reports/2023/week13.md"
+      },
+      {
+        "type": "week",
+        "week": 14,
+        "path": "reference-reports/2023/week14.md"
+      },
+      {
+        "type": "special",
+        "slug": "championship-week",
+        "label": "Championship Recap",
+        "path": "reference-reports/2023/championship-week.md"
+      },
+      {
+        "type": "special",
+        "slug": "mid-season-recap",
+        "label": "Mid-Season Recap",
+        "path": "reference-reports/2023/mid-season-recap.md"
+      },
+      {
+        "type": "special",
+        "slug": "regular-season-recap",
+        "label": "Regular Season Recap",
+        "path": "reference-reports/2023/regular-season-recap.md"
+      },
+      {
+        "type": "special",
+        "slug": "season-awards",
+        "label": "Season Awards",
+        "path": "reference-reports/2023/season-awards.md"
+      }
+    ],
+    "2024": [
+      {
+        "type": "week",
+        "week": 7,
+        "path": "reference-reports/2024/week07.md"
+      },
+      {
+        "type": "week",
+        "week": 9,
+        "path": "reference-reports/2024/week09.md"
+      },
+      {
+        "type": "week",
+        "week": 10,
+        "path": "reference-reports/2024/week10.md"
+      },
+      {
+        "type": "week",
+        "week": 11,
+        "path": "reference-reports/2024/week11.md"
+      },
+      {
+        "type": "week",
+        "week": 13,
+        "path": "reference-reports/2024/week13.md"
+      },
+      {
+        "type": "week",
+        "week": 14,
+        "path": "reference-reports/2024/week14.md"
+      },
+      {
+        "type": "special",
+        "slug": "mid-season-recap",
+        "label": "Mid-Season Recap",
+        "path": "reference-reports/2024/mid-season-recap.md"
+      },
+      {
+        "type": "special",
+        "slug": "regular-season-recap",
+        "label": "Regular Season Recap",
+        "path": "reference-reports/2024/regular-season-recap.md"
+      },
+      {
+        "type": "special",
+        "slug": "season-awards",
+        "label": "Season Awards",
+        "path": "reference-reports/2024/season-awards.md"
+      }
+    ]
+  }
+}
