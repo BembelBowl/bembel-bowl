@@ -40,14 +40,16 @@ LEAGUE_ID = os.environ.get("ESPN_LEAGUE_ID", "843833275")
 SEASON = int(os.environ.get("SEASON", datetime.now().year))
 WEEK_OVERRIDE = os.environ.get("WEEK_OVERRIDE")
 
-BASE_DIR = Path(__file__).parent
+BASE_DIR = Path(__file__).resolve().parent
+REPO_ROOT = BASE_DIR.parent
 STYLE_GUIDE_PATH = BASE_DIR / "STYLE_GUIDE.md"
-REFERENCE_DIR = BASE_DIR / "reference-reports"
+REFERENCE_DIR = REPO_ROOT / "reference-reports"
 NUM_EXAMPLE_REPORTS = 3
+EXPECTED_MATCHUP_COUNT = int(os.environ.get("EXPECTED_MATCHUP_COUNT", "10"))
 
 # Kostenloses Gemini-Modell. In Google AI Studio unter "Rate limits" pruefen,
 # welches Modell aktuell im Free-Tier verfuegbar ist, ggf. hier anpassen.
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
     + GEMINI_MODEL + ":generateContent"
@@ -84,11 +86,17 @@ def fetch_espn(params):
 def determine_week():
     if WEEK_OVERRIDE:
         return int(WEEK_OVERRIDE)
-    data = fetch_espn({"view": "mStatus"})
-    week = (data.get("status") or {}).get("currentMatchupPeriod")
+
+    # Fuer den Dienstag-Recap brauchen wir den zuletzt abgeschlossenen
+    # Scoring-Zeitraum, nicht den bereits aktiven naechsten Matchup-Zeitraum.
+    data = fetch_espn([("view", "mStatus")])
+    status = data.get("status") or {}
+    week = status.get("latestScoringPeriod")
+    if not week:
+        week = status.get("currentMatchupPeriod")
     if not week:
         raise RuntimeError(
-            "Konnte den aktuellen Spieltag nicht automatisch ermitteln. "
+            "Konnte den letzten abgeschlossenen Spieltag nicht automatisch ermitteln. "
             "Bitte WEEK_OVERRIDE beim manuellen Workflow-Trigger setzen."
         )
     return int(week)
@@ -126,7 +134,17 @@ def parse_box_score_side(team_side, week):
 
 
 def fetch_week_matchups(week):
-    data = fetch_espn({"view": "mScoreboard", "view": "mMatchupScore", "view": "mTeam", "scoringPeriodId": week})
+    # ESPN erwartet mehrere gleichnamige view-Parameter. Eine Python-Dict kann
+    # denselben Key nicht mehrfach enthalten, deshalb bewusst eine Tupel-Liste.
+    params = [
+        ("view", "mScoreboard"),
+        ("view", "mMatchupScore"),
+        ("view", "mTeam"),
+        ("view", "mBoxscore"),
+        ("scoringPeriodId", week),
+        ("matchupPeriodId", week),
+    ]
+    data = fetch_espn(params)
 
     teams_by_id = {}
     for t in data.get("teams", []):
@@ -134,7 +152,8 @@ def fetch_week_matchups(week):
         teams_by_id[t["id"]] = name
 
     games = []
-    for m in data.get("schedule", []):
+    schedule = sorted(data.get("schedule", []), key=lambda m: m.get("id", 0))
+    for m in schedule:
         if m.get("matchupPeriodId") != week:
             continue
         home, away = m.get("home"), m.get("away")
@@ -142,6 +161,7 @@ def fetch_week_matchups(week):
             continue
         games.append(
             {
+                "matchupId": m.get("id"),
                 "homeTeam": teams_by_id.get(home["teamId"], f"Team {home['teamId']}"),
                 "awayTeam": teams_by_id.get(away["teamId"], f"Team {away['teamId']}"),
                 "homeScore": home.get("totalPoints", 0) or 0,
@@ -150,7 +170,33 @@ def fetch_week_matchups(week):
                 "awayBoxScore": parse_box_score_side(away, week),
             }
         )
+
+    validate_matchups(games, week)
     return games
+
+
+def validate_matchups(games, week):
+    if EXPECTED_MATCHUP_COUNT and len(games) != EXPECTED_MATCHUP_COUNT:
+        raise RuntimeError(
+            f"ESPN lieferte fuer Woche {week} {len(games)} statt erwarteter "
+            f"{EXPECTED_MATCHUP_COUNT} Match-ups. Breche ab, damit keine unvollstaendigen Berichte gespeichert werden."
+        )
+
+    if games and not any((g["homeScore"] or 0) > 0 or (g["awayScore"] or 0) > 0 for g in games):
+        raise RuntimeError(
+            f"Alle Scores fuer Woche {week} sind 0. Der Spieltag ist vermutlich noch nicht abgeschlossen "
+            "oder ESPN hat bereits auf die naechste Woche umgeschaltet."
+        )
+
+    missing_box = [
+        f"{g['homeTeam']} vs. {g['awayTeam']}"
+        for g in games
+        if not g.get("homeBoxScore") or not g.get("awayBoxScore")
+    ]
+    if missing_box:
+        raise RuntimeError(
+            "ESPN lieferte keinen vollstaendigen Starter-Boxscore fuer: " + "; ".join(missing_box)
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -166,7 +212,15 @@ def load_style_guide():
 
 
 def load_example_reports(n=NUM_EXAMPLE_REPORTS):
-    all_files = list(REFERENCE_DIR.rglob("*.md")) + list(REFERENCE_DIR.rglob("*.txt"))
+    # Fuer Wochen-Recaps moeglichst aktuelle Wochenberichte als Stilbeispiele
+    # verwenden; Sonderberichte/Awards unterscheiden sich strukturell stark.
+    preferred = []
+    for year in (2024, 2023, 2022, 2021):
+        year_dir = REFERENCE_DIR / str(year)
+        if year_dir.exists():
+            preferred.extend(sorted(year_dir.glob("week*.md")))
+
+    all_files = preferred or sorted(REFERENCE_DIR.rglob("week*.md"))
     if not all_files:
         return []
     sample = random.sample(all_files, min(n, len(all_files)))
@@ -186,7 +240,7 @@ def build_prompt(style_guide, examples, matchup):
     examples_block = "\n\n---\n\n".join(examples) if examples else "(keine Beispiele verfuegbar)"
     home, away = matchup["homeTeam"], matchup["awayTeam"]
     home_score, away_score = matchup["homeScore"], matchup["awayScore"]
-    winner = home if home_score > away_score else away
+    winner = home if home_score > away_score else away if away_score > home_score else "Unentschieden"
 
     return f"""Du schreibst Spielberichte fuer eine Fantasy-Football-Liga ("Bembel Bowl"),
 im exakt gleichen Stil wie die Liga-Manager das seit Jahren selbst tun.
@@ -212,20 +266,40 @@ BOX SCORE {away}:
 Antworte NUR mit dem fertigen Bericht, ohne Einleitung oder Meta-Kommentar."""
 
 
-def generate_report(prompt):
+def generate_report(prompt, max_attempts=4):
     api_key = os.environ["GEMINI_API_KEY"]
-    body = {"contents": [{"parts": [{"text": prompt}]}]}
-    res = requests.post(GEMINI_URL, params={"key": api_key}, json=body, timeout=60)
-    res.raise_for_status()
-    data = res.json()
-    candidates = data.get("candidates") or []
-    if not candidates:
-        raise RuntimeError(f"Gemini lieferte keine Antwort: {data}")
-    parts = candidates[0].get("content", {}).get("parts", [])
-    text = "".join(p.get("text", "") for p in parts).strip()
-    if not text:
-        raise RuntimeError(f"Gemini-Antwort war leer: {data}")
-    return text
+    body = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.8},
+    }
+
+    last_err = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            res = requests.post(GEMINI_URL, params={"key": api_key}, json=body, timeout=90)
+            if res.status_code in {429, 500, 502, 503, 504} and attempt < max_attempts:
+                wait = 8 * attempt
+                print(f"  Gemini temporaer nicht verfuegbar (HTTP {res.status_code}), neuer Versuch in {wait}s ...")
+                time.sleep(wait)
+                continue
+            res.raise_for_status()
+            data = res.json()
+            candidates = data.get("candidates") or []
+            if not candidates:
+                raise RuntimeError(f"Gemini lieferte keine Antwort: {data}")
+            parts = candidates[0].get("content", {}).get("parts", [])
+            text = "".join(p.get("text", "") for p in parts).strip()
+            if not text:
+                raise RuntimeError(f"Gemini-Antwort war leer: {data}")
+            return text
+        except Exception as exc:  # noqa: BLE001
+            last_err = exc
+            if attempt < max_attempts:
+                wait = 8 * attempt
+                print(f"  Gemini-Fehler ({exc}), neuer Versuch in {wait}s ...")
+                time.sleep(wait)
+
+    raise RuntimeError(f"Gemini nach {max_attempts} Versuchen fehlgeschlagen: {last_err}")
 
 
 # ---------------------------------------------------------------------------
@@ -251,6 +325,11 @@ def save_report(db, season, week, index, matchup, text):
             "homeBoxScore": matchup["homeBoxScore"],
             "awayBoxScore": matchup["awayBoxScore"],
             "generatedBy": "ai-agent",
+            "generationModel": GEMINI_MODEL,
+            "season": season,
+            "week": week,
+            "matchupIndex": index,
+            "matchupId": matchup.get("matchupId"),
             "updatedAt": firestore.SERVER_TIMESTAMP,
         },
         merge=True,
@@ -273,23 +352,60 @@ def is_scheduled_time_now(tolerance_minutes=20):
 # ---------------------------------------------------------------------------
 def main():
     force_run = os.environ.get("FORCE_RUN") == "true"
-    if not force_run and not is_scheduled_time_now():
-        print("Nicht der geplante Zeitpunkt (Dienstag ~12:00 Uhr Berliner Zeit) - breche ab, ohne etwas zu tun.")
+    validate_only = os.environ.get("VALIDATE_ONLY") == "true"
+    smoke_test = os.environ.get("SMOKE_TEST") == "true"
+
+    # Der Workflow steuert den Termin. Diese Pruefung ist nur ein Schutz gegen
+    # versehentliche Ausfuehrung und toleriert GitHub-Actions-Verzoegerungen.
+    if not force_run and not is_scheduled_time_now(tolerance_minutes=180):
+        print("Nicht im geplanten Dienstag-Zeitfenster - breche ab, ohne etwas zu tun.")
         sys.exit(0)
+
+    if not validate_only:
+        missing = [name for name in ("GEMINI_API_KEY", "FIREBASE_SERVICE_ACCOUNT") if not os.environ.get(name)]
+        if missing:
+            raise RuntimeError("Fehlende GitHub Secrets/Umgebungsvariablen: " + ", ".join(missing))
 
     week = determine_week()
-    print(f"Saison {SEASON}, Spieltag {week}")
+    print(f"Saison {SEASON}, Spieltag {week}, League {LEAGUE_ID}")
 
     matchups = fetch_week_matchups(week)
-    if not matchups:
-        print("Keine Match-ups fuer diesen Spieltag gefunden.")
-        sys.exit(0)
-    print(f"{len(matchups)} Match-ups gefunden.")
+    print(f"{len(matchups)} Match-ups gefunden und validiert.")
+    for i, matchup in enumerate(matchups, start=1):
+        print(
+            f"  {i:02d}: {matchup['homeTeam']} {matchup['homeScore']:.2f} : "
+            f"{matchup['awayScore']:.2f} {matchup['awayTeam']} "
+            f"({len(matchup['homeBoxScore'])}+{len(matchup['awayBoxScore'])} Starter)"
+        )
 
     style_guide = load_style_guide()
     examples = load_example_reports()
+    print(f"Stil-Guide geladen; {len(examples)} historische Wochenberichte als Beispiele geladen.")
+
+    if validate_only:
+        print("VALIDATE_ONLY=true: ESPN-/Datenpruefung erfolgreich. Keine KI-Aufrufe, keine Firestore-Schreibvorgaenge.")
+        return
+
+    if smoke_test:
+        print("SMOKE_TEST=true: pruefe Gemini und Firebase mit einem temporaeren Testeintrag ...")
+        ai_text = generate_report("Antworte exakt mit dem Wort OK und sonst nichts.")
+        if not ai_text.strip():
+            raise RuntimeError("Gemini-Smoke-Test lieferte keine Antwort.")
+        print(f"Gemini erreichbar ({GEMINI_MODEL}): {ai_text[:40]!r}")
+        db = init_firestore()
+        test_ref = db.collection("matchReports").document("__automation_smoke_test__")
+        test_ref.set({
+            "text": "automation smoke test",
+            "generatedBy": "smoke-test",
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        })
+        test_ref.delete()
+        print("Firebase erreichbar: Testdokument erfolgreich geschrieben und wieder geloescht.")
+        print("SMOKE TEST ERFOLGREICH: ESPN + Daten + Gemini + Firebase sind erreichbar.")
+        return
 
     db = init_firestore()
+    failures = []
 
     for index, matchup in enumerate(matchups, start=1):
         print(f"Erzeuge Bericht fuer {matchup['homeTeam']} vs. {matchup['awayTeam']} ...")
@@ -299,10 +415,18 @@ def main():
             save_report(db, SEASON, week, index, matchup, text)
             print("  gespeichert.")
         except Exception as e:  # noqa: BLE001
+            failures.append((index, matchup, str(e)))
             print(f"  FEHLER bei diesem Match-up: {e}")
-        time.sleep(2)  # kleine Pause, um das kostenlose Rate-Limit zu schonen
+        time.sleep(6)  # Rate-Limit im kostenlosen Gemini-Tier schonen
 
-    print("Fertig.")
+    if failures:
+        summary = "; ".join(
+            f"m{idx} {m['homeTeam']} vs. {m['awayTeam']}: {err}"
+            for idx, m, err in failures
+        )
+        raise RuntimeError(f"{len(failures)} von {len(matchups)} Berichten fehlgeschlagen: {summary}")
+
+    print(f"Fertig: {len(matchups)} von {len(matchups)} Berichten erfolgreich gespeichert.")
 
 
 if __name__ == "__main__":
