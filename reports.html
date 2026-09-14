@@ -1488,7 +1488,7 @@ function parseEspnScoreboard(json, week) {
         teamsById[t.id] = name;
     });
 
-    const games = json.schedule.filter(m => m.matchupPeriodId === week && m.home && m.away);
+    const games = json.schedule.filter(m => m.matchupPeriodId === week && m.home && m.away).sort((a, b) => (a.id || 0) - (b.id || 0));
 
     return games.map(m => ({
         homeTeam: teamsById[m.home.teamId] || ('Team ' + m.home.teamId),
