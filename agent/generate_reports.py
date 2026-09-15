@@ -18,6 +18,7 @@ Optionale Umgebungsvariablen (manuelles Testen/Ueberschreiben):
 - SEASON        (z.B. "2026", Default: aktuelles Jahr)
 - WEEK_OVERRIDE (z.B. "5", ueberschreibt die automatische Wochenerkennung)
 - FORCE_RUN     ("true", ueberspringt die Zeitpruefung)
+- SKIP_EXISTING ("true", vorhandene Berichte nicht neu erzeugen)
 """
 
 import json
@@ -403,6 +404,16 @@ def save_report(db, season, week, index, matchup, text):
     )
 
 
+def report_exists(db, season, week, index):
+    """True, wenn fuer dieses Matchup bereits ein nichtleerer Bericht existiert."""
+    doc_id = f"{season}-w{week}-m{index}"
+    snap = db.collection("matchReports").document(doc_id).get()
+    if not snap.exists:
+        return False
+    data = snap.to_dict() or {}
+    return bool(str(data.get("text") or "").strip())
+
+
 # ---------------------------------------------------------------------------
 # Zeitpruefung (Dienstag ~12:00 Uhr Berliner Zeit, DST-sicher)
 # ---------------------------------------------------------------------------
@@ -421,9 +432,12 @@ def main():
     force_run = os.environ.get("FORCE_RUN") == "true"
     validate_only = os.environ.get("VALIDATE_ONLY") == "true"
     smoke_test = os.environ.get("SMOKE_TEST") == "true"
+    skip_existing = os.environ.get("SKIP_EXISTING") == "true"
 
-    # Der Workflow steuert den Termin. Diese Pruefung ist nur ein Schutz gegen
-    # versehentliche Ausfuehrung und toleriert GitHub-Actions-Verzoegerungen.
+    # Bei GitHub-Schedule setzt der Workflow FORCE_RUN=true. Dadurch kann eine
+    # von GitHub verspaetet gestartete Ausfuehrung niemals an dieser lokalen
+    # Uhrzeitpruefung scheitern. Die Pruefung bleibt nur als Schutz fuer andere
+    # direkte/manuelle Aufrufe des Python-Skripts bestehen.
     if not force_run and not is_scheduled_time_now(tolerance_minutes=180):
         print("Nicht im geplanten Dienstag-Zeitfenster - breche ab, ohne etwas zu tun.")
         sys.exit(0)
@@ -474,12 +488,24 @@ def main():
     db = init_firestore()
     failures = []
 
+    generated_count = 0
+    skipped_count = 0
+
     for index, matchup in enumerate(matchups, start=1):
+        if skip_existing and report_exists(db, SEASON, week, index):
+            skipped_count += 1
+            print(
+                f"Ueberspringe m{index}: Bericht fuer "
+                f"{matchup['homeTeam']} vs. {matchup['awayTeam']} ist bereits vorhanden."
+            )
+            continue
+
         print(f"Erzeuge Bericht fuer {matchup['homeTeam']} vs. {matchup['awayTeam']} ...")
         try:
             prompt = build_prompt(style_guide, examples, matchup)
             text = generate_report(prompt)
             save_report(db, SEASON, week, index, matchup, text)
+            generated_count += 1
             print("  gespeichert.")
         except Exception as e:  # noqa: BLE001
             failures.append((index, matchup, str(e)))
@@ -493,7 +519,10 @@ def main():
         )
         raise RuntimeError(f"{len(failures)} von {len(matchups)} Berichten fehlgeschlagen: {summary}")
 
-    print(f"Fertig: {len(matchups)} von {len(matchups)} Berichten erfolgreich gespeichert.")
+    print(
+        f"Fertig: {generated_count} neu erzeugt, {skipped_count} bereits vorhanden, "
+        f"{len(failures)} fehlgeschlagen."
+    )
 
 
 if __name__ == "__main__":
