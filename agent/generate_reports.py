@@ -304,132 +304,25 @@ def format_box_score(players):
     return "\n".join(f"  {p['position']}: {p['name']} - {p['points']:.1f} Pkt." for p in players)
 
 
-STYLE_MODES = [
-    "Beginne mit der auffaelligsten Einzelleistung im Boxscore. Keine rhetorische Frage am Anfang.",
-    "Beginne mit dem Gesamtbild beider Lineups und arbeite dann zu den entscheidenden Positionsunterschieden hin.",
-    "Beginne aus Sicht des Verlierers: Wo blieb Produktion liegen? Danach erst den Sieger einordnen.",
-    "Beginne trocken und knapp mit einer Beobachtung zum Punkteabstand; erst danach einzelne Spieler herausgreifen.",
-    "Baue den Bericht um einen Kontrast auf: eine starke Position gegen eine schwache Positionsgruppe. Keine Dramatisierung im ersten Satz.",
-    "Beginne mit einer sachlich klingenden Feststellung, die im zweiten Satz in trockenen Spott kippt.",
-    "Erzaehle das Matchup ueber zwei bis drei Schluesselfiguren aus dem Boxscore, nicht ueber den Endstand.",
-    "Beginne mit einem ungewoehnlichen Vergleich oder Bild, aber ohne bekannte Standardfloskel und ohne rhetorische Frage.",
-    "Beginne mit dem Sieger, aber vermeide Lobeshymnen; betone stattdessen, wodurch der Vorsprung im Lineup entstand.",
-    "Beginne mit einer kurzen Mini-Diagnose des Matchups in einem Satz und entwickle daraus einen frei fliessenden Kommentar.",
-]
-
-BANNED_WEEKLY_PHRASES = [
-    "mein lieber herr gesangsverein",
-    "wie kann man so ein matchup verlieren",
-    "wie kann man dieses matchup verlieren",
-    "so ein matchup kann man nicht verlieren",
-    "dieses matchup kann man nicht verlieren",
-    "eigentlich nicht zu verlieren",
-]
-
-
-def normalize_phrase(text):
-    return " ".join(str(text or "").lower().split())
-
-
-def first_sentence(text):
-    import re
-    clean = " ".join(str(text or "").strip().split())
-    if not clean:
-        return ""
-    parts = re.split(r"(?<=[.!?])\s+", clean, maxsplit=1)
-    return parts[0][:240]
-
-
-def sanitize_report_text(text, matchup):
-    """Entfernt redundante Titel/Scorezeilen, falls Gemini sie trotz Prompt ausgibt."""
-    import re
-
-    raw_lines = [line.rstrip() for line in str(text or "").strip().splitlines()]
-    while raw_lines and not raw_lines[0].strip():
-        raw_lines.pop(0)
-
-    if raw_lines:
-        first = re.sub(r"^#{1,6}\s*", "", raw_lines[0].strip())
-        low = normalize_phrase(first)
-        home = normalize_phrase(matchup.get("homeTeam"))
-        away = normalize_phrase(matchup.get("awayTeam"))
-        looks_like_score = bool(re.search(r"\d+(?:[.,]\d+)?\s*[:\-]\s*\d+(?:[.,]\d+)?", first))
-        looks_like_matchup = (home and home in low and away and away in low) or (" vs" in low and looks_like_score)
-
-        # Nur kurze erste Zeilen entfernen; ein echter Fliesstext-Absatz soll nie
-        # wegen einer zufaelligen Teamnennung abgeschnitten werden.
-        if len(first) <= 180 and (looks_like_matchup or (looks_like_score and (home in low or away in low))):
-            raw_lines.pop(0)
-            while raw_lines and not raw_lines[0].strip():
-                raw_lines.pop(0)
-
-    return "\n".join(raw_lines).strip()
-
-
-def report_has_forbidden_repetition(text, previous_reports):
-    """Erkennt besonders auffaellige Wochen-Wiederholungen fuer einen Retry."""
-    current = normalize_phrase(text)
-
-    # Die bekanntesten Schablonen sollen maximal einmal in einer Woche vorkommen.
-    for phrase in BANNED_WEEKLY_PHRASES:
-        count_before = sum(phrase in normalize_phrase(r) for r in previous_reports)
-        if phrase in current and count_before >= 1:
-            return phrase
-
-    # Nahezu gleicher Einstieg ist ebenfalls ein Wiederholungsindikator.
-    opening = normalize_phrase(first_sentence(text))
-    if opening:
-        opening_words = opening.split()[:8]
-        prefix = " ".join(opening_words)
-        if len(prefix) >= 24:
-            for previous in previous_reports:
-                if normalize_phrase(first_sentence(previous)).startswith(prefix):
-                    return f"aehnlicher Einstieg: {prefix}"
-    return None
-
-
-def build_prompt(style_guide, examples, matchup, report_index=1, previous_reports=None):
-    previous_reports = previous_reports or []
+def build_prompt(style_guide, examples, matchup):
     examples_block = "\n\n---\n\n".join(examples) if examples else "(keine Beispiele verfuegbar)"
     home, away = matchup["homeTeam"], matchup["awayTeam"]
     home_score, away_score = matchup["homeScore"], matchup["awayScore"]
     winner = home if home_score > away_score else away if away_score > home_score else "Unentschieden"
-    style_mode = STYLE_MODES[(report_index - 1) % len(STYLE_MODES)]
-
-    used_openings = [first_sentence(r) for r in previous_reports if first_sentence(r)]
-    used_openings_block = "\n".join(f"- {x}" for x in used_openings[-9:]) or "- noch keine"
 
     return f"""Du schreibst Spielberichte fuer eine Fantasy-Football-Liga ("Bembel Bowl"),
-im gleichen Grundton wie die Liga-Manager das seit Jahren selbst tun, aber NICHT als Schablone.
+im exakt gleichen Stil wie die Liga-Manager das seit Jahren selbst tun.
 
 STIL-GUIDE:
 {style_guide}
 
-BEISPIELBERICHTE AUS VERGANGENEN JAHREN (nur Orientierung fuer Tonfall; NICHT Formulierungen kopieren):
+BEISPIELBERICHTE AUS VERGANGENEN JAHREN (Orientierung fuer Tonfall, Laenge, Aufbau):
 {examples_block}
 
-WICHTIG FUER DIESE WOCHE:
-- Dies ist Bericht {report_index} von mehreren Matchups derselben Woche. Jeder Bericht muss eigenstaendig klingen.
-- Keine Ueberschrift. Keine Titelzeile. Teamnamen und Endstand NICHT als erste Zeile wiederholen.
-- Beginne sofort mit dem Fliesstext.
-- Verwende keine wiederkehrende Standarddramaturgie nach dem Muster "dieses Matchup kann man nicht verlieren".
-- Nutze rhetorische Fragen nur selten. Nicht jeder Bericht darf mit einer Frage beginnen.
-- Dieselbe auffaellige Redewendung oder Catchphrase darf innerhalb einer Woche hoechstens einmal vorkommen.
-- Insbesondere "Mein lieber Herr Gesangsverein" nicht verwenden, wenn es fuer die Pointe nicht absolut unverzichtbar ist.
-- Variiere Satzlaenge, Einstieg, Perspektive, Schwerpunkt und Schluss. Nicht jeder Bericht soll Sieger -> Verlierer -> Fazit folgen.
-- Beende den Bericht nicht automatisch mit einem Ausblick auf die kommende Woche, wenn dazu keine Daten vorliegen.
-- Keine erfundenen Verletzungen, Trades, Managerentscheidungen, Rekorde oder NFL-News.
-- Keine Behauptung ueber Spielverlauf/Comeback/Last-Second, wenn das nicht aus den Daten ableitbar ist.
+Schreibe jetzt einen neuen Spielbericht fuer folgendes Match-up, in genau diesem Stil.
+Nutze NUR die unten gegebenen Fakten, erfinde keine zusaetzlichen Ereignisse oder Statistiken.
 
-ERZAEHLPERSPEKTIVE FUER GENAU DIESEN BERICHT:
-{style_mode}
-
-BEREITS VERWENDETE EINSTIEGE DIESER WOCHE (nicht nachbauen oder paraphrasieren):
-{used_openings_block}
-
-MATCH-UP-DATEN:
-{home}: {home_score:.2f} Punkte
-{away}: {away_score:.2f} Punkte
+MATCH-UP: {home} ({home_score:.2f} Punkte) vs. {away} ({away_score:.2f} Punkte)
 Sieger: {winner}
 
 BOX SCORE {home}:
@@ -438,7 +331,7 @@ BOX SCORE {home}:
 BOX SCORE {away}:
 {format_box_score(matchup['awayBoxScore'])}
 
-Schreibe einen dichten, unterhaltsamen Fliesstext. Antworte NUR mit dem Bericht selbst."""
+Antworte NUR mit dem fertigen Bericht, ohne Einleitung oder Meta-Kommentar."""
 
 
 def generate_report(prompt, max_attempts=4):
@@ -597,7 +490,6 @@ def main():
 
     generated_count = 0
     skipped_count = 0
-    generated_reports_this_run = []
 
     for index, matchup in enumerate(matchups, start=1):
         if skip_existing and report_exists(db, SEASON, week, index):
@@ -610,49 +502,9 @@ def main():
 
         print(f"Erzeuge Bericht fuer {matchup['homeTeam']} vs. {matchup['awayTeam']} ...")
         try:
-            # Bis zu drei Stilversuche: Wenn eine bereits in dieser Woche stark
-            # benutzte Catchphrase/Einleitung erneut auftaucht, bekommt Gemini
-            # gezieltes Feedback und schreibt nur diesen Bericht neu.
-            text = None
-            retry_note = ""
-            for style_attempt in range(1, 4):
-                prompt = build_prompt(
-                    style_guide,
-                    examples,
-                    matchup,
-                    report_index=index,
-                    previous_reports=generated_reports_this_run,
-                )
-                if retry_note:
-                    prompt += (
-                        "\n\nZUSAETZLICHE KORREKTUR FUER DIESEN NEUVERSUCH:\n"
-                        + retry_note
-                        + "\nFormuliere den Bericht deutlich anders als beim vorherigen Versuch."
-                    )
-
-                candidate = sanitize_report_text(generate_report(prompt), matchup)
-                repetition = report_has_forbidden_repetition(candidate, generated_reports_this_run)
-                if not repetition:
-                    text = candidate
-                    break
-
-                print(f"  Stilwiederholung erkannt ({repetition}); neuer Versuch ...")
-                retry_note = (
-                    f"Die Formulierung/Struktur '{repetition}' wurde in dieser Woche bereits verwendet. "
-                    "Verwende einen anderen Einstieg, eine andere Dramaturgie und andere Redewendungen."
-                )
-                time.sleep(3)
-
-            if not text:
-                # Letzten Kandidaten nicht verwerfen, falls nur der Stil-Check
-                # nach mehreren Versuchen weiterhin anschlaegt.
-                text = candidate
-
-            if not text.strip():
-                raise RuntimeError("Der bereinigte Gemini-Bericht ist leer.")
-
+            prompt = build_prompt(style_guide, examples, matchup)
+            text = generate_report(prompt)
             save_report(db, SEASON, week, index, matchup, text)
-            generated_reports_this_run.append(text)
             generated_count += 1
             print("  gespeichert.")
         except Exception as e:  # noqa: BLE001
