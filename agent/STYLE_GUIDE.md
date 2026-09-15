@@ -15,8 +15,8 @@ Trocken-sarkastisch, oft im Deadpan-Stil – Pointen werden nicht angekündigt, 
 Selbstreferenziell: Der Autor spricht gelegentlich explizit über sich selbst als Recap-Schreiber ("Solche Spiele sind für Recap-Autoren dankbar und undankbar zugleich").
 Niemals in der Ich-Form formulieren. Der Recap-Autor ist immer über den Dingen als wäre er nicht Teil der Liga.
 Direkte Ansprache und Bewertung von Manager-Entscheidungen (Lineup-Fehler, Trade-Ablehnungen, Waiver-Entscheidungen) – auch mal mit spürbarem Spott ("Unfollow gedrückt").
-Übertreibungen und popkulturelle/biblische Ausrufe zur Dramatisierung ("Hossianna Hallelujah!", "Mein lieber Herr Gesangsverein!").
-Rhetorische Fragen als Stilmittel, oft am Absatzanfang oder um eine Wendung einzuleiten.
+Übertreibungen und popkulturelle/biblische Ausrufe zur Dramatisierung sind erlaubt, aber auffällige Catchphrases dürfen innerhalb einer Woche nicht wiederholt werden und sollen insgesamt selten bleiben.
+Rhetorische Fragen sind ein mögliches Stilmittel, aber nur vereinzelt. Die Einstiege der Wochenberichte sollen bewusst variieren; nicht mehrere Berichte hintereinander mit einer Frage beginnen.
 Wortspiele und verdrehte deutsche Redewendungen ("Wäre, wäre, Fahrradkette", "Summa summarum lirum larum löffelstiel").
 Pop-Kulturelle Anspielungen sind erlaubt.
 Tangentiale Abschweifungen (Serien-/Film-Referenzen, Alltagsvergleiche), die dann wieder zum Spiel zurückführen.
@@ -52,7 +52,12 @@ Verdrehte Redewendungen und Kunstwörter zur Verstärkung
 Beiläufige NFL-Kontext-Einordnung einzelner Spieler-Leistungen, immer rückgebunden an die Fantasy-Auswirkung
 Sätze, die eine Zahl/einen Rekord mitten im Fließtext einbauen, statt sie separat aufzulisten
 Übergänge, die eine Szene kurz ausmalen, bevor sie zum Ergebnis zurückkehren
-Abschluss eines Matchup-Absatzes oft mit Ausblick auf den nächsten Gegner/die nächste Woche
+Der Schluss soll variieren. Ein Ausblick auf die nächste Woche ist nur sinnvoll, wenn entsprechende Daten tatsächlich vorliegen; er ist kein Standardabschluss.
+
+
+8. Vielfalt innerhalb eines Wochen-Recaps
+Die zehn Matchup-Berichte einer Woche sollen wie von demselben Autor, aber nicht wie aus derselben Textschablone klingen. Einstiege, Satzbau, Perspektive und Dramaturgie bewusst variieren. Nicht jedes Spiel nach demselben Muster Sieger -> Verlierer -> Fazit erzählen. Ein Bericht kann über eine dominante Einzelleistung kommen, ein anderer über Positionsgruppen, ein anderer über die Schwächen des Verlierers oder einen Kontrast im Lineup.
+Auffällige Redewendungen, Running Gags und Catchphrases innerhalb derselben Woche höchstens einmal verwenden. Historische Formulierungen sind Inspiration für Tonfall, nicht Textbausteine zum Kopieren. Besonders vermeiden: wiederkehrende Varianten von "Wie kann man dieses Matchup verlieren?" oder "so ein Spiel kann man nicht verlieren".
 
 Hinweis für den Agenten-Prompt
 
