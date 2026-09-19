@@ -43,6 +43,14 @@ on:
         options:
           - 'true'
           - 'false'
+      regenerate_special:
+        description: 'Sonderbericht (Mid-Season/Regular Season/Championship) trotz vorhandenem Dokument neu erzeugen'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
 
 permissions:
   contents: read
@@ -54,7 +62,7 @@ concurrency:
 jobs:
   generate-reports:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Repo auschecken
         uses: actions/checkout@v4
@@ -89,4 +97,9 @@ jobs:
           # Der Sicherheitslauf erzeugt dadurch nur noch fehlende Matchups.
           SKIP_EXISTING: ${{ github.event_name == 'schedule' && 'true' || 'false' }}
           EXPECTED_MATCHUP_COUNT: '10'
+          REGULAR_SEASON_WEEKS: '14'
+          MIDSEASON_WEEK: '7'
+          CHAMPIONSHIP_WEEK: '17'
+          PLAYOFF_SIMULATIONS: '20000'
+          REGENERATE_SPECIAL: ${{ github.event.inputs.regenerate_special || 'false' }}
         run: python agent/generate_reports.py
