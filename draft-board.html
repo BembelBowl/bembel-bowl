@@ -979,6 +979,7 @@ const FALLBACK_PLAYERS = [
 let boardTeams = new Array(TEAM_COUNT).fill(null); // Team-Objekt pro Position
 let picks = {}; // "round-position" -> {name, position, nflTeam}
 let isAdmin = false;
+let currentUserProfile = null; // Firestore users/<uid>; Grundlage für Rollen und spätere Team-Zuordnung
 let players = [];
 let currentEdit = null; // {round, position}
 let liveZoom = 1;
@@ -1687,8 +1688,26 @@ authPassword.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') authSubmitBtn.click();
 });
 
-auth.onAuthStateChanged((user) => {
-    isAdmin = !!user;
+auth.onAuthStateChanged(async (user) => {
+    // Eingeloggt zu sein reicht NICHT mehr für Admin-Rechte.
+    // Die Rolle wird ausschließlich aus Firestore users/<uid> gelesen.
+    isAdmin = false;
+    currentUserProfile = null;
+
+    if (user) {
+        try {
+            const userDoc = await db.collection('users').doc(user.uid).get();
+            if (userDoc.exists) {
+                currentUserProfile = userDoc.data() || {};
+                isAdmin = currentUserProfile.role === 'admin';
+            } else {
+                console.warn('Kein users/<uid>-Dokument für den angemeldeten Benutzer gefunden.');
+            }
+        } catch (err) {
+            console.error('Benutzerrolle konnte nicht aus Firestore geladen werden:', err);
+        }
+    }
+
     renderStatusBar();
     renderBoard();
     renderTeamsPanel();
