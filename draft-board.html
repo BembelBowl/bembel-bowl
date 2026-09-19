@@ -674,6 +674,47 @@ table.db-board {
         align-items: flex-start;
     }
 }
+
+/* ==========================================================
+   PHASE 1: ZENTRALER DRAFT-STATE
+   ========================================================== */
+.db-draft-state-panel {
+    margin: 12px 0 18px;
+    padding: 12px 14px;
+    background: #fff;
+    border: 1px solid #e0ded6;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.db-draft-state-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 0.9rem;
+}
+.db-draft-state-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: #ece9e1;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: .03em;
+}
+.db-draft-state-detail { color: #666; }
+.db-draft-state-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 700px) {
+    .db-draft-state-panel { align-items: stretch; }
+    .db-draft-state-actions { width: 100%; }
+    .db-draft-state-actions .db-btn { flex: 1 1 auto; }
+}
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
@@ -718,6 +759,22 @@ table.db-board {
                 <button id="editTeamsBtn" class="db-btn db-btn-secondary" style="display:none;">Team-Reihenfolge</button>
                 <button id="archiveDraftBtn" class="db-btn db-btn-dark" style="display:none;">Draft abschließen &amp; archivieren</button>
             </div>
+        </div>
+    </div>
+
+    <!-- PHASE 1: ZENTRALER DRAFT-STATE -->
+    <div id="draftStatePanel" class="db-draft-state-panel">
+        <div class="db-draft-state-info">
+            <strong>Draft-Status:</strong>
+            <span id="draftStateBadge" class="db-draft-state-badge">NICHT INITIALISIERT</span>
+            <span id="draftStateDetail" class="db-draft-state-detail">Noch kein zentraler Draft-State vorhanden.</span>
+        </div>
+        <div id="draftStateAdminActions" class="db-draft-state-actions" style="display:none;">
+            <button id="draftInitBtn" class="db-btn db-btn-secondary">State initialisieren</button>
+            <button id="draftReadyBtn" class="db-btn db-btn-secondary" style="display:none;">Draft bereit</button>
+            <button id="draftStartBtn" class="db-btn db-btn-primary" style="display:none;">Draft starten</button>
+            <button id="draftPauseBtn" class="db-btn db-btn-secondary" style="display:none;">Pause</button>
+            <button id="draftResumeBtn" class="db-btn db-btn-primary" style="display:none;">Fortsetzen</button>
         </div>
     </div>
 
@@ -867,6 +924,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 const boardDocRef = db.collection('draftboard').doc('current');
 const archiveCollectionRef = db.collection('draftboard_archive');
+const draftStateDocRef = db.collection('drafts').doc(String(new Date().getFullYear())).collection('state').doc('current');
 
 /* ==========================================================
    KONFIGURATION
@@ -980,6 +1038,7 @@ let boardTeams = new Array(TEAM_COUNT).fill(null); // Team-Objekt pro Position
 let picks = {}; // "round-position" -> {name, position, nflTeam}
 let isAdmin = false;
 let currentUserProfile = null; // Firestore users/<uid>; Grundlage für Rollen und spätere Team-Zuordnung
+let draftState = null; // drafts/<season>/state/current – zentrale Wahrheit für den Draft-Ablauf
 let players = [];
 let currentEdit = null; // {round, position}
 let liveZoom = 1;
@@ -1012,6 +1071,16 @@ const archiveBoardTable = document.getElementById('archiveBoardTable');
 const archiveEmptyMsg = document.getElementById('archiveEmptyMsg');
 const archiveEmptyTitle = document.getElementById('archiveEmptyTitle');
 const archiveEmptyText = document.getElementById('archiveEmptyText');
+
+const draftStatePanel = document.getElementById('draftStatePanel');
+const draftStateBadge = document.getElementById('draftStateBadge');
+const draftStateDetail = document.getElementById('draftStateDetail');
+const draftStateAdminActions = document.getElementById('draftStateAdminActions');
+const draftInitBtn = document.getElementById('draftInitBtn');
+const draftReadyBtn = document.getElementById('draftReadyBtn');
+const draftStartBtn = document.getElementById('draftStartBtn');
+const draftPauseBtn = document.getElementById('draftPauseBtn');
+const draftResumeBtn = document.getElementById('draftResumeBtn');
 
 const pickModal = document.getElementById('pickModal');
 const modalTitle = document.getElementById('modalTitle');
@@ -1314,6 +1383,154 @@ function findDuplicatePick(playerName, excludeKey) {
 }
 
 /* ==========================================================
+   PHASE 1: ZENTRALER DRAFT-STATE
+   drafts/<season>/state/current
+   ========================================================== */
+function draftTeamId(team) {
+    if (!team || !team.name) return null;
+    return team.name
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+}
+
+function firstDraftTeamState() {
+    const team = boardTeams[0] || null;
+    return {
+        currentPickNumber: 1,
+        currentRound: 1,
+        currentPosition: 1,
+        currentTeamId: draftTeamId(team),
+        currentTeamName: team ? team.name : null
+    };
+}
+
+function allDraftTeamsConfigured() {
+    return boardTeams.length === TEAM_COUNT && boardTeams.every(Boolean);
+}
+
+function renderDraftState() {
+    const state = draftState || null;
+    const status = state && state.status ? state.status : null;
+
+    draftStateAdminActions.style.display = isAdmin ? 'flex' : 'none';
+    draftInitBtn.style.display = (!state && isAdmin) ? 'inline-flex' : 'none';
+    draftReadyBtn.style.display = (state && status === 'SETUP' && isAdmin) ? 'inline-flex' : 'none';
+    draftStartBtn.style.display = (state && status === 'READY' && isAdmin) ? 'inline-flex' : 'none';
+    draftPauseBtn.style.display = (state && status === 'ON_THE_CLOCK' && isAdmin) ? 'inline-flex' : 'none';
+    draftResumeBtn.style.display = (state && status === 'PAUSED' && isAdmin) ? 'inline-flex' : 'none';
+
+    if (!state) {
+        draftStateBadge.textContent = 'NICHT INITIALISIERT';
+        draftStateDetail.textContent = 'Noch kein zentraler Draft-State vorhanden.';
+        return;
+    }
+
+    draftStateBadge.textContent = status || 'UNBEKANNT';
+    const parts = [];
+    if (state.currentPickNumber) parts.push('Pick #' + state.currentPickNumber);
+    if (state.currentRound) parts.push('Runde ' + state.currentRound);
+    if (state.currentTeamName) parts.push(state.currentTeamName);
+    draftStateDetail.textContent = parts.length ? parts.join(' · ') : 'Saison ' + (state.season || currentDraftSeason());
+}
+
+async function writeDraftState(fields) {
+    if (!isAdmin) throw new Error('Nur Admins dürfen den Draft-State ändern.');
+    const payload = Object.assign({}, fields, {
+        season: currentDraftSeason(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await draftStateDocRef.set(payload, { merge: true });
+}
+
+draftStateDocRef.onSnapshot(
+    (doc) => {
+        draftState = doc.exists ? doc.data() : null;
+        renderDraftState();
+    },
+    (err) => {
+        console.error('Draft-State konnte nicht geladen werden:', err);
+        draftStateDetail.textContent = 'Draft-State derzeit nicht verfügbar.';
+    }
+);
+
+draftInitBtn.addEventListener('click', async () => {
+    try {
+        const first = firstDraftTeamState();
+        await draftStateDocRef.set({
+            status: 'SETUP',
+            season: currentDraftSeason(),
+            currentPickNumber: first.currentPickNumber,
+            currentRound: first.currentRound,
+            currentPosition: first.currentPosition,
+            currentTeamId: first.currentTeamId,
+            currentTeamName: first.currentTeamName,
+            startedAt: null,
+            pickStartedAt: null,
+            pausedAt: null,
+            completedAt: null,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: false });
+    } catch (err) {
+        alert('Draft-State konnte nicht initialisiert werden: ' + err.message);
+    }
+});
+
+draftReadyBtn.addEventListener('click', async () => {
+    if (!allDraftTeamsConfigured()) {
+        alert('Bitte zuerst alle 20 Team-Positionen festlegen.');
+        return;
+    }
+    try {
+        await writeDraftState(Object.assign({ status: 'READY' }, firstDraftTeamState()));
+    } catch (err) {
+        alert('Draft konnte nicht auf READY gesetzt werden: ' + err.message);
+    }
+});
+
+draftStartBtn.addEventListener('click', async () => {
+    if (!draftState || draftState.status !== 'READY') return;
+    if (!confirm('Draft wirklich starten? Team auf Position 1 ist danach On the Clock.')) return;
+    try {
+        await writeDraftState(Object.assign({
+            status: 'ON_THE_CLOCK',
+            startedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            pickStartedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            pausedAt: null
+        }, firstDraftTeamState()));
+    } catch (err) {
+        alert('Draft konnte nicht gestartet werden: ' + err.message);
+    }
+});
+
+draftPauseBtn.addEventListener('click', async () => {
+    if (!draftState || draftState.status !== 'ON_THE_CLOCK') return;
+    try {
+        await writeDraftState({
+            status: 'PAUSED',
+            pausedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+    } catch (err) {
+        alert('Draft konnte nicht pausiert werden: ' + err.message);
+    }
+});
+
+draftResumeBtn.addEventListener('click', async () => {
+    if (!draftState || draftState.status !== 'PAUSED') return;
+    try {
+        await writeDraftState({
+            status: 'ON_THE_CLOCK',
+            pausedAt: null,
+            resumedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+    } catch (err) {
+        alert('Draft konnte nicht fortgesetzt werden: ' + err.message);
+    }
+});
+
+/* ==========================================================
    FIRESTORE: LADEN (Echtzeit) & SPEICHERN
    ========================================================== */
 function applyBoardData(data) {
@@ -1386,6 +1603,7 @@ function renderStatusBar() {
     adminToggleBtn.textContent = isAdmin ? '🔓 Abmelden' : '🔒 Admin-Modus';
     editTeamsBtn.style.display = isAdmin ? 'inline-block' : 'none';
     archiveDraftBtn.style.display = isAdmin ? 'inline-block' : 'none';
+    renderDraftState();
 }
 
 /* ==========================================================
@@ -1945,6 +2163,7 @@ seasonSelect.addEventListener('change', async () => {
     if (seasonSelect.value === 'current') {
         liveBoardSection.style.display = 'block';
         liveAdminControls.style.display = 'flex';
+        draftStatePanel.style.display = 'flex';
         archiveSection.style.display = 'none';
         return;
     }
@@ -1952,6 +2171,7 @@ seasonSelect.addEventListener('change', async () => {
     const year = parseInt(seasonSelect.value, 10);
     liveBoardSection.style.display = 'none';
     liveAdminControls.style.display = 'none';
+    draftStatePanel.style.display = 'none';
     archiveSection.style.display = 'flex';
     archiveBoardWrap.style.display = 'none';
     archiveEmptyMsg.style.display = 'none';
