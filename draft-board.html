@@ -1047,7 +1047,9 @@ const FALLBACK_PLAYERS = [
    STATE
    ========================================================== */
 let boardTeams = new Array(TEAM_COUNT).fill(null); // Team-Objekt pro Position
-let picks = {}; // "round-position" -> {name, position, nflTeam}
+let picks = {}; // zusammengeführte Anzeige aus Legacy-Spiegel + kanonischen Picks
+let legacyPicks = {};
+let canonicalBoardPicks = {};
 let isAdmin = false;
 let currentUserProfile = null; // Firestore users/<uid>; Grundlage für Rollen und spätere Team-Zuordnung
 let draftState = null; // drafts/<season>/state/current – zentrale Wahrheit für den Draft-Ablauf
@@ -1714,7 +1716,8 @@ draftUndoBtn.addEventListener('click', async () => {
 function applyBoardData(data) {
     const teamNames = (data && data.teams) || new Array(TEAM_COUNT).fill(null);
     boardTeams = teamNames.map(name => TEAMS.find(t => t.name === name) || null);
-    picks = (data && data.picks) || {};
+    legacyPicks = (data && data.picks) || {};
+    picks = Object.assign({}, legacyPicks, canonicalBoardPicks);
     renderBoard();
     renderTeamsPanel();
 
@@ -1735,6 +1738,37 @@ boardDocRef.onSnapshot(
         syncBadge.textContent = '🔴 Offline';
         syncBadge.className = 'db-badge db-badge-offline';
     }
+);
+
+// Phase 2: Team-Picks werden ausschließlich in der kanonischen Draft-Struktur
+// gespeichert. Das Big Board hört deshalb zusätzlich auf drafts/<season>/picks
+// und legt diese Daten über den Legacy-Spiegel draftboard/current.
+draftPicksRef.onSnapshot(
+    (snapshot) => {
+        const nextCanonical = {};
+        snapshot.forEach(doc => {
+            const p = doc.data() || {};
+            const round = Number(p.round);
+            const position = Number(p.positionInOrder);
+            if (!round || !position) return;
+            nextCanonical[pickKey(round, position)] = {
+                name: p.name || '',
+                position: p.position || '',
+                nflTeam: p.nflTeam || '',
+                playerId: p.playerId || null,
+                playerLockId: p.playerLockId || null,
+                pickedAt: p.submittedAt || null,
+                pickDurationSeconds: Number(p.pickDurationSeconds || 0),
+                teamId: p.teamId || null,
+                teamName: p.teamName || null,
+                canonicalPickId: doc.id
+            };
+        });
+        canonicalBoardPicks = nextCanonical;
+        picks = Object.assign({}, legacyPicks, canonicalBoardPicks);
+        renderBoard();
+    },
+    (err) => console.error('Kanonische Picks konnten nicht geladen werden:', err)
 );
 
 function saveTeamsToCloud() {
@@ -1854,6 +1888,8 @@ async function submitCurrentPick(player, round, position) {
                 currentTeamName: state.currentTeamName || null,
                 pickElapsedSeconds: durationSeconds,
                 pickStartedAt: null,
+                lastPickId: pickDocId(requestedNumber),
+                lastPlayerLockId: playerLockId(player),
                 completedAt: firebase.firestore.FieldValue.serverTimestamp(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
@@ -1864,6 +1900,8 @@ async function submitCurrentPick(player, round, position) {
                 pickElapsedSeconds: 0,
                 pickStartedAt: firebase.firestore.FieldValue.serverTimestamp(),
                 pausedAt: null,
+                lastPickId: pickDocId(requestedNumber),
+                lastPlayerLockId: playerLockId(player),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }), { merge: true });
         }
@@ -2020,11 +2058,27 @@ async function undoLastPickTransactional() {
 
         const slot = slotFromPickNumber(targetPickNumber, state);
         const pickRef = draftPicksRef.doc(pickDocId(targetPickNumber));
+
+        // Rückwärtskompatibilität: ältere Picks können nur im bisherigen
+        // draftboard/current-Spiegel vorhanden sein und noch keinen Eintrag
+        // in drafts/<season>/picks besitzen.
         const pickSnap = await tx.get(pickRef);
-        if (!pickSnap.exists) {
-            throw new Error('Pick #' + targetPickNumber + ' wurde nicht in der kanonischen Pick-Liste gefunden.');
+        const boardSnap = await tx.get(boardDocRef);
+        const boardData = boardSnap.exists ? (boardSnap.data() || {}) : {};
+        const legacyPick = (boardData.picks || {})[pickKey(slot.currentRound, slot.currentPosition)] || null;
+
+        if (!pickSnap.exists && !legacyPick) {
+            throw new Error('Pick #' + targetPickNumber + ' wurde weder in der kanonischen Pick-Liste noch im Draftboard gefunden.');
         }
-        const existing = pickSnap.data() || {};
+
+        const existing = pickSnap.exists ? (pickSnap.data() || {}) : Object.assign({}, legacyPick || {}, {
+            pickNumber: targetPickNumber,
+            round: slot.currentRound,
+            positionInOrder: slot.currentPosition,
+            teamId: slot.currentTeamId || null,
+            teamName: slot.currentTeamName || null
+        });
+
         const lockId = existing.playerLockId || playerLockId(existing);
         let lockRef = null;
         let lockSnap = null;
@@ -2034,7 +2088,7 @@ async function undoLastPickTransactional() {
         }
         const auditRef = draftAuditRef.doc();
 
-        tx.delete(pickRef);
+        if (pickSnap.exists) tx.delete(pickRef);
         if (lockRef && lockSnap && lockSnap.exists) {
             const lockData = lockSnap.data() || {};
             if (!lockData.pickId || lockData.pickId === pickDocId(targetPickNumber)) tx.delete(lockRef);
@@ -2045,215 +2099,35 @@ async function undoLastPickTransactional() {
         boardUpdate.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
         tx.update(boardDocRef, boardUpdate);
 
-        const nextStatus = status === 'PAUSED' ? 'PAUSED' : 'ON_THE_CLOCK';
-        tx.set(draftStateDocRef, Object.assign({}, slot, {
-            status: nextStatus,
+        tx.set(draftStateDocRef, {
+            status: 'ON_THE_CLOCK',
+            currentPickNumber: targetPickNumber,
+            currentRound: slot.currentRound,
+            currentPosition: slot.currentPosition,
+            currentTeamId: slot.currentTeamId || null,
+            currentTeamName: slot.currentTeamName || null,
             pickElapsedSeconds: 0,
-            pickStartedAt: nextStatus === 'ON_THE_CLOCK' ? firebase.firestore.FieldValue.serverTimestamp() : null,
-            pausedAt: nextStatus === 'PAUSED' ? firebase.firestore.FieldValue.serverTimestamp() : null,
+            pickStartedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            pausedAt: null,
             completedAt: null,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }), { merge: true });
+        }, { merge: true });
 
         tx.set(auditRef, auditPayload('PICK_REVERTED', {
             pickId: pickDocId(targetPickNumber),
             pickNumber: targetPickNumber,
             round: slot.currentRound,
             positionInOrder: slot.currentPosition,
-            teamId: existing.teamId || slot.currentTeamId || null,
-            teamName: existing.teamName || slot.currentTeamName || null,
+            teamId: slot.currentTeamId || null,
+            teamName: slot.currentTeamName || null,
             playerName: existing.name || null,
-            playerLockId: lockId || null,
-            previousDraftStatus: status
+            playerPosition: existing.position || null,
+            nflTeam: existing.nflTeam || null,
+            source: pickSnap.exists ? 'canonical' : 'legacy-mirror'
         }));
     });
 }
 
-/* ==========================================================
-   RENDER: STATUS BAR
-   ========================================================== */
-function renderStatusBar() {
-    if (isAdmin) {
-        modeBadge.textContent = 'ADMIN-MODUS';
-        modeBadge.className = 'db-badge db-badge-admin';
-       syncBadge.style.display = 'inline-block';
-    } else {
-        modeBadge.textContent = 'ANSICHTSMODUS';
-        modeBadge.className = 'db-badge db-badge-view';
-       syncBadge.style.display = 'none';
-    }
-    adminToggleBtn.textContent = isAdmin ? '🔓 Abmelden' : '🔒 Admin-Modus';
-    editTeamsBtn.style.display = isAdmin ? 'inline-block' : 'none';
-    archiveDraftBtn.style.display = isAdmin ? 'inline-block' : 'none';
-    renderDraftState();
-}
-
-/* ==========================================================
-   RENDER: TEAM-REIHENFOLGE PANEL
-   ========================================================== */
-function renderTeamsPanel() {
-    teamsGrid.innerHTML = '';
-    for (let pos = 1; pos <= TEAM_COUNT; pos++) {
-        const slot = document.createElement('div');
-        slot.className = 'db-team-slot';
-
-        const label = document.createElement('label');
-        label.textContent = 'Position ' + pos;
-
-        const select = document.createElement('select');
-        select.disabled = !isAdmin;
-        const emptyOpt = document.createElement('option');
-        emptyOpt.value = '';
-        emptyOpt.textContent = '— wählen —';
-        select.appendChild(emptyOpt);
-
-        TEAMS.forEach(team => {
-            const opt = document.createElement('option');
-            opt.value = team.name;
-            opt.textContent = team.name;
-            const current = boardTeams[pos - 1];
-            if (current && current.name === team.name) opt.selected = true;
-            select.appendChild(opt);
-        });
-
-        select.addEventListener('change', () => {
-            const chosen = TEAMS.find(t => t.name === select.value) || null;
-            boardTeams[pos - 1] = chosen;
-            saveTeamsToCloud();
-        });
-
-        slot.appendChild(label);
-        slot.appendChild(select);
-        teamsGrid.appendChild(slot);
-    }
-}
-
-importOrderBtn.addEventListener('click', () => {
-    let raw;
-    try { raw = JSON.parse(localStorage.getItem('bembelBowlDraftOrder') || 'null'); } catch (e) { raw = null; }
-    if (!raw || !Array.isArray(raw.order)) {
-        alert('Keine gespeicherte Auslosung aus dem Draft-Reihenfolge-Generator auf diesem Gerät gefunden.');
-        return;
-    }
-    raw.order.forEach(entry => {
-        const team = TEAMS.find(t => t.name === entry.name);
-        if (team && entry.place >= 1 && entry.place <= TEAM_COUNT) {
-            boardTeams[entry.place - 1] = team;
-        }
-    });
-    saveTeamsToCloud();
-    renderTeamsPanel();
-});
-
-closeTeamsPanelBtn.addEventListener('click', () => {
-    teamsPanel.classList.remove('show');
-});
-
-editTeamsBtn.addEventListener('click', () => {
-    renderTeamsPanel();
-    teamsPanel.classList.toggle('show');
-});
-
-/* ==========================================================
-   RENDER: BOARD (Live)
-   ========================================================== */
-function renderBoard() {
-    boardTable.innerHTML = '';
-
-    const thead = document.createElement('thead');
-    const headRow = document.createElement('tr');
-
-    const cornerHead = document.createElement('th');
-    cornerHead.className = 'db-round-head';
-    cornerHead.textContent = 'Runde';
-    headRow.appendChild(cornerHead);
-
-    for (let pos = 1; pos <= TEAM_COUNT; pos++) {
-        const th = document.createElement('th');
-        th.className = 'db-col-head';
-        const team = boardTeams[pos - 1];
-
-        const img = document.createElement('img');
-        setTeamLogo(img, team);
-
-        const nameDiv = document.createElement('div');
-        nameDiv.className = 'db-col-head-name';
-        nameDiv.textContent = team ? team.name : ('Position ' + pos);
-
-        th.appendChild(img);
-        th.appendChild(nameDiv);
-        headRow.appendChild(th);
-    }
-    thead.appendChild(headRow);
-    boardTable.appendChild(thead);
-
-    const tbody = document.createElement('tbody');
-    for (let round = 1; round <= ROUND_COUNT; round++) {
-        const tr = document.createElement('tr');
-
-        const roundTh = document.createElement('th');
-        roundTh.className = 'db-round-head';
-        roundTh.textContent = 'R' + round;
-        tr.appendChild(roundTh);
-
-        for (let pos = 1; pos <= TEAM_COUNT; pos++) {
-            const td = document.createElement('td');
-            const key = pickKey(round, pos);
-            const pick = picks[key];
-            const num = pickNumber(round, pos);
-
-            td.className = 'db-cell' + (pick ? ' filled' : '');
-            if (draftState && draftState.status === 'ON_THE_CLOCK' &&
-                Number(draftState.currentRound) === round && Number(draftState.currentPosition) === pos) {
-                td.classList.add('on-clock');
-            }
-            if (isAdmin) td.classList.add('admin-editable');
-
-            const numSpan = document.createElement('span');
-            numSpan.className = 'db-pick-num';
-            numSpan.textContent = '#' + num;
-            td.appendChild(numSpan);
-
-            if (pick) {
-                const tag = document.createElement('span');
-                tag.className = 'pos-tag ' + posClass(pick.position);
-                tag.textContent = pick.position;
-                td.appendChild(tag);
-
-                const nameDiv = document.createElement('div');
-                nameDiv.className = 'db-player-name';
-                nameDiv.textContent = pick.name;
-                td.appendChild(nameDiv);
-
-                if (pick.nflTeam) {
-                    const nflDiv = document.createElement('div');
-                    nflDiv.className = 'db-player-nfl';
-                    nflDiv.textContent = pick.nflTeam;
-                    td.appendChild(nflDiv);
-                }
-
-                appendPickMeta(td, pick, currentDraftSeason());
-            } else if (isAdmin) {
-                const hint = document.createElement('div');
-                hint.className = 'db-cell-empty-hint';
-                hint.textContent = '+';
-                td.appendChild(hint);
-            }
-
-            if (isAdmin) {
-                td.addEventListener('click', () => openModal(round, pos));
-            }
-
-            tr.appendChild(td);
-        }
-        tbody.appendChild(tr);
-    }
-    boardTable.appendChild(tbody);
-}
-
-/* ==========================================================
-   MODAL: PICK SUCHEN / EINTRAGEN
-   ========================================================== */
 async function openModal(round, pos) {
     currentEdit = { round, position: pos };
     const team = boardTeams[pos - 1];
