@@ -781,6 +781,7 @@ table.db-board {
             <button id="draftStartBtn" class="db-btn db-btn-primary" style="display:none;">Draft starten</button>
             <button id="draftPauseBtn" class="db-btn db-btn-secondary" style="display:none;">Pause</button>
             <button id="draftResumeBtn" class="db-btn db-btn-primary" style="display:none;">Fortsetzen</button>
+            <button id="draftUndoBtn" class="db-btn db-btn-danger" style="display:none;">Letzten Pick zurücknehmen</button>
         </div>
     </div>
 
@@ -1092,6 +1093,7 @@ const draftReadyBtn = document.getElementById('draftReadyBtn');
 const draftStartBtn = document.getElementById('draftStartBtn');
 const draftPauseBtn = document.getElementById('draftPauseBtn');
 const draftResumeBtn = document.getElementById('draftResumeBtn');
+const draftUndoBtn = document.getElementById('draftUndoBtn');
 
 const pickModal = document.getElementById('pickModal');
 const modalTitle = document.getElementById('modalTitle');
@@ -1511,6 +1513,8 @@ function renderDraftState() {
     draftStartBtn.style.display = (state && status === 'READY' && isAdmin) ? 'inline-flex' : 'none';
     draftPauseBtn.style.display = (state && status === 'ON_THE_CLOCK' && isAdmin) ? 'inline-flex' : 'none';
     draftResumeBtn.style.display = (state && status === 'PAUSED' && isAdmin) ? 'inline-flex' : 'none';
+    const canUndoLastPick = state && isAdmin && ['ON_THE_CLOCK', 'PAUSED', 'COMPLETED'].includes(status) && Number(state.currentPickNumber || 0) > 1;
+    draftUndoBtn.style.display = canUndoLastPick ? 'inline-flex' : 'none';
 
     if (!state) {
         draftStateBadge.textContent = 'NICHT INITIALISIERT';
@@ -1683,6 +1687,24 @@ draftResumeBtn.addEventListener('click', async () => {
         });
     } catch (err) {
         alert('Draft konnte nicht fortgesetzt werden: ' + err.message);
+    }
+});
+
+
+draftUndoBtn.addEventListener('click', async () => {
+    if (!isAdmin || !draftState) return;
+    const status = draftState.status || '';
+    const currentNumber = Number(draftState.currentPickNumber || 0);
+    const targetNumber = status === 'COMPLETED' ? currentNumber : currentNumber - 1;
+    if (targetNumber < 1) return;
+    if (!confirm('Pick #' + targetNumber + ' wirklich vollständig zurücknehmen? Der Spieler wird wieder freigegeben und dieser Pick ist anschließend erneut On the Clock.')) return;
+    try {
+        draftUndoBtn.disabled = true;
+        await undoLastPickTransactional();
+    } catch (err) {
+        alert('Letzter Pick konnte nicht zurückgenommen werden: ' + err.message);
+    } finally {
+        draftUndoBtn.disabled = false;
     }
 });
 
@@ -1979,6 +2001,74 @@ async function deletePickTransactional(round, position, oldPick) {
     });
 }
 
+
+async function undoLastPickTransactional() {
+    if (!isAdmin) throw new Error('Nur Admins dürfen den letzten Pick zurücknehmen.');
+
+    await db.runTransaction(async tx => {
+        const stateSnap = await tx.get(draftStateDocRef);
+        if (!stateSnap.exists) throw new Error('Draft-State fehlt.');
+        const state = stateSnap.data() || {};
+        const status = state.status || 'SETUP';
+        if (!['ON_THE_CLOCK', 'PAUSED', 'COMPLETED'].includes(status)) {
+            throw new Error('In diesem Draft-Status kann kein Pick zurückgenommen werden.');
+        }
+
+        const statePickNumber = Number(state.currentPickNumber || 0);
+        const targetPickNumber = status === 'COMPLETED' ? statePickNumber : statePickNumber - 1;
+        if (targetPickNumber < 1) throw new Error('Es gibt noch keinen Pick zum Zurücknehmen.');
+
+        const slot = slotFromPickNumber(targetPickNumber, state);
+        const pickRef = draftPicksRef.doc(pickDocId(targetPickNumber));
+        const pickSnap = await tx.get(pickRef);
+        if (!pickSnap.exists) {
+            throw new Error('Pick #' + targetPickNumber + ' wurde nicht in der kanonischen Pick-Liste gefunden.');
+        }
+        const existing = pickSnap.data() || {};
+        const lockId = existing.playerLockId || playerLockId(existing);
+        let lockRef = null;
+        let lockSnap = null;
+        if (lockId) {
+            lockRef = draftedPlayersRef.doc(lockId);
+            lockSnap = await tx.get(lockRef);
+        }
+        const auditRef = draftAuditRef.doc();
+
+        tx.delete(pickRef);
+        if (lockRef && lockSnap && lockSnap.exists) {
+            const lockData = lockSnap.data() || {};
+            if (!lockData.pickId || lockData.pickId === pickDocId(targetPickNumber)) tx.delete(lockRef);
+        }
+
+        const boardUpdate = {};
+        boardUpdate['picks.' + pickKey(slot.currentRound, slot.currentPosition)] = firebase.firestore.FieldValue.delete();
+        boardUpdate.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+        tx.update(boardDocRef, boardUpdate);
+
+        const nextStatus = status === 'PAUSED' ? 'PAUSED' : 'ON_THE_CLOCK';
+        tx.set(draftStateDocRef, Object.assign({}, slot, {
+            status: nextStatus,
+            pickElapsedSeconds: 0,
+            pickStartedAt: nextStatus === 'ON_THE_CLOCK' ? firebase.firestore.FieldValue.serverTimestamp() : null,
+            pausedAt: nextStatus === 'PAUSED' ? firebase.firestore.FieldValue.serverTimestamp() : null,
+            completedAt: null,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }), { merge: true });
+
+        tx.set(auditRef, auditPayload('PICK_REVERTED', {
+            pickId: pickDocId(targetPickNumber),
+            pickNumber: targetPickNumber,
+            round: slot.currentRound,
+            positionInOrder: slot.currentPosition,
+            teamId: existing.teamId || slot.currentTeamId || null,
+            teamName: existing.teamName || slot.currentTeamName || null,
+            playerName: existing.name || null,
+            playerLockId: lockId || null,
+            previousDraftStatus: status
+        }));
+    });
+}
+
 /* ==========================================================
    RENDER: STATUS BAR
    ========================================================== */
@@ -2164,21 +2254,33 @@ function renderBoard() {
 /* ==========================================================
    MODAL: PICK SUCHEN / EINTRAGEN
    ========================================================== */
-function openModal(round, pos) {
+async function openModal(round, pos) {
     currentEdit = { round, position: pos };
     const team = boardTeams[pos - 1];
     const teamLabel = team ? team.name : ('Position ' + pos);
+    const number = pickNumber(round, pos);
     modalTitle.textContent = 'Pick eintragen';
-    modalSub.textContent = 'Runde ' + round + ' · ' + teamLabel + ' · Overall Pick #' + pickNumber(round, pos);
+    modalSub.textContent = 'Runde ' + round + ' · ' + teamLabel + ' · Overall Pick #' + number;
 
     duplicateWarning.classList.remove('show');
     playerSearch.value = '';
     playerResults.innerHTML = '';
 
-    const existing = picks[pickKey(round, pos)];
+    let existing = picks[pickKey(round, pos)] || null;
+    if (!existing) {
+        try {
+            const snap = await draftPicksRef.doc(pickDocId(number)).get();
+            if (snap.exists) existing = snap.data() || null;
+        } catch (err) {
+            console.warn('Kanonischer Pick konnte für den Korrekturmodus nicht geladen werden:', err);
+        }
+    }
+
+    currentEdit.existingPick = existing;
     if (existing) {
+        modalTitle.textContent = 'Pick korrigieren';
         modalCurrentPick.style.display = 'block';
-        currentPickInfo.textContent = existing.name + ' (' + existing.position + (existing.nflTeam ? ', ' + existing.nflTeam : '') + ')';
+        currentPickInfo.textContent = existing.name + ' (' + (existing.position || '?') + (existing.nflTeam ? ', ' + existing.nflTeam : '') + ')';
     } else {
         modalCurrentPick.style.display = 'none';
     }
@@ -2236,7 +2338,15 @@ playerSearch.addEventListener('input', () => {
             if (!currentEdit) return;
             const edit = { round: currentEdit.round, position: currentEdit.position };
             const key = pickKey(edit.round, edit.position);
-            const existing = picks[key] || null;
+            let existing = (currentEdit && currentEdit.existingPick) || picks[key] || null;
+            if (!existing) {
+                try {
+                    const snap = await draftPicksRef.doc(pickDocId(pickNumber(edit.round, edit.position))).get();
+                    if (snap.exists) existing = snap.data() || null;
+                } catch (err) {
+                    console.warn('Kanonischer Pick konnte vor dem Speichern nicht geladen werden:', err);
+                }
+            }
             const dup = findDuplicatePick(p.name, key);
             if (dup) {
                 duplicateWarning.textContent = '⚠️ ' + p.name + ' wurde bereits von ' + dup.teamName + ' in Runde ' + dup.round + ' gepickt. Dieser Pick kann nicht doppelt vergeben werden.';
@@ -2270,7 +2380,15 @@ clearPickBtn.addEventListener('click', async () => {
     if (!currentEdit) return;
     const edit = { round: currentEdit.round, position: currentEdit.position };
     const key = pickKey(edit.round, edit.position);
-    const existing = picks[key] || null;
+    let existing = (currentEdit && currentEdit.existingPick) || picks[key] || null;
+    if (!existing) {
+        try {
+            const snap = await draftPicksRef.doc(pickDocId(pickNumber(edit.round, edit.position))).get();
+            if (snap.exists) existing = snap.data() || null;
+        } catch (err) {
+            console.warn('Kanonischer Pick konnte vor dem Löschen nicht geladen werden:', err);
+        }
+    }
     if (!existing) {
         closeModal();
         return;
