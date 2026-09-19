@@ -1,0 +1,78 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    // Jeder Nutzer darf nur sein eigenes Profil lesen. Rollen werden nicht
+    // vom Browser geschrieben, sondern über Console/Admin SDK gepflegt.
+    match /users/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    // Bestehendes öffentliches Big Board. In Phase 1 ist Schreiben Admin-only.
+    match /draftboard/{document} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /draftboard_archive/{document} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Zentraler Draft-State.
+    match /drafts/{season}/state/{document} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Kanonische Picks. Team-Schreibrechte folgen erst in Phase 2.
+    match /drafts/{season}/picks/{pickId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Ein Dokument pro gedraftetem Spieler ist die serverseitige Sperre gegen
+    // Doppel-Picks. Ein existierender Lock darf nicht überschrieben werden.
+    match /drafts/{season}/draftedPlayers/{playerId} {
+      allow read: if true;
+      allow create: if isAdmin() && !exists(/databases/$(database)/documents/drafts/$(season)/draftedPlayers/$(playerId));
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // Audit-Einträge sind append-only und nur für Admins lesbar.
+    match /drafts/{season}/audit/{eventId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // Bestehende Funktionen außerhalb des Drafts vorerst unverändert.
+    match /matchReports/{document} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /divisionOrder/{document} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /divisionOrder_archive/{document} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+  }
+}
