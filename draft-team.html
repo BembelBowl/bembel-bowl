@@ -42,7 +42,7 @@ body{background:var(--bg)}
 </div></div>
 </main>
 <script>
-const firebaseConfig={apiKey:"AIzaSyCvcSZmqVoLoLcUF4LiOHAfvyRmr3i7jOY",authDomain:"bembel-bowl.firebaseapp.com",projectId:"bembel-bowl",storageBucket:"bembel-bowl.firebasestorage.app",messagingSenderId:"836256439134",appId:"1:836256439134:web:c39ef91c216da594020dcf"};
+const firebaseConfig={apiKey:"AIzaSyALAGTVbpTqMYmqmmf3dJyes0A39483iUE",authDomain:"bembel-bowl.firebaseapp.com",projectId:"bembel-bowl",storageBucket:"bembel-bowl.firebasestorage.app",messagingSenderId:"836256439134",appId:"1:836256439134:web:c39ef91c216da594020dcf"};
 firebase.initializeApp(firebaseConfig);const db=firebase.firestore(),auth=firebase.auth();
 const TEAM_COUNT=20,ROUND_COUNT=15,DRAFT_SEASON=new Date().getFullYear();
 const stateRef=db.collection('drafts').doc(String(DRAFT_SEASON)).collection('state').doc('current');
