@@ -443,6 +443,12 @@ table.db-board {
     background-color: #fff8ec;
 }
 
+.db-cell.on-clock {
+    outline: 3px solid #d18b2f;
+    outline-offset: -3px;
+    box-shadow: inset 0 0 0 2px rgba(209,139,47,0.16);
+}
+
 .db-cell.filled {
     border: 2px solid #e0ded6;
 }
@@ -924,7 +930,12 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 const boardDocRef = db.collection('draftboard').doc('current');
 const archiveCollectionRef = db.collection('draftboard_archive');
-const draftStateDocRef = db.collection('drafts').doc(String(new Date().getFullYear())).collection('state').doc('current');
+const DRAFT_SEASON = new Date().getFullYear();
+const draftRootRef = db.collection('drafts').doc(String(DRAFT_SEASON));
+const draftStateDocRef = draftRootRef.collection('state').doc('current');
+const draftPicksRef = draftRootRef.collection('picks');
+const draftedPlayersRef = draftRootRef.collection('draftedPlayers');
+const draftAuditRef = draftRootRef.collection('audit');
 
 /* ==========================================================
    KONFIGURATION
@@ -1144,6 +1155,9 @@ async function tryLoadESPN() {
     const list = (data && data.athletes) ? data.athletes : null;
     if (!Array.isArray(list) || list.length === 0) throw new Error('Unerwartetes ESPN-Antwortformat');
     const mapped = list.map(a => ({
+        playerId: a.id ? ('espn-' + a.id) : null,
+        source: 'ESPN',
+        sourcePlayerId: a.id || null,
         name: a.displayName || a.fullName || a.name,
         position: (a.position && (a.position.abbreviation || a.position.name)) || '',
         nflTeam: (a.team && (a.team.abbreviation || a.team.displayName)) || ''
@@ -1162,12 +1176,18 @@ async function tryLoadSleeper() {
         if (!p || !relevant.includes(p.position)) return;
         if (p.position === 'DEF') {
             mapped.push({
+                playerId: p.player_id ? ('sleeper-' + p.player_id) : null,
+                source: 'Sleeper',
+                sourcePlayerId: p.player_id || null,
                 name: (p.team || p.player_id) + ' Defense',
                 position: 'DEF',
                 nflTeam: p.team || p.player_id || ''
             });
         } else if (p.full_name) {
             mapped.push({
+                playerId: p.player_id ? ('sleeper-' + p.player_id) : null,
+                source: 'Sleeper',
+                sourcePlayerId: p.player_id || null,
                 name: p.full_name,
                 position: p.position,
                 nflTeam: p.team || ''
@@ -1383,8 +1403,11 @@ function findDuplicatePick(playerName, excludeKey) {
 }
 
 /* ==========================================================
-   PHASE 1: ZENTRALER DRAFT-STATE
+   PHASE 1: ZENTRALER DRAFT-STATE + AUDIT LOG
    drafts/<season>/state/current
+   drafts/<season>/picks/<001..300>
+   drafts/<season>/draftedPlayers/<playerLockId>
+   drafts/<season>/audit/<autoId>
    ========================================================== */
 function draftTeamId(team) {
     if (!team || !team.name) return null;
@@ -1395,19 +1418,87 @@ function draftTeamId(team) {
         .replace(/^-+|-+$/g, '');
 }
 
-function firstDraftTeamState() {
-    const team = boardTeams[0] || null;
+function draftOrderSnapshot() {
     return {
-        currentPickNumber: 1,
-        currentRound: 1,
-        currentPosition: 1,
-        currentTeamId: draftTeamId(team),
-        currentTeamName: team ? team.name : null
+        teamIds: boardTeams.map(t => draftTeamId(t)),
+        teamNames: boardTeams.map(t => t ? t.name : null)
     };
 }
 
 function allDraftTeamsConfigured() {
-    return boardTeams.length === TEAM_COUNT && boardTeams.every(Boolean);
+    if (!(boardTeams.length === TEAM_COUNT && boardTeams.every(Boolean))) return false;
+    const ids = boardTeams.map(t => draftTeamId(t));
+    return new Set(ids).size === TEAM_COUNT;
+}
+
+function slotFromPickNumber(number, stateOverride) {
+    const num = Number(number);
+    if (!Number.isFinite(num) || num < 1 || num > TEAM_COUNT * ROUND_COUNT) return null;
+    const round = Math.floor((num - 1) / TEAM_COUNT) + 1;
+    const withinRound = ((num - 1) % TEAM_COUNT) + 1;
+    const position = (round % 2 === 1) ? withinRound : (TEAM_COUNT - withinRound + 1);
+    const state = stateOverride || draftState || {};
+    const names = Array.isArray(state.draftTeamNames) ? state.draftTeamNames : boardTeams.map(t => t ? t.name : null);
+    const ids = Array.isArray(state.draftTeamIds) ? state.draftTeamIds : boardTeams.map(t => draftTeamId(t));
+    return {
+        currentPickNumber: num,
+        currentRound: round,
+        currentPosition: position,
+        currentTeamId: ids[position - 1] || null,
+        currentTeamName: names[position - 1] || null
+    };
+}
+
+function firstDraftTeamState(stateOverride) {
+    return slotFromPickNumber(1, stateOverride);
+}
+
+function pickDocId(number) {
+    return String(Number(number)).padStart(3, '0');
+}
+
+function playerLockId(playerOrPick) {
+    const p = playerOrPick || {};
+    const raw = ((p.name || 'unknown') + '__' + (p.position || 'na'))
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    return raw || 'unknown-player';
+}
+
+function timestampMs(value) {
+    if (!value) return null;
+    if (typeof value.toMillis === 'function') return value.toMillis();
+    if (typeof value === 'number') return value;
+    if (value.seconds != null) return Number(value.seconds) * 1000 + Math.floor(Number(value.nanoseconds || 0) / 1e6);
+    return null;
+}
+
+function elapsedForState(state, nowMs) {
+    if (!state) return 0;
+    let total = Math.max(0, Number(state.pickElapsedSeconds || 0));
+    if (state.status === 'ON_THE_CLOCK' && state.pickStartedAt) {
+        const startedMs = timestampMs(state.pickStartedAt);
+        if (startedMs) total += Math.max(0, ((nowMs || Date.now()) - startedMs) / 1000);
+    }
+    return Math.max(0, Math.round(total));
+}
+
+function actorData() {
+    const u = auth.currentUser;
+    return {
+        actorUid: u ? u.uid : null,
+        actorEmail: u ? (u.email || null) : null
+    };
+}
+
+function auditPayload(type, details) {
+    return Object.assign({
+        type: type,
+        season: currentDraftSeason(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, actorData(), details || {});
 }
 
 function renderDraftState() {
@@ -1432,22 +1523,47 @@ function renderDraftState() {
     if (state.currentPickNumber) parts.push('Pick #' + state.currentPickNumber);
     if (state.currentRound) parts.push('Runde ' + state.currentRound);
     if (state.currentTeamName) parts.push(state.currentTeamName);
+    if (status === 'ON_THE_CLOCK' || status === 'PAUSED') {
+        parts.push('⏱ ' + formatPickDuration(elapsedForState(state)));
+    }
+    if (status === 'PAUSED') parts.push('pausiert');
+    if (status === 'COMPLETED') parts.push('Draft abgeschlossen');
     draftStateDetail.textContent = parts.length ? parts.join(' · ') : 'Saison ' + (state.season || currentDraftSeason());
 }
 
-async function writeDraftState(fields) {
+// Aktualisiert die sichtbare Stoppuhr, ohne Firestore jede Sekunde zu beschreiben.
+setInterval(() => {
+    if (draftState && (draftState.status === 'ON_THE_CLOCK' || draftState.status === 'PAUSED')) {
+        renderDraftState();
+    }
+}, 1000);
+
+async function stateTransaction(type, mutate) {
     if (!isAdmin) throw new Error('Nur Admins dürfen den Draft-State ändern.');
-    const payload = Object.assign({}, fields, {
-        season: currentDraftSeason(),
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    const auditRef = draftAuditRef.doc();
+    await db.runTransaction(async tx => {
+        const snap = await tx.get(draftStateDocRef);
+        if (!snap.exists) throw new Error('Draft-State ist nicht initialisiert.');
+        const current = snap.data() || {};
+        const changes = await mutate(current, tx);
+        tx.set(draftStateDocRef, Object.assign({}, changes || {}, {
+            season: currentDraftSeason(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }), { merge: true });
+        tx.set(auditRef, auditPayload(type, {
+            previousStatus: current.status || null,
+            pickNumber: current.currentPickNumber || null,
+            teamId: current.currentTeamId || null,
+            teamName: current.currentTeamName || null
+        }));
     });
-    await draftStateDocRef.set(payload, { merge: true });
 }
 
 draftStateDocRef.onSnapshot(
     (doc) => {
         draftState = doc.exists ? doc.data() : null;
         renderDraftState();
+        renderBoard();
     },
     (err) => {
         console.error('Draft-State konnte nicht geladen werden:', err);
@@ -1457,15 +1573,22 @@ draftStateDocRef.onSnapshot(
 
 draftInitBtn.addEventListener('click', async () => {
     try {
-        const first = firstDraftTeamState();
-        await draftStateDocRef.set({
+        if (!isAdmin) throw new Error('Nur Admins dürfen initialisieren.');
+        const order = draftOrderSnapshot();
+        const first = firstDraftTeamState({ draftTeamIds: order.teamIds, draftTeamNames: order.teamNames });
+        const auditRef = draftAuditRef.doc();
+        const batch = db.batch();
+        batch.set(draftStateDocRef, {
             status: 'SETUP',
             season: currentDraftSeason(),
-            currentPickNumber: first.currentPickNumber,
-            currentRound: first.currentRound,
-            currentPosition: first.currentPosition,
-            currentTeamId: first.currentTeamId,
-            currentTeamName: first.currentTeamName,
+            currentPickNumber: first ? first.currentPickNumber : 1,
+            currentRound: first ? first.currentRound : 1,
+            currentPosition: first ? first.currentPosition : 1,
+            currentTeamId: first ? first.currentTeamId : null,
+            currentTeamName: first ? first.currentTeamName : null,
+            draftTeamIds: order.teamIds,
+            draftTeamNames: order.teamNames,
+            pickElapsedSeconds: 0,
             startedAt: null,
             pickStartedAt: null,
             pausedAt: null,
@@ -1473,6 +1596,8 @@ draftInitBtn.addEventListener('click', async () => {
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: false });
+        batch.set(auditRef, auditPayload('DRAFT_INITIALIZED'));
+        await batch.commit();
     } catch (err) {
         alert('Draft-State konnte nicht initialisiert werden: ' + err.message);
     }
@@ -1480,11 +1605,23 @@ draftInitBtn.addEventListener('click', async () => {
 
 draftReadyBtn.addEventListener('click', async () => {
     if (!allDraftTeamsConfigured()) {
-        alert('Bitte zuerst alle 20 Team-Positionen festlegen.');
+        alert('Bitte zuerst alle 20 Team-Positionen eindeutig festlegen.');
         return;
     }
     try {
-        await writeDraftState(Object.assign({ status: 'READY' }, firstDraftTeamState()));
+        const order = draftOrderSnapshot();
+        await stateTransaction('DRAFT_READY', async current => {
+            if (current.status !== 'SETUP') throw new Error('Der Draft ist nicht im SETUP-Status.');
+            const first = firstDraftTeamState({ draftTeamIds: order.teamIds, draftTeamNames: order.teamNames });
+            return Object.assign({
+                status: 'READY',
+                draftTeamIds: order.teamIds,
+                draftTeamNames: order.teamNames,
+                pickElapsedSeconds: 0,
+                pickStartedAt: null,
+                pausedAt: null
+            }, first);
+        });
     } catch (err) {
         alert('Draft konnte nicht auf READY gesetzt werden: ' + err.message);
     }
@@ -1492,14 +1629,24 @@ draftReadyBtn.addEventListener('click', async () => {
 
 draftStartBtn.addEventListener('click', async () => {
     if (!draftState || draftState.status !== 'READY') return;
+    if (Object.keys(picks || {}).length > 0) {
+        alert('Das Live-Board enthält bereits Picks. Für einen neuen zentralen Draft muss das Board leer sein.');
+        return;
+    }
     if (!confirm('Draft wirklich starten? Team auf Position 1 ist danach On the Clock.')) return;
     try {
-        await writeDraftState(Object.assign({
-            status: 'ON_THE_CLOCK',
-            startedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            pickStartedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            pausedAt: null
-        }, firstDraftTeamState()));
+        await stateTransaction('DRAFT_STARTED', async current => {
+            if (current.status !== 'READY') throw new Error('Der Draft ist nicht READY.');
+            const first = firstDraftTeamState(current);
+            return Object.assign({
+                status: 'ON_THE_CLOCK',
+                startedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                pickStartedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                pickElapsedSeconds: 0,
+                pausedAt: null,
+                completedAt: null
+            }, first);
+        });
     } catch (err) {
         alert('Draft konnte nicht gestartet werden: ' + err.message);
     }
@@ -1508,9 +1655,14 @@ draftStartBtn.addEventListener('click', async () => {
 draftPauseBtn.addEventListener('click', async () => {
     if (!draftState || draftState.status !== 'ON_THE_CLOCK') return;
     try {
-        await writeDraftState({
-            status: 'PAUSED',
-            pausedAt: firebase.firestore.FieldValue.serverTimestamp()
+        await stateTransaction('DRAFT_PAUSED', async current => {
+            if (current.status !== 'ON_THE_CLOCK') throw new Error('Der Draft läuft derzeit nicht.');
+            return {
+                status: 'PAUSED',
+                pickElapsedSeconds: elapsedForState(current, Date.now()),
+                pickStartedAt: null,
+                pausedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
         });
     } catch (err) {
         alert('Draft konnte nicht pausiert werden: ' + err.message);
@@ -1520,10 +1672,14 @@ draftPauseBtn.addEventListener('click', async () => {
 draftResumeBtn.addEventListener('click', async () => {
     if (!draftState || draftState.status !== 'PAUSED') return;
     try {
-        await writeDraftState({
-            status: 'ON_THE_CLOCK',
-            pausedAt: null,
-            resumedAt: firebase.firestore.FieldValue.serverTimestamp()
+        await stateTransaction('DRAFT_RESUMED', async current => {
+            if (current.status !== 'PAUSED') throw new Error('Der Draft ist derzeit nicht pausiert.');
+            return {
+                status: 'ON_THE_CLOCK',
+                pickStartedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                pausedAt: null,
+                resumedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
         });
     } catch (err) {
         alert('Draft konnte nicht fortgesetzt werden: ' + err.message);
@@ -1560,31 +1716,267 @@ boardDocRef.onSnapshot(
 );
 
 function saveTeamsToCloud() {
-    boardDocRef.set({
+    if (!isAdmin) return;
+    const auditRef = draftAuditRef.doc();
+    const batch = db.batch();
+    batch.set(boardDocRef, {
         teams: boardTeams.map(t => t ? t.name : null),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true }).catch(err => alert('Speichern fehlgeschlagen: ' + err.message));
+    }, { merge: true });
+    batch.set(auditRef, auditPayload('DRAFT_ORDER_UPDATED', {
+        teamIds: boardTeams.map(t => draftTeamId(t)),
+        teamNames: boardTeams.map(t => t ? t.name : null)
+    }));
+    batch.commit().catch(err => alert('Speichern fehlgeschlagen: ' + err.message));
 }
 
-// Setzt genau EINEN Pick (Firestore-merge auf Feld-Ebene reicht hier aus).
-function savePickToCloud(key, pickData) {
-    const update = {};
-    update['picks.' + key] = pickData;
-    update.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-    boardDocRef.set({}, { merge: true })
-        .then(() => boardDocRef.update(update))
-        .catch(err => alert('Speichern fehlgeschlagen: ' + err.message));
+// Phase 1: alle neuen Picks werden atomar in der kanonischen Draft-Struktur
+// gespeichert und gleichzeitig in draftboard/current gespiegelt.
+function canonicalPickData(player, slot, durationSeconds) {
+    return {
+        season: currentDraftSeason(),
+        pickId: pickDocId(slot.currentPickNumber),
+        pickNumber: slot.currentPickNumber,
+        round: slot.currentRound,
+        positionInOrder: slot.currentPosition,
+        teamId: slot.currentTeamId || null,
+        teamName: slot.currentTeamName || null,
+        playerLockId: playerLockId(player),
+        playerId: player.playerId || null,
+        playerSource: player.source || null,
+        sourcePlayerId: player.sourcePlayerId || null,
+        name: player.name,
+        position: player.position || '',
+        nflTeam: player.nflTeam || '',
+        pickDurationSeconds: durationSeconds,
+        submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        submittedByUid: auth.currentUser ? auth.currentUser.uid : null,
+        submittedByEmail: auth.currentUser ? (auth.currentUser.email || null) : null
+    };
 }
 
-// Löscht genau EINEN Pick. Wichtig: FieldValue.delete() statt einfach das
-// picks-Objekt ohne den Key neu zu speichern – merge:true würde einen
-// fehlenden Key sonst NICHT entfernen, der Pick käme über den Realtime-
-// Listener sofort zurück (das war der Bug beim "Pick löschen"-Button).
-function deletePickFromCloud(key) {
-    const update = {};
-    update['picks.' + key] = firebase.firestore.FieldValue.delete();
-    update.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-    boardDocRef.update(update).catch(err => alert('Löschen fehlgeschlagen: ' + err.message));
+function legacyMirrorPick(player, durationSeconds, pickedAtOverride) {
+    return {
+        name: player.name,
+        position: player.position || '',
+        nflTeam: player.nflTeam || '',
+        playerId: player.playerId || null,
+        playerLockId: playerLockId(player),
+        pickedAt: pickedAtOverride || firebase.firestore.FieldValue.serverTimestamp(),
+        pickDurationSeconds: durationSeconds
+    };
+}
+
+async function submitCurrentPick(player, round, position) {
+    if (!isAdmin) throw new Error('Nur Admins dürfen in Phase 1 Picks eintragen.');
+    const requestedNumber = pickNumber(round, position);
+    const pickRef = draftPicksRef.doc(pickDocId(requestedNumber));
+    const lockRef = draftedPlayersRef.doc(playerLockId(player));
+    const auditRef = draftAuditRef.doc();
+
+    await db.runTransaction(async tx => {
+        const stateSnap = await tx.get(draftStateDocRef);
+        if (!stateSnap.exists) throw new Error('Draft-State fehlt.');
+        const state = stateSnap.data() || {};
+        if (state.status !== 'ON_THE_CLOCK') throw new Error('Der Draft läuft derzeit nicht.');
+        if (Number(state.currentPickNumber) !== requestedNumber ||
+            Number(state.currentRound) !== round || Number(state.currentPosition) !== position) {
+            throw new Error('Dieser Slot ist nicht On the Clock. Aktuell ist Pick #' + state.currentPickNumber + ' dran.');
+        }
+
+        const existingPickSnap = await tx.get(pickRef);
+        const lockSnap = await tx.get(lockRef);
+        if (existingPickSnap.exists) throw new Error('Dieser Draft-Slot ist bereits belegt.');
+        if (lockSnap.exists) {
+            const d = lockSnap.data() || {};
+            throw new Error(player.name + ' wurde bereits mit Pick #' + (d.pickNumber || '?') + ' gedraftet.');
+        }
+
+        const durationSeconds = elapsedForState(state, Date.now());
+        const slot = {
+            currentPickNumber: requestedNumber,
+            currentRound: round,
+            currentPosition: position,
+            currentTeamId: state.currentTeamId || null,
+            currentTeamName: state.currentTeamName || null
+        };
+        const canonical = canonicalPickData(player, slot, durationSeconds);
+        const boardKey = pickKey(round, position);
+        const boardUpdate = {};
+        boardUpdate['picks.' + boardKey] = legacyMirrorPick(player, durationSeconds);
+        boardUpdate.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+
+        tx.set(pickRef, canonical, { merge: false });
+        tx.set(lockRef, {
+            playerLockId: playerLockId(player),
+            playerId: player.playerId || null,
+            name: player.name,
+            position: player.position || '',
+            nflTeam: player.nflTeam || '',
+            pickId: pickDocId(requestedNumber),
+            pickNumber: requestedNumber,
+            teamId: state.currentTeamId || null,
+            teamName: state.currentTeamName || null,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: false });
+        tx.update(boardDocRef, boardUpdate);
+
+        const maxPicks = TEAM_COUNT * ROUND_COUNT;
+        if (requestedNumber >= maxPicks) {
+            tx.set(draftStateDocRef, {
+                status: 'COMPLETED',
+                currentPickNumber: requestedNumber,
+                currentRound: round,
+                currentPosition: position,
+                currentTeamId: state.currentTeamId || null,
+                currentTeamName: state.currentTeamName || null,
+                pickElapsedSeconds: durationSeconds,
+                pickStartedAt: null,
+                completedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        } else {
+            const next = slotFromPickNumber(requestedNumber + 1, state);
+            tx.set(draftStateDocRef, Object.assign({}, next, {
+                status: 'ON_THE_CLOCK',
+                pickElapsedSeconds: 0,
+                pickStartedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                pausedAt: null,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }), { merge: true });
+        }
+
+        tx.set(auditRef, auditPayload('PICK_CREATED', {
+            pickId: pickDocId(requestedNumber),
+            pickNumber: requestedNumber,
+            round: round,
+            positionInOrder: position,
+            teamId: state.currentTeamId || null,
+            teamName: state.currentTeamName || null,
+            playerLockId: playerLockId(player),
+            playerName: player.name,
+            playerPosition: player.position || '',
+            nflTeam: player.nflTeam || '',
+            pickDurationSeconds: durationSeconds
+        }));
+    });
+}
+
+async function correctExistingPick(player, round, position, oldPick) {
+    if (!isAdmin) throw new Error('Nur Admins dürfen Picks korrigieren.');
+    const number = pickNumber(round, position);
+    const pickRef = draftPicksRef.doc(pickDocId(number));
+    const newLockId = playerLockId(player);
+    const newLockRef = draftedPlayersRef.doc(newLockId);
+    const oldLockId = playerLockId(oldPick || {});
+    const oldLockRef = draftedPlayersRef.doc(oldLockId);
+    const auditRef = draftAuditRef.doc();
+
+    await db.runTransaction(async tx => {
+        const pickSnap = await tx.get(pickRef);
+        const newLockSnap = await tx.get(newLockRef);
+        let oldLockSnap = null;
+        if (oldLockId && oldLockId !== newLockId) oldLockSnap = await tx.get(oldLockRef);
+
+        if (newLockSnap.exists) {
+            const d = newLockSnap.data() || {};
+            if (d.pickId !== pickDocId(number)) {
+                throw new Error(player.name + ' ist bereits mit Pick #' + (d.pickNumber || '?') + ' vergeben.');
+            }
+        }
+
+        const existing = pickSnap.exists ? pickSnap.data() : {};
+        const team = boardTeams[position - 1] || null;
+        const duration = existing.pickDurationSeconds != null
+            ? existing.pickDurationSeconds
+            : (oldPick && oldPick.pickDurationSeconds != null ? oldPick.pickDurationSeconds : null);
+        const slot = {
+            currentPickNumber: number,
+            currentRound: round,
+            currentPosition: position,
+            currentTeamId: existing.teamId || draftTeamId(team),
+            currentTeamName: existing.teamName || (team ? team.name : null)
+        };
+        const canonical = canonicalPickData(player, slot, duration);
+        canonical.correctedAt = firebase.firestore.FieldValue.serverTimestamp();
+        canonical.originalSubmittedAt = existing.submittedAt || null;
+
+        if (oldLockId && oldLockId !== newLockId && oldLockSnap && oldLockSnap.exists) tx.delete(oldLockRef);
+        // Einen bestehenden Lock niemals überschreiben: Security Rules erlauben
+        // absichtlich nur create/delete. Bleibt derselbe Spieler im Slot, reicht
+        // der bestehende Lock unverändert aus.
+        if (!newLockSnap.exists) {
+            tx.set(newLockRef, {
+                playerLockId: newLockId,
+                playerId: player.playerId || null,
+                name: player.name,
+                position: player.position || '',
+                nflTeam: player.nflTeam || '',
+                pickId: pickDocId(number),
+                pickNumber: number,
+                teamId: slot.currentTeamId,
+                teamName: slot.currentTeamName,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: false });
+        }
+        tx.set(pickRef, canonical, { merge: false });
+
+        const boardUpdate = {};
+        boardUpdate['picks.' + pickKey(round, position)] = legacyMirrorPick(player, duration, (oldPick && oldPick.pickedAt) || existing.submittedAt || null);
+        boardUpdate.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+        tx.update(boardDocRef, boardUpdate);
+        tx.set(auditRef, auditPayload('PICK_CORRECTED', {
+            pickId: pickDocId(number),
+            pickNumber: number,
+            round: round,
+            positionInOrder: position,
+            teamId: slot.currentTeamId,
+            teamName: slot.currentTeamName,
+            oldPlayerName: oldPick ? oldPick.name : (existing.name || null),
+            newPlayerName: player.name,
+            newPlayerPosition: player.position || '',
+            nflTeam: player.nflTeam || ''
+        }));
+    });
+}
+
+async function deletePickTransactional(round, position, oldPick) {
+    if (!isAdmin) throw new Error('Nur Admins dürfen Picks löschen.');
+    const number = pickNumber(round, position);
+    const pickRef = draftPicksRef.doc(pickDocId(number));
+    const fallbackLockId = playerLockId(oldPick || {});
+    const auditRef = draftAuditRef.doc();
+
+    await db.runTransaction(async tx => {
+        const pickSnap = await tx.get(pickRef);
+        const existing = pickSnap.exists ? pickSnap.data() : {};
+        const lockId = existing.playerLockId || fallbackLockId;
+        let lockRef = null;
+        let lockSnap = null;
+        if (lockId) {
+            lockRef = draftedPlayersRef.doc(lockId);
+            lockSnap = await tx.get(lockRef);
+        }
+
+        if (pickSnap.exists) tx.delete(pickRef);
+        if (lockRef && lockSnap && lockSnap.exists) {
+            const lockData = lockSnap.data() || {};
+            if (!lockData.pickId || lockData.pickId === pickDocId(number)) tx.delete(lockRef);
+        }
+        const boardUpdate = {};
+        boardUpdate['picks.' + pickKey(round, position)] = firebase.firestore.FieldValue.delete();
+        boardUpdate.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+        tx.update(boardDocRef, boardUpdate);
+        tx.set(auditRef, auditPayload('PICK_DELETED', {
+            pickId: pickDocId(number),
+            pickNumber: number,
+            round: round,
+            positionInOrder: position,
+            playerName: existing.name || (oldPick ? oldPick.name : null),
+            teamId: existing.teamId || null,
+            teamName: existing.teamName || null
+        }));
+    });
 }
 
 /* ==========================================================
@@ -1721,6 +2113,10 @@ function renderBoard() {
             const num = pickNumber(round, pos);
 
             td.className = 'db-cell' + (pick ? ' filled' : '');
+            if (draftState && draftState.status === 'ON_THE_CLOCK' &&
+                Number(draftState.currentRound) === round && Number(draftState.currentPosition) === pos) {
+                td.classList.add('on-clock');
+            }
             if (isAdmin) td.classList.add('admin-editable');
 
             const numSpan = document.createElement('span');
@@ -1836,39 +2232,59 @@ playerSearch.addEventListener('input', () => {
 
         row.appendChild(tag);
         row.appendChild(info);
-        row.addEventListener('click', () => {
+        row.addEventListener('click', async () => {
             if (!currentEdit) return;
-            const key = pickKey(currentEdit.round, currentEdit.position);
+            const edit = { round: currentEdit.round, position: currentEdit.position };
+            const key = pickKey(edit.round, edit.position);
+            const existing = picks[key] || null;
             const dup = findDuplicatePick(p.name, key);
             if (dup) {
                 duplicateWarning.textContent = '⚠️ ' + p.name + ' wurde bereits von ' + dup.teamName + ' in Runde ' + dup.round + ' gepickt. Dieser Pick kann nicht doppelt vergeben werden.';
                 duplicateWarning.classList.add('show');
                 return;
             }
-            const nowMs = Date.now();
-            const prevPick = previousOverallPick(currentEdit.round, currentEdit.position);
-            const prevMs = pickTimestampMs(prevPick);
-            const newPick = {
-                name: p.name,
-                position: p.position,
-                nflTeam: p.nflTeam,
-                pickedAt: nowMs,
-                pickDurationSeconds: prevMs ? Math.max(0, Math.round((nowMs - prevMs) / 1000)) : null
-            };
-            picks[key] = newPick;
-            savePickToCloud(key, newPick);
-            closeModal();
+
+            row.style.pointerEvents = 'none';
+            row.style.opacity = '0.55';
+            duplicateWarning.classList.remove('show');
+            try {
+                if (existing) {
+                    await correctExistingPick(p, edit.round, edit.position, existing);
+                } else {
+                    await submitCurrentPick(p, edit.round, edit.position);
+                }
+                closeModal();
+            } catch (err) {
+                console.error('Pick konnte nicht gespeichert werden:', err);
+                duplicateWarning.textContent = '⚠️ ' + err.message;
+                duplicateWarning.classList.add('show');
+                row.style.pointerEvents = '';
+                row.style.opacity = '';
+            }
         });
         playerResults.appendChild(row);
     });
 });
 
-clearPickBtn.addEventListener('click', () => {
+clearPickBtn.addEventListener('click', async () => {
     if (!currentEdit) return;
-    const key = pickKey(currentEdit.round, currentEdit.position);
-    delete picks[key];
-    deletePickFromCloud(key);
-    closeModal();
+    const edit = { round: currentEdit.round, position: currentEdit.position };
+    const key = pickKey(edit.round, edit.position);
+    const existing = picks[key] || null;
+    if (!existing) {
+        closeModal();
+        return;
+    }
+    if (!confirm('Pick #' + pickNumber(edit.round, edit.position) + ' (' + existing.name + ') wirklich löschen? Der Draft-State wird dabei nicht zurückgesetzt.')) return;
+    try {
+        clearPickBtn.disabled = true;
+        await deletePickTransactional(edit.round, edit.position, existing);
+        closeModal();
+    } catch (err) {
+        alert('Pick konnte nicht gelöscht werden: ' + err.message);
+    } finally {
+        clearPickBtn.disabled = false;
+    }
 });
 
 /* ==========================================================
@@ -2289,6 +2705,11 @@ archiveDraftBtn.addEventListener('click', async () => {
             picks: {},
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
+
+        await draftAuditRef.add(auditPayload('DRAFT_ARCHIVED', {
+            archivedSeason: year,
+            pickCount: pickCount
+        }));
 
         alert('Saison ' + year + ' wurde archiviert. Das Live-Board ist jetzt leer für den nächsten Draft.');
     } catch (e) {
