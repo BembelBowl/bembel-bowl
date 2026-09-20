@@ -96,6 +96,7 @@ function render() {
   $('clockBadge').classList.toggle('is-hidden', !onClock);
   if (onClock) $('clockBadge').textContent = `ON THE CLOCK · #${next.overall}`;
   $('pickSearch').disabled = !onClock;
+  $('livePickHint').classList.toggle('is-hidden', onClock);
   $('pickStatus').textContent = onClock ? `Pick #${next.overall}: Wähle deinen Spieler und bestätige den Pick.` : '';
   $('pickStatus').classList.toggle('is-hidden', !onClock);
 
