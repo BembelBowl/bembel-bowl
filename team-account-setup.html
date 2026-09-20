@@ -39,8 +39,15 @@
   </div>
 </main>
 
-<script type="module">
-import { firebaseConfig } from './js/firebase-config.js';
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyALAGTVbpTqMYmqmmf3dJyes0A39483iUE",
+  authDomain: "bembel-bowl.firebaseapp.com",
+  projectId: "bembel-bowl",
+  storageBucket: "bembel-bowl.firebasestorage.app",
+  messagingSenderId: "836256439134",
+  appId: "1:836256439134:web:c39ef91c216da594020dcf"
+};
 
 const primaryApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
 const db = primaryApp.firestore();
