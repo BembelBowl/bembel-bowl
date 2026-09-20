@@ -1,6 +1,6 @@
 import { auth } from './firebase.js';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js';
-import { DRAFT } from './config.js';
+import { DRAFT, teamLogo } from './config.js';
 import { getUserProfile, watchBoard, watchState, watchTeam, watchSheet, setAttendance, savePreferenceSheet, requestRemotePick, ensureTeamDefaults } from './service.js';
 import { loadSleeperPlayers } from './players.js';
 import { loadRankings, mergeRanking, rankingMeta } from './rankings.js';
@@ -49,6 +49,9 @@ onAuthStateChanged(auth, async user => {
     $('loginCard').classList.add('is-hidden');
     $('app').classList.remove('is-hidden');
     $('teamTitle').textContent = profile.teamId;
+    $('teamLogo').src = teamLogo(profile.teamId);
+    $('teamLogo').alt = `${profile.teamId} Logo`;
+    $('teamLogo').onerror = () => { $('teamLogo').src = 'images/favicon.jpg'; };
     if (bootedUid !== user.uid) {
       bootedUid = user.uid;
       await ensureTeamDefaults(profile.teamId);
@@ -63,7 +66,7 @@ async function boot() {
   try {
     const [ps] = await Promise.all([loadSleeperPlayers(), loadRankings()]);
     players = ps;
-    ranked = players.map(mergeRanking).sort((a, b) => (a.adp ?? 9999) - (b.adp ?? 9999));
+    ranked = players.map(mergeRanking).sort((a, b) => a.sortRank - b.sortRank || a.name.localeCompare(b.name));
     renderRankingInfo();
   } catch (e) {
     console.error(e);
@@ -87,9 +90,8 @@ function render() {
   $('clockBadge').classList.toggle('is-hidden', !onClock);
   if (onClock) $('clockBadge').textContent = `ON THE CLOCK · #${next.overall}`;
   $('pickSearch').disabled = !onClock;
-  $('pickStatus').textContent = onClock
-    ? `Pick #${next.overall}: Wähle deinen Spieler und bestätige den Pick.`
-    : 'Pick-Eingabe wird automatisch freigeschaltet, sobald dein Team an der Reihe ist.';
+  $('pickStatus').textContent = onClock ? `Pick #${next.overall}: Wähle deinen Spieler und bestätige den Pick.` : '';
+  $('pickStatus').classList.toggle('is-hidden', !onClock);
 
   if (onClock && !wasOnClock) showOnClockPopup(profile.teamId);
   wasOnClock = onClock;
@@ -183,24 +185,15 @@ function hydrateSheet() {
   renderPriorityLists();
 }
 
-$('savePlan').onclick = async () => {
-  const status = $('planSaveState');
+$('saveSheet').onclick = async () => {
+  const status = $('sheetSaveState');
   setSaveState(status, 'Speichert…');
   try {
+    // Always save both parts in one atomic document write so neither can overwrite/reset the other.
+    DRAFT.positions.forEach(syncPriorityFromDomSilent);
     const roundPlan = Object.fromEntries($$('[data-round]').map(e => [e.dataset.round, e.value]));
-    await savePreferenceSheet(profile.teamId, { roundPlan });
-    setSaveState(status, '✓ Draft Reihenfolge gespeichert');
-  } catch (e) {
-    setSaveState(status, `Fehler: ${e.message}`, true);
-  }
-};
-
-$('savePriorities').onclick = async () => {
-  const status = $('prioritySaveState');
-  setSaveState(status, 'Speichert…');
-  try {
-    await savePreferenceSheet(profile.teamId, { playerPriorities: priorityState });
-    setSaveState(status, '✓ Spieler-Prioritäten gespeichert');
+    await savePreferenceSheet(profile.teamId, { roundPlan, playerPriorities: priorityState });
+    setSaveState(status, '✓ Draft Sheet vollständig gespeichert');
   } catch (e) {
     setSaveState(status, `Fehler: ${e.message}`, true);
   }
@@ -233,18 +226,22 @@ function addPriority(player) {
   if (existsAnywhere) return;
   priorityState[pos].push(player.name);
   renderPriorityLists();
-  setSaveState($('prioritySaveState'), `${player.name} zu ${pos} hinzugefügt – noch speichern.`);
+  setSaveState($('sheetSaveState'), `${player.name} hinzugefügt – Draft Sheet noch speichern.`);
 }
 function removePriority(pos, name) {
   priorityState[pos] = (priorityState[pos] || []).filter(n => n !== name);
   renderPriorityLists();
-  setSaveState($('prioritySaveState'), `${name} entfernt – noch speichern.`);
+  setSaveState($('sheetSaveState'), `${name} entfernt – Draft Sheet noch speichern.`);
 }
 function syncPriorityFromDom(pos) {
   const names = [...document.querySelectorAll(`[data-priority-list="${pos}"] .priority-player`)].map(x => x.dataset.name);
   if (names.length || priorityState[pos].length === 0) priorityState[pos] = names;
   renderPriorityLists();
-  setSaveState($('prioritySaveState'), 'Reihenfolge geändert – noch speichern.');
+  setSaveState($('sheetSaveState'), 'Reihenfolge geändert – Draft Sheet noch speichern.');
+}
+function syncPriorityFromDomSilent(pos) {
+  const names = [...document.querySelectorAll(`[data-priority-list="${pos}"] .priority-player`)].map(x => x.dataset.name);
+  if (names.length || priorityState[pos].length === 0) priorityState[pos] = names;
 }
 function getDragAfterElement(container, y) {
   const els = [...container.querySelectorAll('.priority-player:not(.dragging)')];
@@ -268,11 +265,11 @@ function renderAvailable() {
   if (!ranked.length) return;
   const pos = $('posFilter').value;
   const q = $('availableSearch').value.toLowerCase();
-  const picked = pickedNames();
+  const picked = pickedKeys();
   $('availableList').innerHTML = ranked
-    .filter(p => !picked.has(p.name.toLowerCase()) && (!pos || p.position === pos) && (!q || p.name.toLowerCase().includes(q)))
-    .slice(0, 100)
-    .map(p => `<div class="avail-row"><b>#${p.adp ? Math.round(p.adp) : '—'}</b><div><b>${esc(p.name)}</b><br><small>${esc(p.nflTeam || '')}${p.bye ? ` · Bye ${p.bye}` : ''}</small></div><span class="tag">${esc(p.position)}</span><small>ADP ${p.adp ?? '—'}</small><button class="add-priority" data-add-id="${esc(p.id)}">+ Liste</button></div>`)
+    .filter(p => !picked.has(`id:${p.id}`) && !picked.has(`name:${p.name.toLowerCase()}`) && (!pos || p.position === pos) && (!q || p.name.toLowerCase().includes(q)))
+    .slice(0, 140)
+    .map((p, idx) => `<div class="avail-row"><b>#${idx + 1}</b><div><b>${esc(p.name)}</b><br><small>${esc(p.nflTeam || '')}${p.bye ? ` · Bye ${p.bye}` : ''}</small></div><span class="tag">${esc(p.position)}</span><small>${p.adp != null ? `ADP ${p.adp.toFixed(1)}` : 'Aktiv · Fallback'}</small><button class="add-priority" data-add-id="${esc(p.id)}">+ Liste</button></div>`)
     .join('') || '<p class="empty-state">Keine verfügbaren Spieler für diesen Filter.</p>';
 }
 
@@ -286,9 +283,14 @@ function renderRoster() {
 function renderRankingInfo() {
   const m = rankingMeta();
   const updated = m.updatedAt ? new Date(m.updatedAt).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : 'unbekannt';
-  $('rankingInfo').textContent = `${m.source || 'ADP'} · ${m.format || 'PPR'} · Stand ${updated}`;
+  $('rankingInfo').textContent = `${m.source || 'Rankings'} · ${m.format || 'PPR'} · Stand ${updated}`;
 }
 function pickedNames() { return new Set(Object.values(board.picks || {}).map(p => String(p.name || '').toLowerCase())); }
+function pickedKeys() {
+  const out = new Set();
+  Object.values(board.picks || {}).forEach(p => { if (p?.playerId) out.add(`id:${p.playerId}`); if (p?.name) out.add(`name:${String(p.name).toLowerCase()}`); });
+  return out;
+}
 function setSaveState(el, text, error = false) { el.textContent = text; el.classList.toggle('error', error); }
 function friendlyError(e) { return /invalid-credential|wrong-password|user-not-found/i.test(e?.code || '') ? 'E-Mail oder Passwort ist nicht korrekt.' : (e?.message || 'Anmeldung fehlgeschlagen.'); }
 function esc(s) { return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
