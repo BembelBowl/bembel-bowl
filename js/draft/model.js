@@ -53,6 +53,52 @@ export function teamNeeds(teamPicks = []) {
   return { counts, needs };
 }
 
+export function primaryTeamNeed(teamPicks = []) {
+  const { counts } = teamNeeds(teamPicks);
+  const l = DRAFT.starterLimits;
+
+  // First cover real starting-lineup holes. Score by proportional shortage, then
+  // by lineup importance/depth so RB/WR win sensible ties early in the draft.
+  const tieOrder = ['RB', 'WR', 'QB', 'TE', 'DEF', 'K'];
+  const missingStarters = tieOrder
+    .map(position => {
+      const target = Number(l[position] || 0);
+      const have = Number(counts[position] || 0);
+      const missing = Math.max(0, target - have);
+      const shortage = target ? missing / target : 0;
+      return { position, target, have, missing, shortage };
+    })
+    .filter(x => x.missing > 0)
+    .sort((a, b) => b.shortage - a.shortage || tieOrder.indexOf(a.position) - tieOrder.indexOf(b.position));
+
+  if (missingStarters.length) return missingStarters[0].position;
+
+  // If the base lineup is complete but FLEX still needs to be filled, choose an
+  // actual eligible position instead of returning a generic FLEX label. Prefer
+  // the thinnest RB/WR/TE room relative to its normal starter requirement.
+  const flexTarget = Number(l.FLEX || 0);
+  const baseSkillTarget = Number(l.RB || 0) + Number(l.WR || 0) + Number(l.TE || 0);
+  const skillCount = Number(counts.RB || 0) + Number(counts.WR || 0) + Number(counts.TE || 0);
+  if (flexTarget > 0 && skillCount < baseSkillTarget + flexTarget) {
+    const eligible = ['RB', 'WR', 'TE']
+      .map(position => {
+        const base = Math.max(1, Number(l[position] || 1));
+        return { position, depthRatio: Number(counts[position] || 0) / base };
+      })
+      .sort((a, b) => a.depthRatio - b.depthRatio || ['RB','WR','TE'].indexOf(a.position) - ['RB','WR','TE'].indexOf(b.position));
+    return eligible[0].position;
+  }
+
+  // Once all starting requirements are met, recommend useful depth based on the
+  // thinnest skill-position room rather than a generic DEPTH/FLEX tag.
+  return ['RB', 'WR', 'TE', 'QB']
+    .map(position => {
+      const base = Math.max(1, Number(l[position] || 1));
+      return { position, depthRatio: Number(counts[position] || 0) / base };
+    })
+    .sort((a, b) => a.depthRatio - b.depthRatio || ['RB','WR','TE','QB'].indexOf(a.position) - ['RB','WR','TE','QB'].indexOf(b.position))[0].position;
+}
+
 export function positionsForPlan(planPos) {
   return planPos === 'FLEX' ? ['RB','WR','TE'] : [normalizePosition(planPos)];
 }
