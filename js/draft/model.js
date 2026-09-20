@@ -53,6 +53,28 @@ export function teamNeeds(teamPicks = []) {
   return { counts, needs };
 }
 
+export function concreteTeamNeeds(teamPicks = []) {
+  const { counts } = teamNeeds(teamPicks);
+  const l = DRAFT.starterLimits;
+  const result = [];
+
+  for (const position of ['QB','RB','WR','TE','K','DEF']) {
+    if (Number(counts[position] || 0) < Number(l[position] || 0)) result.push(position);
+  }
+
+  const baseSkillTarget = Number(l.RB || 0) + Number(l.WR || 0) + Number(l.TE || 0);
+  const skillCount = Number(counts.RB || 0) + Number(counts.WR || 0) + Number(counts.TE || 0);
+  const flexTarget = Number(l.FLEX || 0);
+  if (flexTarget > 0 && skillCount < baseSkillTarget + flexTarget) {
+    const flexNeed = ['RB','WR','TE']
+      .map(position => ({ position, ratio: Number(counts[position] || 0) / Math.max(1, Number(l[position] || 1)) }))
+      .sort((a,b) => a.ratio - b.ratio || ['RB','WR','TE'].indexOf(a.position) - ['RB','WR','TE'].indexOf(b.position))[0].position;
+    if (!result.includes(flexNeed)) result.push(flexNeed);
+  }
+
+  return result;
+}
+
 export function primaryTeamNeed(teamPicks = []) {
   const { counts } = teamNeeds(teamPicks);
   const l = DRAFT.starterLimits;

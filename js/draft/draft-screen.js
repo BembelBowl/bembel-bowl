@@ -1,6 +1,6 @@
 import { DRAFT } from './config.js';
 import { watchBoard, watchState, timestampMs } from './service.js';
-import { getNextOpenSlot, orderedPicks, primaryTeamNeed } from './model.js';
+import { getNextOpenSlot, orderedPicks, concreteTeamNeeds } from './model.js';
 import { loadRankings, bestAvailable } from './rankings.js';
 import { loadSleeperPlayers } from './players.js';
 import { unlockAudio, announcePick, announceClock, fullNflTeam, sleep } from './audio.js';
@@ -56,8 +56,8 @@ function render() {
   setLogo($('teamLogo'), teamName);
 
   const teamPicks = orderedPicks(board.picks || {}).filter(p => board.teams?.[p.position - 1] === teamName);
-  const need = primaryTeamNeed(teamPicks);
-  $('needsList').innerHTML = `<span>${need}</span>`;
+  const needs = concreteTeamNeeds(teamPicks);
+  $('needsList').innerHTML = needs.length ? needs.map(pos => `<span>${pos}</span>`).join('') : '<span>—</span>';
 
   const picked = new Set(Object.values(board.picks || {}).map(p => p.name));
   const avail = rankingsReady ? bestAvailable(picked, 10) : [];
