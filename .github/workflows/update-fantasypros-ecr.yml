@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: fantasypros-ecr-update
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: ubuntu-latest
@@ -28,9 +32,15 @@ jobs:
           with open('data/fantasypros-ecr.json', encoding='utf-8') as f:
               data = json.load(f)
           players = data.get('players', [])
-          if len(players) < 50:
-              raise SystemExit(f'Only {len(players)} ECR players returned; refusing to publish an incomplete snapshot.')
-          print(f'Validated {len(players)} FantasyPros ECR players.')
+          if len(players) < 60:
+              raise SystemExit(f'Only {len(players)} ECR entries returned; refusing to publish an incomplete snapshot.')
+          positions = {p.get('position') for p in players}
+          required = {'QB','RB','WR','TE','K','DEF'}
+          missing = sorted(required - positions)
+          if missing:
+              raise SystemExit(f'Missing positions in ECR snapshot: {missing}')
+          print(f'Validated {len(players)} FantasyPros ECR entries across {sorted(positions)}.')
+          print(f"Requests used this run: {data.get('requestCount')}")
           PY
       - name: Commit ECR snapshot
         run: |
