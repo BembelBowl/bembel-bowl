@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Team-Accounts - Bembel Bowl</title><link rel="stylesheet" href="css/style.css"><link rel="icon" href="images/favicon.jpg"><style>
 body{background:#f4f1ea}.ta-wrap{max-width:1100px;margin:auto;padding:28px 16px 70px}.ta-card{background:white;border:1px solid #dedbd3;border-radius:12px;padding:18px;margin-bottom:16px}.ta-login{max-width:430px;margin:50px auto}.ta-input{box-sizing:border-box;width:100%;padding:10px 11px;border:1px solid #ccc;border-radius:8px;font:inherit}.ta-btn{border:0;border-radius:8px;padding:9px 12px;font-weight:700;cursor:pointer;background:#d18b2f;color:white}.ta-btn.dark{background:#252525}.ta-btn:disabled{opacity:.45}.ta-grid{display:grid;grid-template-columns:1.1fr 1.3fr 1fr auto;gap:8px;align-items:center;border-top:1px solid #eee;padding:10px 0}.ta-grid:first-child{border-top:0}.ta-ok{color:#1f7a3d;font-weight:700}.ta-muted{color:#888;font-size:.85rem}.ta-alert{padding:10px;border-radius:8px;background:#fff0f0;color:#992525;margin:10px 0;display:none}.ta-alert.show{display:block}@media(max-width:800px){.ta-grid{grid-template-columns:1fr}.ta-btn{width:100%}}
 </style><script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script></head><body>
-<header class="main-header"><nav class="navbar"><a href="index.html" class="nav-link">Home</a><a href="draft-center.html" class="nav-link active">Draft Center</a><a href="draft-board.html" class="nav-link">Draft Board</a><a href="draft-team.html" class="nav-link">Mein Draft</a></nav></header>
+<header class="main-header"><nav class="navbar"><a href="index.html" class="nav-link">Home</a><a href="rules.html" class="nav-link">Regeln</a><a href="teams.html" class="nav-link">Teams</a><a href="draft-center.html" class="nav-link active">Draft Center</a><a href="standings.html" class="nav-link">Tabellen</a><a href="reports.html" class="nav-link">Spielberichte</a><a href="hall-of-fame.html" class="nav-link">Hall of Fame</a><a href="https://fantasy.espn.com/football/league?leagueId=843833275" class="nav-link espn-btn" target="_blank">ESPN Fantasy Login</a></nav></header>
 <main class="ta-wrap"><div id="login" class="ta-card ta-login"><h2>Admin-Login</h2><div id="err" class="ta-alert"></div><p><input id="email" class="ta-input" type="email" placeholder="Admin E-Mail"></p><p><input id="password" class="ta-input" type="password" placeholder="Passwort"></p><button id="loginBtn" class="ta-btn">Anmelden</button></div><div id="app" style="display:none"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h1>Team-Accounts</h1><p>Je Fantasy-Team genau ein Firebase-Account.</p></div><button id="logout" class="ta-btn dark">Abmelden</button></div><div class="ta-card"><p><strong>Hinweis:</strong> Verwende pro Team eine echte E-Mail-Adresse und ein temporäres Passwort. Die Seite erstellt den Firebase-Auth-Account über eine zweite Auth-Session, ohne deinen Admin auszuloggen, und legt anschließend <code>users/&lt;uid&gt;</code> mit <code>role="team"</code> und der festen <code>teamId</code> an.</p><div id="globalErr" class="ta-alert"></div><div id="rows"></div></div></div></main>
 <script>
 const cfg={apiKey:"AIzaSyALAGTVbpTqMYmqmmf3dJyes0A39483iUE",authDomain:"bembel-bowl.firebaseapp.com",projectId:"bembel-bowl",storageBucket:"bembel-bowl.firebasestorage.app",messagingSenderId:"836256439134",appId:"1:836256439134:web:c39ef91c216da594020dcf"};firebase.initializeApp(cfg);const db=firebase.firestore(),auth=firebase.auth();const secondary=firebase.initializeApp(cfg,'team-account-creator'),secondaryAuth=secondary.auth();
@@ -11,5 +11,50 @@ function render(){const box=document.getElementById('rows');box.innerHTML='';TEA
 async function loadProfiles(){const s=await db.collection('users').get();profiles=[];s.forEach(d=>{const p=d.data()||{};if(p.role==='team')profiles.push(Object.assign({uid:d.id},p))});render()}
 async function createAccount(row,name,id){const email=row.querySelector('.em').value.trim(),pw=row.querySelector('.pw').value;if(!email||pw.length<6){alert('Bitte E-Mail und Passwort mit mindestens 6 Zeichen eingeben.');return}const btn=row.querySelector('.create');btn.disabled=true;btn.textContent='Wird angelegt …';try{const cred=await secondaryAuth.createUserWithEmailAndPassword(email,pw);await db.collection('users').doc(cred.user.uid).set({email:email,role:'team',teamId:id,teamName:name,createdAt:firebase.firestore.FieldValue.serverTimestamp()});await secondaryAuth.signOut();await loadProfiles()}catch(e){console.error(e);try{await secondaryAuth.signOut()}catch(x){}btn.disabled=false;btn.textContent='Account anlegen';alert('Account konnte nicht angelegt werden: '+e.message)}}
 document.getElementById('loginBtn').onclick=async()=>{const er=document.getElementById('err');er.classList.remove('show');try{await auth.signInWithEmailAndPassword(document.getElementById('email').value.trim(),document.getElementById('password').value)}catch(e){er.textContent='Login fehlgeschlagen: '+(e.code || e.message || 'Unbekannter Fehler');er.classList.add('show')}};document.getElementById('logout').onclick=()=>auth.signOut();
-auth.onAuthStateChanged(async u=>{if(!u){document.getElementById('login').style.display='block';document.getElementById('app').style.display='none';return}try{const d=await db.collection('users').doc(u.uid).get();if(!d.exists||d.data().role!=='admin')throw new Error();document.getElementById('login').style.display='none';document.getElementById('app').style.display='block';await loadProfiles()}catch(e){await auth.signOut();alert('Dieser Account ist kein Admin.')}});
+auth.onAuthStateChanged(async u=>{
+  const login=document.getElementById('login');
+  const app=document.getElementById('app');
+  const er=document.getElementById('err');
+  const globalErr=document.getElementById('globalErr');
+  if(!u){login.style.display='block';app.style.display='none';return;}
+
+  let profileDoc;
+  try{
+    profileDoc=await db.collection('users').doc(u.uid).get();
+  }catch(e){
+    console.error('Admin-Profil konnte nicht gelesen werden:',e);
+    er.textContent='Admin-Profil konnte nicht gelesen werden: '+(e.code||e.message||'Unbekannter Fehler');
+    er.classList.add('show');
+    login.style.display='block';
+    app.style.display='none';
+    return;
+  }
+
+  if(!profileDoc.exists){
+    er.textContent='Für diesen Firebase-Account existiert kein users/'+u.uid+' Dokument.';
+    er.classList.add('show');
+    login.style.display='block';
+    app.style.display='none';
+    return;
+  }
+  const profile=profileDoc.data()||{};
+  if(profile.role!=='admin'){
+    er.textContent='Der Account ist angemeldet, aber role ist "'+(profile.role||'nicht gesetzt')+'" statt "admin".';
+    er.classList.add('show');
+    login.style.display='block';
+    app.style.display='none';
+    return;
+  }
+
+  login.style.display='none';
+  app.style.display='block';
+  globalErr.classList.remove('show');
+  try{
+    await loadProfiles();
+  }catch(e){
+    console.error('Teamprofile konnten nicht geladen werden:',e);
+    globalErr.textContent='Admin-Login erfolgreich. Teamprofile konnten aber nicht geladen werden: '+(e.code||e.message||'Unbekannter Fehler');
+    globalErr.classList.add('show');
+  }
+});
 </script></body></html>
