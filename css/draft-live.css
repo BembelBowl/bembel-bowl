@@ -414,3 +414,8 @@
 .pick-overlay.show .pick-photo{transform:none}
 @media(max-width:1100px){.pick-player-stage{min-height:320px}.pick-player-ring{width:300px;height:300px}}
 @media(max-width:760px){.pick-player-stage{min-height:240px}.pick-player-ring{width:230px;height:230px}}
+
+
+/* V5.5 baseline directly attached to player image */
+.pick-player-ring:after{bottom:0}
+.pick-photo{width:96%;height:100%;display:block}
