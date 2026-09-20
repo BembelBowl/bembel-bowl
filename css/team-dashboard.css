@@ -10,3 +10,7 @@
 
 .team-identity{display:flex;align-items:center;gap:20px;min-width:0}.team-dashboard-logo{width:92px;height:92px;object-fit:contain;border-radius:15px;background:#fff;border:3px solid var(--bb-gold);box-shadow:0 8px 24px rgba(0,0,0,.3);padding:5px;flex:0 0 auto}.master-save-row{margin-top:34px;padding-top:22px;border-top:1px solid var(--bb-line)}.master-save-row .primary-btn{font-size:1rem;padding:14px 22px;box-shadow:0 5px 0 #8d5918,0 10px 20px rgba(31,31,31,.12)}
 @media(max-width:650px){.team-dashboard-logo{width:68px;height:68px}.team-identity{gap:12px}.dashboard-hero h1{font-size:1.8rem}}
+
+
+/* V4.6 UI fixes */
+.live-pick-hint{background:#fff7ea;border:1px solid rgba(209,139,47,.34);border-left:4px solid var(--bb-gold);padding:12px 14px;border-radius:10px;color:#6b522e;margin-bottom:12px}.live-pick-hint strong{color:#1f1f1f;text-transform:uppercase;letter-spacing:.04em}
