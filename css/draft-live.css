@@ -349,3 +349,8 @@
   .selected-by strong{font-size:28px}
   .pick-overlay::after{right:18px;top:18px;font-size:10px}
 }
+
+/* V5.1 player photo alignment */
+.pick-player-ring{align-items:end;justify-items:center}
+.pick-photo{align-self:end;object-position:center bottom;transform:translateY(8px)}
+.pick-overlay.show .pick-photo{transform:translateY(0)}
