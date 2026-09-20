@@ -350,7 +350,21 @@
   .pick-overlay::after{right:18px;top:18px;font-size:10px}
 }
 
-/* V5.1 player photo alignment */
-.pick-player-ring{align-items:end;justify-items:center}
-.pick-photo{align-self:end;object-position:center bottom;transform:translateY(8px)}
-.pick-overlay.show .pick-photo{transform:translateY(0)}
+/* V5.2 player photo truly centered inside circle */
+.pick-player-ring{
+  display:grid;
+  place-items:center;
+}
+.pick-photo{
+  width:84%;
+  height:84%;
+  object-fit:contain;
+  object-position:center center;
+  align-self:center;
+  justify-self:center;
+  transform:none;
+  margin:0;
+}
+.pick-overlay.show .pick-photo{
+  transform:none;
+}
