@@ -57,7 +57,12 @@ function render() {
 
   const teamPicks = orderedPicks(board.picks || {}).filter(p => board.teams?.[p.position - 1] === teamName);
   const needs = teamNeeds(teamPicks).needs;
-  $('needsList').innerHTML = (needs.length ? needs : [{ position: 'DEPTH' }]).map(n => `<span>${n.position}${n.missing ? ` ×${n.missing}` : ''}</span>`).join('');
+  const needLabels = (needs.length ? needs : [{ position: 'DEPTH' }]).map(n => {
+    if (n.position === 'FLEX') return 'RB / WR / TE';
+    if (n.position === 'DEPTH') return 'Bench Depth';
+    return n.position;
+  });
+  $('needsList').innerHTML = needLabels.map(label => `<span>${label}</span>`).join('');
 
   const picked = new Set(Object.values(board.picks || {}).map(p => p.name));
   const avail = rankingsReady ? bestAvailable(picked, 10) : [];
@@ -75,17 +80,20 @@ function renderTimer() {
 async function showPickSequence(p) {
   const teamName = board.teams?.[p.position - 1] || '';
   const player = players.find(x => x.name.toLowerCase() === String(p.name || '').toLowerCase());
+  const resolvedPosition = player?.position || p.position || '';
+  const resolvedTeam = player?.nflTeam || p.nflTeam || '';
+  const announcedPlayer = { ...p, position: resolvedPosition, nflTeam: resolvedTeam };
   $('pickNumber').textContent = `ROUND ${p.round} · PICK #${p.overall}`;
   $('pickPlayer').textContent = p.name;
-  $('pickPosition').textContent = p.position;
-  $('pickNfl').textContent = fullNflTeam(p.nflTeam) || p.nflTeam || '';
+  $('pickPosition').textContent = resolvedPosition;
+  $('pickNfl').textContent = fullNflTeam(resolvedTeam) || resolvedTeam || '';
   $('pickFantasyTeam').textContent = teamName;
   setPlayerPhoto(player?.headshot);
 
   const overlay = $('pickOverlay');
   overlay.classList.add('show');
   overlay.setAttribute('aria-hidden', 'false');
-  await announcePick({ overall: p.overall, season: DRAFT.season, teamName, player: p });
+  await announcePick({ overall: p.overall, season: DRAFT.season, teamName, player: announcedPlayer });
   await sleep(1400);
   overlay.classList.remove('show');
   overlay.setAttribute('aria-hidden', 'true');
