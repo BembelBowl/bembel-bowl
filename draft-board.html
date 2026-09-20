@@ -1695,8 +1695,28 @@ authPassword.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') authSubmitBtn.click();
 });
 
-auth.onAuthStateChanged((user) => {
-    isAdmin = !!user;
+auth.onAuthStateChanged(async (user) => {
+    // WICHTIG: Seit es Team-Logins gibt, darf nicht mehr jeder eingeloggte
+    // Firebase-User automatisch als Admin gelten. Die Rolle wird aus
+    // /users/{uid}.role gelesen.
+    isAdmin = false;
+
+    if (user) {
+        try {
+            const profileSnap = await db.collection('users').doc(user.uid).get();
+            const profile = profileSnap.exists ? profileSnap.data() : null;
+            isAdmin = !!profile && profile.role === 'admin';
+
+            if (!isAdmin && authModal.classList.contains('show')) {
+                authError.textContent = 'Dieses Firebase-Konto besitzt keine Admin-Rolle.';
+                authError.classList.add('show');
+            }
+        } catch (err) {
+            console.error('Admin-Rolle konnte nicht geprüft werden:', err);
+            isAdmin = false;
+        }
+    }
+
     renderStatusBar();
     renderBoard();
     renderTeamsPanel();

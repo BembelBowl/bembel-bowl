@@ -1,0 +1,13 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Team Dashboard | Bembel Bowl</title><link rel="stylesheet" href="css/team-dashboard.css"></head><body>
+<main class="dash-shell">
+<section id="loginCard" class="panel auth"><h1>Bembel Bowl</h1><p>Team Dashboard</p><input id="email" type="email" placeholder="E-Mail"><input id="password" type="password" placeholder="Passwort"><button id="loginBtn">Anmelden</button><small id="loginError"></small></section>
+<div id="app" hidden>
+<header><div><span class="eyebrow">TEAM DASHBOARD</span><h1 id="teamTitle">—</h1></div><div><span id="clockBadge">Nicht on the clock</span><button id="logoutBtn">Abmelden</button></div></header>
+<div class="dash-grid">
+<section class="panel"><h2>Anwesenheit</h2><div class="segmented" id="attendance"><button data-v="present">Vor Ort</button><button data-v="remote">Video / Remote</button><button data-v="absent">Abwesend</button></div><p class="hint">Nur „Abwesend“ aktiviert Autopick.</p></section>
+<section class="panel pick-panel"><h2>Aktueller Pick</h2><p id="pickStatus">Warte auf Draftdaten…</p><input id="pickSearch" placeholder="Spieler suchen…"><div id="pickResults" class="results"></div></section>
+<section class="panel plan"><h2>Positionsplan je Runde</h2><div id="roundPlan" class="round-plan"></div><button id="savePlan">Plan speichern</button></section>
+<section class="panel priorities"><h2>Spieler-Prioritäten</h2><p class="hint">Mindestens 20 pro QB/RB/WR/TE, 10 für K/DEF empfohlen. Ein Name pro Zeile.</p><div id="priorityEditors" class="priority-grid"></div><button id="savePriorities">Prioritäten speichern</button></section>
+<section class="panel available"><h2>Best Available</h2><div class="filters"><select id="posFilter"><option value="">Alle Positionen</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>K</option><option>DEF</option></select><input id="availableSearch" placeholder="Name filtern"></div><div id="availableList" class="available-list"></div></section>
+</div></div>
+</main><script type="module" src="js/draft/team-dashboard.js"></script></body></html>

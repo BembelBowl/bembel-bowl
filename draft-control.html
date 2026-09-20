@@ -1,0 +1,7 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Draft Control | Bembel Bowl</title><link rel="stylesheet" href="css/team-dashboard.css"></head><body><main class="dash-shell">
+<section id="loginCard" class="panel auth"><h1>Draft Control</h1><p>Admin / Conductor</p><input id="email" type="email" placeholder="Admin E-Mail"><input id="password" type="password" placeholder="Passwort"><button id="loginBtn">Anmelden & Conductor starten</button><small id="err"></small></section>
+<div id="app" hidden><header><div><span class="eyebrow">AUTOPICK CONDUCTOR</span><h1>Draft Control</h1></div><div><span id="lease">Standby</span><button id="logoutBtn">Abmelden</button></div></header><div class="dash-grid">
+<section class="panel"><h2>Aktueller Status</h2><p id="current">—</p><p id="auto">Kein Autopick-Countdown.</p><p class="hint">Diese Seite während des Drafts offen lassen. Mehrere Admin-Tabs sind okay; per Firestore-Lease ist nur einer aktiv.</p></section>
+<section class="panel"><h2>Team-Status</h2><div id="teams"></div></section>
+<section class="panel available"><h2>Hinweis</h2><p>Manuelle Overrides und Korrekturen bleiben im bestehenden <a href="draft-board.html" style="color:#d18b2f">Draftboard</a>. Der Conductor erkennt Änderungen am bestehenden Board automatisch.</p></section>
+</div></div></main><script type="module" src="js/draft/draft-control.js"></script></body></html>

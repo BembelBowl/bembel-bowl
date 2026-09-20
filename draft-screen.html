@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bembel Bowl Draft Live</title>
+<link rel="icon" href="images/favicon.jpg"><link rel="stylesheet" href="css/draft-live.css">
+</head>
+<body>
+<div class="live-shell">
+  <header class="live-topbar">
+    <div><span class="eyebrow">BEMBEL BOWL</span><h1>DRAFT <b>LIVE</b></h1></div>
+    <div class="top-meta"><span id="season">2026</span><span id="sync">CONNECTING</span><button id="audioUnlock">🔊 Audio aktivieren</button></div>
+  </header>
+
+  <main class="live-grid">
+    <section class="clock-card glass">
+      <div class="section-label">ON THE CLOCK</div>
+      <div class="team-hero"><img id="teamLogo" alt=""><div><h2 id="teamName">—</h2><div id="pickMeta">Runde — · Pick —</div></div></div>
+      <div class="timer" id="pickTimer">00:00</div>
+      <div class="auto-wrap" id="autoWrap" hidden><span>AUTOPICK IN</span><strong id="autoTimer">01:00</strong></div>
+      <div class="needs"><div class="section-label">TEAM NEEDS</div><div id="needsList" class="need-pills"></div></div>
+    </section>
+
+    <section class="available-card glass"><div class="section-head"><div><div class="section-label">RANKING FEED</div><h3>Top 10 Best Available</h3></div><span class="source">PPR ADP proxy</span></div><ol id="availableList" class="available-list"></ol></section>
+    <section class="recent-card glass"><div class="section-label">RECENT PICKS</div><h3>Last 5</h3><div id="recentList" class="recent-list"></div></section>
+  </main>
+</div>
+
+<div id="pickOverlay" class="pick-overlay" aria-hidden="true">
+  <div class="pick-flare"></div>
+  <div class="pick-card">
+    <div class="pick-kicker">THE PICK IS IN</div>
+    <img id="pickPhoto" class="pick-photo" alt="">
+    <div class="pick-copy"><span id="pickNumber"></span><h2 id="pickPlayer"></h2><p><b id="pickPosition"></b> · <span id="pickNfl"></span></p><div id="pickFantasyTeam"></div></div>
+  </div>
+</div>
+<div id="nextOverlay" class="next-overlay" aria-hidden="true"><img id="nextLogo" alt=""><div><span>NEXT UP</span><h2 id="nextTeam"></h2></div></div>
+
+<script type="module" src="js/draft/draft-screen.js"></script>
+</body></html>
