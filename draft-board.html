@@ -1130,95 +1130,95 @@ const archiveZoomLevel = document.getElementById('archiveZoomLevel');
 const archiveFullscreenBtn = document.getElementById('archiveFullscreenBtn');
 
 /* ==========================================================
-   ZENTRALE SPIELERDATENBANK (Firestore / Sleeper Sync)
+   SPIELERDATENBANK LADEN
+   Priorität 1: ESPN  ->  Priorität 2: Sleeper  ->  Priorität 3: Notfall-Liste
    ========================================================== */
 async function loadPlayers() {
-    const CACHE_KEY = 'bembelSleeperPlayersV1';
-    const CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+    try {
+        players = await tryLoadESPN();
+        playerDbStatus.textContent = players.length + ' Spieler geladen (Quelle: ESPN)';
+        enrichPlayerMetadataInBackground();
+        return;
+    } catch (e) {
+        console.warn('ESPN-Ladeversuch fehlgeschlagen:', e);
+    }
+    try {
+        players = await tryLoadSleeper();
+        playerDbStatus.textContent = players.length + ' Spieler geladen (Quelle: Sleeper, ESPN nicht erreichbar)';
+        enrichPlayerMetadataInBackground();
+        return;
+    } catch (e) {
+        console.warn('Sleeper-Ladeversuch fehlgeschlagen:', e);
+    }
+    players = FALLBACK_PLAYERS;
+    playerDbStatus.textContent = players.length + ' Spieler (Notfall-Liste – weder ESPN noch Sleeper erreichbar, evtl. CORS)';
+}
 
-    const applyByeWeeks = (byeWeeks) => {
-        if (!byeWeeks || typeof byeWeeks !== 'object') return;
-        players.forEach(p => {
-            const team = normalizeNflTeam(p.nflTeam);
-            if (team && byeWeeks[team] != null) p.byeWeek = Number(byeWeeks[team]);
-        });
-        byeWeekCache[DRAFT_SEASON] = byeWeeks;
-    };
+async function tryLoadESPN() {
+    const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/football/nfl/athletes?limit=4000');
+    if (!res.ok) throw new Error('ESPN HTTP ' + res.status);
+    const data = await res.json();
+    const list = (data && data.athletes) ? data.athletes : null;
+    if (!Array.isArray(list) || list.length === 0) throw new Error('Unerwartetes ESPN-Antwortformat');
+    const mapped = list.map(a => ({
+        playerId: a.id ? ('espn-' + a.id) : null,
+        source: 'ESPN',
+        sourcePlayerId: a.id || null,
+        name: a.displayName || a.fullName || a.name,
+        position: (a.position && (a.position.abbreviation || a.position.name)) || '',
+        nflTeam: (a.team && (a.team.abbreviation || a.team.displayName)) || ''
+    })).filter(p => p.name);
+    if (mapped.length === 0) throw new Error('Keine verwertbaren ESPN-Spieler');
+    return mapped;
+}
 
-    const mapSleeper = (data) => {
-        const relevant = new Set(['QB','RB','WR','TE','K']);
-        const mapped = [];
-        Object.entries(data || {}).forEach(([id, p]) => {
-            if (!p || !p.full_name || !relevant.has(p.position)) return;
-            if (p.active === false) return;
+async function tryLoadSleeper() {
+    const res = await fetch('https://api.sleeper.app/v1/players/nfl');
+    if (!res.ok) throw new Error('Sleeper HTTP ' + res.status);
+    const data = await res.json();
+    const relevant = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
+    const mapped = [];
+    Object.values(data).forEach(p => {
+        if (!p || !relevant.includes(p.position)) return;
+        if (p.position === 'DEF') {
             mapped.push({
-                playerId: 'sleeper-' + id,
+                playerId: p.player_id ? ('sleeper-' + p.player_id) : null,
                 source: 'Sleeper',
-                sourcePlayerId: id,
+                sourcePlayerId: p.player_id || null,
+                name: (p.team || p.player_id) + ' Defense',
+                position: 'DEF',
+                nflTeam: p.team || p.player_id || ''
+            });
+        } else if (p.full_name) {
+            mapped.push({
+                playerId: p.player_id ? ('sleeper-' + p.player_id) : null,
+                source: 'Sleeper',
+                sourcePlayerId: p.player_id || null,
                 name: p.full_name,
                 position: p.position,
-                nflTeam: p.team || '',
-                byeWeek: null,
-                status: p.status || '',
-                injuryStatus: p.injury_status || '',
-                active: p.active !== false
+                nflTeam: p.team || ''
             });
-        });
-        const defNames = {
-            ARI:'Arizona Cardinals',ATL:'Atlanta Falcons',BAL:'Baltimore Ravens',BUF:'Buffalo Bills',CAR:'Carolina Panthers',CHI:'Chicago Bears',CIN:'Cincinnati Bengals',CLE:'Cleveland Browns',DAL:'Dallas Cowboys',DEN:'Denver Broncos',DET:'Detroit Lions',GB:'Green Bay Packers',HOU:'Houston Texans',IND:'Indianapolis Colts',JAX:'Jacksonville Jaguars',KC:'Kansas City Chiefs',LV:'Las Vegas Raiders',LAC:'Los Angeles Chargers',LAR:'Los Angeles Rams',MIA:'Miami Dolphins',MIN:'Minnesota Vikings',NE:'New England Patriots',NO:'New Orleans Saints',NYG:'New York Giants',NYJ:'New York Jets',PHI:'Philadelphia Eagles',PIT:'Pittsburgh Steelers',SEA:'Seattle Seahawks',SF:'San Francisco 49ers',TB:'Tampa Bay Buccaneers',TEN:'Tennessee Titans',WAS:'Washington Commanders'
-        };
-        Object.entries(defNames).forEach(([team,name]) => mapped.push({
-            playerId:'def-'+team.toLowerCase(),source:'Sleeper',sourcePlayerId:null,name:name+' Defense',position:'DEF',nflTeam:team,byeWeek:null,status:'Active',injuryStatus:'',active:true
-        }));
-        mapped.sort((a,b)=>a.name.localeCompare(b.name));
-        return mapped;
-    };
-
-    // 1) Lokalen Cache sofort verwenden. Dadurch ist bei normalen Seitenaufrufen
-    // praktisch keine Ladezeit vorhanden.
-    try {
-        const raw = localStorage.getItem(CACHE_KEY);
-        if (raw) {
-            const cached = JSON.parse(raw);
-            if (cached && Array.isArray(cached.players) && cached.players.length && Date.now() - Number(cached.savedAt || 0) < CACHE_MAX_AGE_MS) {
-                players = cached.players;
-                playerDbStatus.textContent = players.length + ' Spieler geladen (Sleeper Cache)';
-                // Bye Weeks sind optional und blockieren die Anzeige nicht.
-                db.collection('playerData').doc('current').get().then(metaSnap => {
-                    if (!metaSnap.exists) return;
-                    const meta = metaSnap.data() || {};
-                    applyByeWeeks(meta.teamByeWeeks || {});
-                    if (meta.syncedAt && meta.syncedAt.toDate) {
-                        playerDbStatus.textContent = players.length + ' Spieler geladen (Sleeper · Sync ' + meta.syncedAt.toDate().toLocaleDateString('de-DE') + ')';
-                    }
-                }).catch(()=>{});
-                return;
-            }
         }
-    } catch (e) {
-        console.warn('Spieler-Cache konnte nicht gelesen werden:', e);
-    }
+    });
+    if (mapped.length === 0) throw new Error('Keine verwertbaren Sleeper-Spieler');
+    return mapped;
+}
 
-    // 2) Bei leerem/alten Cache direkt EINEN Sleeper-Request senden.
-    // Kein Laden hunderter Firestore-Dokumente mehr.
-    try {
-        const [res, metaSnap] = await Promise.all([
-            fetch('https://api.sleeper.app/v1/players/nfl', { cache: 'force-cache' }),
-            db.collection('playerData').doc('current').get().catch(()=>null)
-        ]);
-        if (!res.ok) throw new Error('Sleeper HTTP ' + res.status);
-        players = mapSleeper(await res.json());
-        if (!players.length) throw new Error('Keine Sleeper-Spieler erhalten.');
-        const meta = metaSnap && metaSnap.exists ? (metaSnap.data() || {}) : {};
-        applyByeWeeks(meta.teamByeWeeks || {});
-        try { localStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), players })); } catch(e) {}
-        const suffix = meta.syncedAt && meta.syncedAt.toDate ? ' · Sync ' + meta.syncedAt.toDate().toLocaleDateString('de-DE') : '';
-        playerDbStatus.textContent = players.length + ' Spieler geladen (Sleeper direkt' + suffix + ')';
-    } catch (e) {
-        console.error('Sleeper-Spielerdaten konnten nicht geladen werden:', e);
-        players = FALLBACK_PLAYERS;
-        playerDbStatus.textContent = players.length + ' Spieler (Notfall-Liste)';
-    }
+
+// Phase-3-Zusatzdaten sind bewusst optional. Dieser Aufruf wird NICHT awaited.
+// Die Spielerliste ist vorher bereits nutzbar.
+function enrichPlayerMetadataInBackground() {
+    db.collection('playerData').doc('current').get().then(metaSnap => {
+        if (!metaSnap.exists) return;
+        const meta = metaSnap.data() || {};
+        const byes = meta.teamByeWeeks || {};
+        if (!byes || typeof byes !== 'object') return;
+        players.forEach(p => {
+            const team = normalizeNflTeam(p.nflTeam);
+            if (team && byes[team] != null) p.byeWeek = Number(byes[team]);
+        });
+        byeWeekCache[DRAFT_SEASON] = byes;
+    }).catch(err => console.warn('Optionale Spieler-Metadaten nicht geladen:', err));
 }
 
 /* ==========================================================
