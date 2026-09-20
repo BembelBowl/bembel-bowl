@@ -362,11 +362,13 @@ body {
 /* --- BOARD --- */
 
 .db-board-scroll {
-    overflow-x: auto;
+    overflow: auto;
+    max-height: calc(100vh - 150px);
     background: #ffffff;
     border-radius: 12px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.05);
     padding: 4px;
+    position: relative;
 }
 
 .db-board-zoom-inner {
@@ -391,7 +393,13 @@ table.db-board {
     text-align: center;
     position: sticky;
     top: 0;
-    z-index: 5;
+    z-index: 7;
+}
+
+/* Die Team-Kopfzeile bleibt beim vertikalen Scrollen des Boards sichtbar. */
+.db-board thead .db-round-head {
+    top: 0;
+    z-index: 9;
 }
 
 .db-col-head img {
