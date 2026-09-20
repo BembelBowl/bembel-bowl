@@ -224,6 +224,7 @@ def main():
         "source": "Sleeper",
         "playerCount": len(players),
         "byeWeekCount": len(bye_weeks),
+        "teamByeWeeks": bye_weeks,
         "syncedAt": firestore.SERVER_TIMESTAMP,
         "schemaVersion": 1,
     })
