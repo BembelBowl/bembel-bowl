@@ -1137,7 +1137,6 @@ async function loadPlayers() {
     try {
         players = await tryLoadESPN();
         playerDbStatus.textContent = players.length + ' Spieler geladen (Quelle: ESPN)';
-        enrichPlayerMetadataInBackground();
         return;
     } catch (e) {
         console.warn('ESPN-Ladeversuch fehlgeschlagen:', e);
@@ -1145,7 +1144,6 @@ async function loadPlayers() {
     try {
         players = await tryLoadSleeper();
         playerDbStatus.textContent = players.length + ' Spieler geladen (Quelle: Sleeper, ESPN nicht erreichbar)';
-        enrichPlayerMetadataInBackground();
         return;
     } catch (e) {
         console.warn('Sleeper-Ladeversuch fehlgeschlagen:', e);
@@ -1202,23 +1200,6 @@ async function tryLoadSleeper() {
     });
     if (mapped.length === 0) throw new Error('Keine verwertbaren Sleeper-Spieler');
     return mapped;
-}
-
-
-// Phase-3-Zusatzdaten sind bewusst optional. Dieser Aufruf wird NICHT awaited.
-// Die Spielerliste ist vorher bereits nutzbar.
-function enrichPlayerMetadataInBackground() {
-    db.collection('playerData').doc('current').get().then(metaSnap => {
-        if (!metaSnap.exists) return;
-        const meta = metaSnap.data() || {};
-        const byes = meta.teamByeWeeks || {};
-        if (!byes || typeof byes !== 'object') return;
-        players.forEach(p => {
-            const team = normalizeNflTeam(p.nflTeam);
-            if (team && byes[team] != null) p.byeWeek = Number(byes[team]);
-        });
-        byeWeekCache[DRAFT_SEASON] = byes;
-    }).catch(err => console.warn('Optionale Spieler-Metadaten nicht geladen:', err));
 }
 
 /* ==========================================================
@@ -1403,7 +1384,7 @@ function appendPickMeta(td, pick, year) {
     meta.appendChild(duration);
 
     const bye = document.createElement('span');
-    const byeWeek = pick.byeWeek || getByeWeek(year, pick.nflTeam);
+    const byeWeek = getByeWeek(year, pick.nflTeam);
     bye.textContent = 'Bye: ' + (byeWeek ? ('W' + byeWeek) : '–');
     meta.appendChild(bye);
 
@@ -1774,7 +1755,6 @@ draftPicksRef.onSnapshot(
                 name: p.name || '',
                 position: p.position || '',
                 nflTeam: p.nflTeam || '',
-                byeWeek: p.byeWeek || null,
                 playerId: p.playerId || null,
                 playerLockId: p.playerLockId || null,
                 pickedAt: p.submittedAt || null,
@@ -1824,7 +1804,6 @@ function canonicalPickData(player, slot, durationSeconds) {
         name: player.name,
         position: player.position || '',
         nflTeam: player.nflTeam || '',
-        byeWeek: player.byeWeek || null,
         pickDurationSeconds: durationSeconds,
         submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
         submittedByUid: auth.currentUser ? auth.currentUser.uid : null,
@@ -1837,7 +1816,6 @@ function legacyMirrorPick(player, durationSeconds, pickedAtOverride) {
         name: player.name,
         position: player.position || '',
         nflTeam: player.nflTeam || '',
-        byeWeek: player.byeWeek || null,
         playerId: player.playerId || null,
         playerLockId: playerLockId(player),
         pickedAt: pickedAtOverride || firebase.firestore.FieldValue.serverTimestamp(),
@@ -2224,7 +2202,7 @@ playerSearch.addEventListener('input', () => {
         nameDiv.textContent = p.name;
         const teamDiv = document.createElement('div');
         teamDiv.className = 'db-player-result-team';
-        teamDiv.textContent = (p.nflTeam || 'FA') + (p.byeWeek ? ' · Bye W' + p.byeWeek : '') + (p.injuryStatus ? ' · ' + p.injuryStatus : '');
+        teamDiv.textContent = p.nflTeam || '';
         info.appendChild(nameDiv);
         info.appendChild(teamDiv);
 
