@@ -64,14 +64,20 @@ onAuthStateChanged(auth, async user => {
 
 async function boot() {
   try {
-    const [ps] = await Promise.all([loadSleeperPlayers(), loadRankings()]);
-    players = ps;
-    ranked = players.map(mergeRanking).sort((a, b) => a.sortRank - b.sortRank || a.name.localeCompare(b.name));
+    players = await loadSleeperPlayers();
+  } catch (e) {
+    console.error(e);
+    $('rankingInfo').textContent = `Spielerdaten konnten nicht geladen werden: ${e.message}`;
+    players = [];
+  }
+  try {
+    await loadRankings();
     renderRankingInfo();
   } catch (e) {
     console.error(e);
-    $('rankingInfo').textContent = 'Rankingdaten konnten nicht geladen werden';
+    $('rankingInfo').textContent = 'FantasyPros ECR noch nicht geladen – Secret setzen und GitHub Action ausführen.';
   }
+  ranked = players.map(mergeRanking).sort((a, b) => a.sortRank - b.sortRank || a.name.localeCompare(b.name));
   buildRoundPlan();
   buildPriorityColumns();
   watchBoard(b => { board = b; render(); });
@@ -128,7 +134,7 @@ $('pickSearch').oninput = () => {
   $('pickResults').innerHTML = ranked
     .filter(p => p.search.includes(q) && !picked.has(p.name.toLowerCase()))
     .slice(0, 15)
-    .map(p => `<div class="result"><span class="tag">${esc(p.position)}</span><div><b>${esc(p.name)}</b><br><small>${esc(p.nflTeam || '')}${p.adp ? ` · ADP ${p.adp}` : ''}</small></div><button data-pick-id="${esc(p.id)}">Pick</button></div>`)
+    .map(p => `<div class="result"><span class="tag">${esc(p.position)}</span><div><b>${esc(p.name)}</b><br><small>${esc(p.nflTeam || '')}${p.ecr != null ? ` · ECR ${p.ecr}` : ''}</small></div><button data-pick-id="${esc(p.id)}">Pick</button></div>`)
     .join('');
 };
 
@@ -266,11 +272,15 @@ function renderAvailable() {
   const pos = $('posFilter').value;
   const q = $('availableSearch').value.toLowerCase();
   const picked = pickedKeys();
-  $('availableList').innerHTML = ranked
-    .filter(p => !picked.has(`id:${p.id}`) && !picked.has(`name:${p.name.toLowerCase()}`) && (!pos || p.position === pos) && (!q || p.name.toLowerCase().includes(q)))
+  const available = ranked
+    .filter(p => p.hasRanking && !picked.has(`id:${p.id}`) && !picked.has(`name:${p.name.toLowerCase()}`) && (!pos || p.position === pos) && (!q || p.name.toLowerCase().includes(q)))
+    .sort((a, b) => pos
+      ? (a.positionEcr ?? a.ecr ?? 99999) - (b.positionEcr ?? b.ecr ?? 99999)
+      : (a.ecr ?? 99999) - (b.ecr ?? 99999));
+  $('availableList').innerHTML = available
     .slice(0, 140)
-    .map((p, idx) => `<div class="avail-row"><b>#${idx + 1}</b><div><b>${esc(p.name)}</b><br><small>${esc(p.nflTeam || '')}${p.bye ? ` · Bye ${p.bye}` : ''}</small></div><span class="tag">${esc(p.position)}</span><small>${p.adp != null ? `ADP ${p.adp.toFixed(1)}` : 'Aktiv · Fallback'}</small><button class="add-priority" data-add-id="${esc(p.id)}">+ Liste</button></div>`)
-    .join('') || '<p class="empty-state">Keine verfügbaren Spieler für diesen Filter.</p>';
+    .map((p, idx) => `<div class="avail-row"><b>#${idx + 1}</b><div><b>${esc(p.name)}</b><br><small>${esc(p.nflTeam || '')}${p.bye ? ` · Bye ${p.bye}` : ''}</small></div><span class="tag">${esc(p.position)}</span><small>${pos && p.positionEcr != null ? `Pos ECR ${p.positionEcr}` : `ECR ${p.ecr ?? '—'}`}</small><button class="add-priority" data-add-id="${esc(p.id)}">+ Liste</button></div>`)
+    .join('') || '<p class="empty-state">Keine verfügbaren FantasyPros-ECR-Spieler für diesen Filter.</p>';
 }
 
 function renderRoster() {

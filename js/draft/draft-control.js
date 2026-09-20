@@ -46,7 +46,15 @@ onAuthStateChanged(auth, async user => {
     $('infraStatus').textContent = 'Initialisiere Draft-Infrastruktur…';
     await ensureDraftInfrastructure();
     $('infraStatus').textContent = '✓ draftState/current und pickRequests/_meta sind bereit.';
-    await loadRankings();
+    let rankingsReady = false;
+    try {
+      await loadRankings();
+      rankingsReady = true;
+    } catch (rankingError) {
+      console.error(rankingError);
+      $('infraStatus').textContent = `Admin aktiv. FantasyPros ECR noch nicht verfügbar: ${rankingError.message}`;
+      $('infraStatus').classList.add('error');
+    }
 
     watchBoard(async b => {
       board = b;
@@ -62,8 +70,9 @@ onAuthStateChanged(auth, async user => {
       getState: () => state,
       getTeam: id => teams.get(id),
       getSheet: id => sheets.get(id),
+      rankingsReady: () => rankingsReady,
       onCountdown: c => {
-        $('auto').textContent = c ? `Abwesendes Team: automatischer Pick #${c.overall} in ${formatCountdown(c.ms)}` : 'Kein automatischer Pick aktiv.';
+        $('auto').textContent = c?.error ? c.error : (c ? `Abwesendes Team: automatischer Pick #${c.overall} in ${formatCountdown(c.ms)}` : 'Kein automatischer Pick aktiv.');
       }
     });
     const ok = await engine.start();

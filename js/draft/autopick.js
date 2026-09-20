@@ -4,12 +4,13 @@ import { bestAvailable } from './rankings.js';
 import { acquireAdminLease, renewAdminLease, setAutoPickDue, submitPick, timestampMs, getPickRequest, markPickRequest } from './service.js';
 
 export class DraftAdminEngine {
-  constructor({ ownerId, getBoard, getState, getTeam, getSheet, onCountdown }) {
+  constructor({ ownerId, getBoard, getState, getTeam, getSheet, rankingsReady = () => true, onCountdown }) {
     this.ownerId = ownerId;
     this.getBoard = getBoard;
     this.getState = getState;
     this.getTeam = getTeam;
     this.getSheet = getSheet;
+    this.rankingsReady = rankingsReady;
     this.onCountdown = onCountdown || (() => {});
     this.timer = null;
     this.leaseTimer = null;
@@ -68,6 +69,11 @@ export class DraftAdminEngine {
     const left = Math.max(0, storedDue - Date.now());
     this.onCountdown({ ms: left, teamId, overall: next.overall });
     if (left > 0) return;
+
+    if (!this.rankingsReady()) {
+      this.onCountdown({ ms: 0, teamId, overall: next.overall, error: 'FantasyPros ECR fehlt – kein Autopick ausgeführt.' });
+      return;
+    }
 
     this.busy = true;
     try {

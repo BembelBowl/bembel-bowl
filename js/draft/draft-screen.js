@@ -61,7 +61,7 @@ function render() {
 
   const picked = new Set(Object.values(board.picks || {}).map(p => p.name));
   const avail = rankingsReady ? bestAvailable(picked, 10) : [];
-  $('availableList').innerHTML = avail.map((p, i) => `<li><span class="rank">${i + 1}</span><div><div class="pname">${esc(p.name)}</div><div class="pmeta">${esc(fullNflTeam(p.team) || p.team || '')} · ${p.adp != null ? `ADP ${Number(p.adp).toFixed(1)}` : 'Aktiver Spieler · Ranking-Fallback'}${p.bye ? ` · Bye ${p.bye}` : ''}</div></div><span class="pos">${p.position}</span></li>`).join('') || '<li>Ranking-Feed wird geladen…</li>';
+  $('availableList').innerHTML = avail.map((p, i) => `<li><span class="rank">${i + 1}</span><div><div class="pname">${esc(p.name)}</div><div class="pmeta">${esc(fullNflTeam(p.team) || p.team || '')} · ${p.overallEcr != null ? `ECR ${p.overallEcr}` : `Pos ECR ${p.positionEcr ?? '—'}`}${p.bye ? ` · Bye ${p.bye}` : ''}</div></div><span class="pos">${p.position}</span></li>`).join('') || '<li>Ranking-Feed wird geladen…</li>';
 
   const recent = orderedPicks(board.picks || {}).slice(-10).reverse();
   $('recentList').innerHTML = recent.map(p => `<div class="recent-item"><strong>#${p.overall} ${esc(p.name)}</strong><span>${esc(board.teams?.[p.position - 1] || '')} · ${p.position} ${esc(fullNflTeam(p.nflTeam) || p.nflTeam || '')}</span></div>`).join('');
