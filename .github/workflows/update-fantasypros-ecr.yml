@@ -1,0 +1,27 @@
+name: Update FantasyPros ECR
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 5 * * *'
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download FantasyPros ECR
+        env:
+          FANTASYPROS_API_KEY: ${{ secrets.FANTASYPROS_API_KEY }}
+          DRAFT_YEAR: '2026'
+        run: python scripts/update_fantasypros_ecr.py
+      - name: Commit ECR snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/fantasypros-ecr.json
+          git diff --cached --quiet || git commit -m "chore: update FantasyPros ECR"
+          git push
