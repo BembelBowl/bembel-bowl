@@ -1,7 +1,62 @@
-<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Draft Control | Bembel Bowl</title><link rel="stylesheet" href="css/team-dashboard.css"></head><body><main class="dash-shell">
-<section id="loginCard" class="panel auth"><h1>Draft Control</h1><p>Admin / Conductor</p><input id="email" type="email" placeholder="Admin E-Mail"><input id="password" type="password" placeholder="Passwort"><button id="loginBtn">Anmelden & Conductor starten</button><small id="err"></small></section>
-<div id="app" hidden><header><div><span class="eyebrow">AUTOPICK CONDUCTOR</span><h1>Draft Control</h1></div><div><span id="lease">Standby</span><button id="logoutBtn">Abmelden</button></div></header><div class="dash-grid">
-<section class="panel"><h2>Aktueller Status</h2><p id="current">—</p><p id="auto">Kein Autopick-Countdown.</p><p class="hint">Diese Seite während des Drafts offen lassen. Mehrere Admin-Tabs sind okay; per Firestore-Lease ist nur einer aktiv.</p></section>
-<section class="panel"><h2>Team-Status</h2><div id="teams"></div></section>
-<section class="panel available"><h2>Hinweis</h2><p>Manuelle Overrides und Korrekturen bleiben im bestehenden <a href="draft-board.html" style="color:#d18b2f">Draftboard</a>. Der Conductor erkennt Änderungen am bestehenden Board automatisch.</p></section>
-</div></div></main><script type="module" src="js/draft/draft-control.js"></script></body></html>
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Admin Draft Control | Bembel Bowl</title>
+  <link rel="icon" type="image/jpeg" href="images/favicon.jpg">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/team-dashboard.css">
+</head>
+<body class="draft-control-page">
+<header class="main-header dashboard-site-header">
+  <nav class="navbar">
+    <a href="index.html" class="nav-link">Home</a>
+    <a href="rules.html" class="nav-link">Regeln</a>
+    <a href="teams.html" class="nav-link">Teams</a>
+    <a href="draft-center.html" class="nav-link active">Draft Center</a>
+    <a href="draft-board.html" class="nav-link">Draft Board</a>
+  </nav>
+</header>
+
+<main class="dash-shell">
+  <section id="loginCard" class="panel auth-card">
+    <span class="eyebrow">BEMBEL BOWL 2026</span>
+    <h1>Admin Draft Control</h1>
+    <p>Verarbeitet Remote Picks und automatische Picks abwesender Teams.</p>
+    <label>Admin E-Mail<input id="email" type="email" autocomplete="username" placeholder="admin@example.com"></label>
+    <label>Passwort<input id="password" type="password" autocomplete="current-password" placeholder="••••••••"></label>
+    <button id="loginBtn" class="primary-btn">Als Admin anmelden</button>
+    <small id="err" class="form-error"></small>
+  </section>
+
+  <div id="app" class="is-hidden">
+    <section class="dashboard-hero">
+      <div><span class="eyebrow">ADMIN</span><h1>Draft Control</h1><p>Remote Picks, 60-Sekunden-Autopicks und Team-Anwesenheit.</p></div>
+      <div class="hero-actions"><span id="adminStatus" class="admin-active-badge">Admin wird gestartet…</span><button id="logoutBtn" class="secondary-btn">Abmelden</button></div>
+    </section>
+
+    <div class="dash-grid">
+      <section class="panel">
+        <div class="panel-title"><div><span class="section-kicker">LIVE</span><h2>Aktueller Pick</h2></div></div>
+        <p id="current" class="status-copy">—</p>
+        <p id="auto" class="status-copy">Kein automatischer Pick aktiv.</p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title"><div><span class="section-kicker">SYSTEM</span><h2>Automatik</h2></div></div>
+        <p class="status-copy"><strong>Remote Picks:</strong> Team-Requests werden geprüft und in das bestehende Draft Board übernommen.</p>
+        <p class="status-copy"><strong>Abwesende Teams:</strong> Nach 60 Sekunden wird nach Draft Sheet bzw. Default-Regeln gewählt, sofern der Admin vorher keinen Pick setzt.</p>
+        <p id="infraStatus" class="save-state"></p>
+      </section>
+
+      <section class="panel admin-status-grid">
+        <div class="panel-title"><div><span class="section-kicker">TEAMS</span><h2>Anwesenheitsstatus verwalten</h2></div></div>
+        <div id="teams" class="admin-team-list"></div>
+      </section>
+    </div>
+  </div>
+</main>
+<script type="module" src="js/draft/draft-control.js"></script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 let rankings = [];
 let byName = new Map();
+let meta = {};
 
 function key(name) {
   return String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -9,6 +10,12 @@ export async function loadRankings(url = './data/adp-ppr.json') {
   const res = await fetch(`${url}?v=${Date.now()}`);
   if (!res.ok) throw new Error(`Rankings HTTP ${res.status}`);
   const data = await res.json();
+  meta = {
+    source: data.source || 'ADP',
+    format: data.format || '',
+    year: data.year || null,
+    updatedAt: data.updatedAt || null
+  };
   rankings = (data.players || data).map((p, i) => ({
     rank: Number(p.rank || p.overall_rank || i + 1),
     adp: Number(p.adp || p.rank || i + 1),
@@ -21,6 +28,7 @@ export async function loadRankings(url = './data/adp-ppr.json') {
   return rankings;
 }
 
+export function rankingMeta() { return { ...meta }; }
 export function rankForPlayer(name) { return byName.get(key(name)) || null; }
 
 export function bestAvailable(pickedNames, count = 10, positions = null) {

@@ -1,20 +1,25 @@
 import { DRAFT } from './config.js';
-import { positionsForPlan, orderedPicks, getNextOpenSlot } from './model.js';
+import { positionsForPlan, getNextOpenSlot } from './model.js';
 import { bestAvailable } from './rankings.js';
-import { acquireConductorLease, renewConductorLease, setAutoPickDue, submitPick, timestampMs, getPickRequest, markPickRequest } from './service.js';
+import { acquireAdminLease, renewAdminLease, setAutoPickDue, submitPick, timestampMs, getPickRequest, markPickRequest } from './service.js';
 
-export class AutoPickConductor {
+export class DraftAdminEngine {
   constructor({ ownerId, getBoard, getState, getTeam, getSheet, onCountdown }) {
     this.ownerId = ownerId;
-    this.getBoard = getBoard; this.getState = getState; this.getTeam = getTeam; this.getSheet = getSheet;
+    this.getBoard = getBoard;
+    this.getState = getState;
+    this.getTeam = getTeam;
+    this.getSheet = getSheet;
     this.onCountdown = onCountdown || (() => {});
-    this.timer = null; this.leaseTimer = null; this.busy = false;
+    this.timer = null;
+    this.leaseTimer = null;
+    this.busy = false;
   }
 
   async start() {
-    const ok = await acquireConductorLease(this.ownerId);
+    const ok = await acquireAdminLease(this.ownerId);
     if (!ok) return false;
-    this.leaseTimer = setInterval(() => renewConductorLease(this.ownerId).catch(console.error), DRAFT.conductorRenewMs);
+    this.leaseTimer = setInterval(() => renewAdminLease(this.ownerId).catch(console.error), DRAFT.adminLeaseRenewMs);
     this.timer = setInterval(() => this.tick().catch(console.error), 500);
     return true;
   }
@@ -23,13 +28,14 @@ export class AutoPickConductor {
 
   async tick() {
     if (this.busy) return;
-    const board = this.getBoard(); const state = this.getState();
+    const board = this.getBoard();
+    const state = this.getState();
     if (!board || !state) return;
     const next = getNextOpenSlot(board.picks || {});
     if (!next) return this.onCountdown(null);
     const teamId = board.teams?.[next.position - 1];
 
-    // Remote team pick requests are processed before autopick logic.
+    // Remote Picks haben immer Vorrang vor einem Autopick.
     const request = await getPickRequest(next.overall);
     if (request?.status === 'pending' && request.teamId === teamId) {
       this.busy = true;
@@ -43,17 +49,21 @@ export class AutoPickConductor {
     }
 
     const team = this.getTeam(teamId);
-    if (!team || team.attendance !== 'absent') return this.onCountdown(null);
+    if (!team || team.attendance !== 'absent') {
+      if (state.autoPickForOverall === next.overall && state.autoPickDueAt) await setAutoPickDue(null, null);
+      return this.onCountdown(null);
+    }
 
-    const picks = orderedPicks(board.picks || {});
-    const prev = picks.at(-1);
-    let dueMs = Date.now();
-    if (prev?.source === 'autopick') dueMs = (timestampMs(prev.pickedAt) || Date.now()) + DRAFT.autoPickGapMs;
+    // JEDES abwesende Team bekommt 60 Sekunden ab Beginn seines Picks.
+    // Ein manueller Admin-Pick oder Remote-Pick innerhalb dieser Minute beendet den Timer automatisch.
+    const clockStart = timestampMs(state.clockStartedAt) || Date.now();
+    const calculatedDue = clockStart + DRAFT.autoPickDelayMs;
 
     if (state.autoPickForOverall !== next.overall || !timestampMs(state.autoPickDueAt)) {
-      await setAutoPickDue(next.overall, dueMs);
+      await setAutoPickDue(next.overall, calculatedDue);
       return;
     }
+
     const storedDue = timestampMs(state.autoPickDueAt);
     const left = Math.max(0, storedDue - Date.now());
     this.onCountdown({ ms: left, teamId, overall: next.overall });
@@ -65,7 +75,6 @@ export class AutoPickConductor {
       const player = chooseAutoPick({ board, round: next.round, sheet });
       if (!player) throw new Error(`Kein Autopick-Kandidat für ${teamId}`);
       await submitPick({ teamId, player, source: 'autopick', actorUid: this.ownerId });
-      await setAutoPickDue(null, null);
     } finally { this.busy = false; }
   }
 }
@@ -81,7 +90,7 @@ export function chooseAutoPick({ board, round, sheet }) {
   for (const pref of preferredNames) {
     if (![...pickedNames].some(n => n.toLowerCase() === String(pref.name).toLowerCase())) {
       const rank = bestAvailable(pickedNames, 500, [pref.pos]).find(p => p.name.toLowerCase() === String(pref.name).toLowerCase());
-      return { id: null, name: pref.name, position: pref.pos, nflTeam: rank?.team || '' };
+      if (rank) return { id: null, name: rank.name, position: rank.position, nflTeam: rank.team || '' };
     }
   }
 
