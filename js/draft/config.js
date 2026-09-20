@@ -1,3 +1,12 @@
+export const firebaseConfig = {
+  apiKey: "AIzaSyALAGTVbpTqMYmqmmf3dJyes0A39483iUE",
+  authDomain: "bembel-bowl.firebaseapp.com",
+  projectId: "bembel-bowl",
+  storageBucket: "bembel-bowl.firebasestorage.app",
+  messagingSenderId: "836256439134",
+  appId: "1:836256439134:web:c39ef91c216da594020dcf"
+};
+
 export const DRAFT = {
   season: 2026,
   teamCount: 20,
