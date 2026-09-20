@@ -1133,39 +1133,91 @@ const archiveFullscreenBtn = document.getElementById('archiveFullscreenBtn');
    ZENTRALE SPIELERDATENBANK (Firestore / Sleeper Sync)
    ========================================================== */
 async function loadPlayers() {
-    try {
-        const metaSnap = await db.collection('playerData').doc('current').get();
-        const snap = await db.collection('players').where('draftEligible', '==', true).get();
-        players = [];
-        snap.forEach(doc => {
-            const p = doc.data() || {};
-            if (!p.name || !['QB','RB','WR','TE','K','DEF'].includes(p.position)) return;
-            players.push({
-                playerId: p.playerId || doc.id,
-                source: p.source || 'Sleeper',
-                sourcePlayerId: p.sourcePlayerId || p.sleeperId || null,
-                name: p.name,
-                position: p.position || '',
-                nflTeam: p.nflTeam || '',
-                byeWeek: p.byeWeek || null,
+    const CACHE_KEY = 'bembelSleeperPlayersV1';
+    const CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+    const applyByeWeeks = (byeWeeks) => {
+        if (!byeWeeks || typeof byeWeeks !== 'object') return;
+        players.forEach(p => {
+            const team = normalizeNflTeam(p.nflTeam);
+            if (team && byeWeeks[team] != null) p.byeWeek = Number(byeWeeks[team]);
+        });
+        byeWeekCache[DRAFT_SEASON] = byeWeeks;
+    };
+
+    const mapSleeper = (data) => {
+        const relevant = new Set(['QB','RB','WR','TE','K']);
+        const mapped = [];
+        Object.entries(data || {}).forEach(([id, p]) => {
+            if (!p || !p.full_name || !relevant.has(p.position)) return;
+            if (p.active === false) return;
+            mapped.push({
+                playerId: 'sleeper-' + id,
+                source: 'Sleeper',
+                sourcePlayerId: id,
+                name: p.full_name,
+                position: p.position,
+                nflTeam: p.team || '',
+                byeWeek: null,
                 status: p.status || '',
-                injuryStatus: p.injuryStatus || '',
+                injuryStatus: p.injury_status || '',
                 active: p.active !== false
             });
         });
-        players.sort((a,b) => a.name.localeCompare(b.name));
-        if (!players.length) throw new Error('Zentrale Spielerdatenbank ist leer.');
-        const centralByes = {};
-        players.forEach(p => { const team = normalizeNflTeam(p.nflTeam); if (team && p.byeWeek) centralByes[team] = Number(p.byeWeek); });
-        if (Object.keys(centralByes).length) byeWeekCache[DRAFT_SEASON] = centralByes;
-        const meta = metaSnap.exists ? (metaSnap.data() || {}) : {};
-        const suffix = meta.syncedAt && meta.syncedAt.toDate ? ' · Sync ' + meta.syncedAt.toDate().toLocaleDateString('de-DE') : '';
-        playerDbStatus.textContent = players.length + ' Spieler geladen (zentral: Sleeper' + suffix + ')';
-        return;
+        const defNames = {
+            ARI:'Arizona Cardinals',ATL:'Atlanta Falcons',BAL:'Baltimore Ravens',BUF:'Buffalo Bills',CAR:'Carolina Panthers',CHI:'Chicago Bears',CIN:'Cincinnati Bengals',CLE:'Cleveland Browns',DAL:'Dallas Cowboys',DEN:'Denver Broncos',DET:'Detroit Lions',GB:'Green Bay Packers',HOU:'Houston Texans',IND:'Indianapolis Colts',JAX:'Jacksonville Jaguars',KC:'Kansas City Chiefs',LV:'Las Vegas Raiders',LAC:'Los Angeles Chargers',LAR:'Los Angeles Rams',MIA:'Miami Dolphins',MIN:'Minnesota Vikings',NE:'New England Patriots',NO:'New Orleans Saints',NYG:'New York Giants',NYJ:'New York Jets',PHI:'Philadelphia Eagles',PIT:'Pittsburgh Steelers',SEA:'Seattle Seahawks',SF:'San Francisco 49ers',TB:'Tampa Bay Buccaneers',TEN:'Tennessee Titans',WAS:'Washington Commanders'
+        };
+        Object.entries(defNames).forEach(([team,name]) => mapped.push({
+            playerId:'def-'+team.toLowerCase(),source:'Sleeper',sourcePlayerId:null,name:name+' Defense',position:'DEF',nflTeam:team,byeWeek:null,status:'Active',injuryStatus:'',active:true
+        }));
+        mapped.sort((a,b)=>a.name.localeCompare(b.name));
+        return mapped;
+    };
+
+    // 1) Lokalen Cache sofort verwenden. Dadurch ist bei normalen Seitenaufrufen
+    // praktisch keine Ladezeit vorhanden.
+    try {
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (raw) {
+            const cached = JSON.parse(raw);
+            if (cached && Array.isArray(cached.players) && cached.players.length && Date.now() - Number(cached.savedAt || 0) < CACHE_MAX_AGE_MS) {
+                players = cached.players;
+                playerDbStatus.textContent = players.length + ' Spieler geladen (Sleeper Cache)';
+                // Bye Weeks sind optional und blockieren die Anzeige nicht.
+                db.collection('playerData').doc('current').get().then(metaSnap => {
+                    if (!metaSnap.exists) return;
+                    const meta = metaSnap.data() || {};
+                    applyByeWeeks(meta.teamByeWeeks || {});
+                    if (meta.syncedAt && meta.syncedAt.toDate) {
+                        playerDbStatus.textContent = players.length + ' Spieler geladen (Sleeper · Sync ' + meta.syncedAt.toDate().toLocaleDateString('de-DE') + ')';
+                    }
+                }).catch(()=>{});
+                return;
+            }
+        }
     } catch (e) {
-        console.error('Zentrale Spielerdatenbank konnte nicht geladen werden:', e);
+        console.warn('Spieler-Cache konnte nicht gelesen werden:', e);
+    }
+
+    // 2) Bei leerem/alten Cache direkt EINEN Sleeper-Request senden.
+    // Kein Laden hunderter Firestore-Dokumente mehr.
+    try {
+        const [res, metaSnap] = await Promise.all([
+            fetch('https://api.sleeper.app/v1/players/nfl', { cache: 'force-cache' }),
+            db.collection('playerData').doc('current').get().catch(()=>null)
+        ]);
+        if (!res.ok) throw new Error('Sleeper HTTP ' + res.status);
+        players = mapSleeper(await res.json());
+        if (!players.length) throw new Error('Keine Sleeper-Spieler erhalten.');
+        const meta = metaSnap && metaSnap.exists ? (metaSnap.data() || {}) : {};
+        applyByeWeeks(meta.teamByeWeeks || {});
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), players })); } catch(e) {}
+        const suffix = meta.syncedAt && meta.syncedAt.toDate ? ' · Sync ' + meta.syncedAt.toDate().toLocaleDateString('de-DE') : '';
+        playerDbStatus.textContent = players.length + ' Spieler geladen (Sleeper direkt' + suffix + ')';
+    } catch (e) {
+        console.error('Sleeper-Spielerdaten konnten nicht geladen werden:', e);
         players = FALLBACK_PLAYERS;
-        playerDbStatus.textContent = players.length + ' Spieler (Notfall-Liste – zentraler Sync fehlt)';
+        playerDbStatus.textContent = players.length + ' Spieler (Notfall-Liste)';
     }
 }
 
