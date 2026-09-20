@@ -44,14 +44,19 @@
 </div>
 
 <div id="pickOverlay" class="pick-overlay" aria-hidden="true">
-  <div class="pick-rays"></div><div class="pick-scan"></div>
-  <div class="pick-card">
-    <div class="pick-media"><div class="pick-kicker">THE PICK IS IN</div><img id="pickPhoto" class="pick-photo" src="images/player-silhouette.svg" alt=""></div>
+  <div class="pick-grid"></div>
+  <div class="pick-inner">
+    <div class="pick-player-stage">
+      <div class="pick-kicker">THE PICK IS IN</div>
+      <div class="pick-player-ring">
+        <img id="pickPhoto" class="pick-photo" src="images/player-silhouette.svg" alt="">
+      </div>
+    </div>
     <div class="pick-copy">
       <span id="pickNumber"></span>
       <div class="pick-title-row"><h2 id="pickPlayer"></h2><span id="pickPosition" class="pick-position-chip"></span></div>
       <div class="pick-detail"><span id="pickNfl"></span></div>
-      <div class="selected-by">SELECTED BY <strong id="pickFantasyTeam"></strong></div>
+      <div class="selected-by"><span>SELECTED BY</span><strong id="pickFantasyTeam"></strong></div>
     </div>
   </div>
 </div>
