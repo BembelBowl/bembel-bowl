@@ -39,10 +39,9 @@
     </div>
 
     <section class="dashboard-hero">
-      <div>
-        <span class="eyebrow">TEAM DASHBOARD</span>
-        <h1 id="teamTitle">—</h1>
-        <p>Dein Draft Sheet und Live-Zugang zum Bembel Bowl Draft.</p>
+      <div class="team-identity">
+        <img id="teamLogo" class="team-dashboard-logo" src="images/favicon.jpg" alt="Team Logo">
+        <div><span class="eyebrow">TEAM DASHBOARD</span><h1 id="teamTitle">—</h1><p>Dein Draft Sheet und Live-Zugang zum Bembel Bowl Draft.</p></div>
       </div>
       <div class="hero-actions">
         <span id="clockBadge" class="clock-badge is-hidden">ON THE CLOCK</span>
@@ -78,19 +77,16 @@
         <h3 class="subheading">Draft Reihenfolge</h3>
         <p class="hint">Neue Teams starten automatisch mit der offiziellen Default-Reihenfolge aus dem Regelwerk. Du kannst jede Runde individuell ändern.</p>
         <div id="roundPlan" class="round-plan"></div>
-        <div class="save-row">
-          <button id="savePlan" class="primary-btn">Draft Reihenfolge speichern</button>
-          <span id="planSaveState" class="save-state" aria-live="polite"></span>
-        </div>
+
       </section>
 
       <section class="panel priorities-panel">
         <div class="panel-title"><div><span class="section-kicker">WISHLIST</span><h2>Spieler-Prioritäten</h2></div></div>
         <p class="hint">Klicke unten in „Best Available“ auf einen Spieler, um ihn automatisch seiner Positionsliste hinzuzufügen. Klicke einen Spieler in deiner Liste zum Entfernen an. Per Drag & Drop änderst du die Reihenfolge.</p>
         <div id="priorityEditors" class="priority-grid"></div>
-        <div class="save-row">
-          <button id="savePriorities" class="primary-btn">Spieler-Prioritäten speichern</button>
-          <span id="prioritySaveState" class="save-state" aria-live="polite"></span>
+        <div class="save-row master-save-row">
+          <button id="saveSheet" class="primary-btn">Draft Sheet speichern</button>
+          <span id="sheetSaveState" class="save-state" aria-live="polite"></span>
         </div>
       </section>
 

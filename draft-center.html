@@ -7,6 +7,13 @@
 
     <link rel="icon" type="image/jpeg" href="images/favicon.jpg">
     <link rel="stylesheet" href="css/style.css">
+<style>
+.draft-center-login-actions{margin-top:26px;display:flex;justify-content:center;gap:18px;flex-wrap:wrap}
+.draft-login-3d{display:inline-flex;align-items:center;justify-content:center;min-width:180px;height:50px;padding:0 24px;border-radius:8px;background:linear-gradient(#3b3b3b,#1c1c1c);border:1px solid #555;color:#fff!important;text-decoration:none;font-weight:900;letter-spacing:.035em;text-shadow:0 2px 2px #000;box-shadow:0 6px 0 #090909,0 10px 22px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.18);transform:translateY(0);transition:.13s ease}
+.draft-login-3d:hover{background:linear-gradient(#4a4a4a,#242424);transform:translateY(-2px);box-shadow:0 8px 0 #090909,0 13px 26px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.2)}
+.draft-login-3d:active{transform:translateY(5px);box-shadow:0 1px 0 #090909,0 5px 10px rgba(0,0,0,.22)}
+.draft-login-3d.admin{border-color:#b17629;background:linear-gradient(#d18b2f,#98611e);box-shadow:0 6px 0 #5f390e,0 10px 22px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.28)}
+</style>
 </head>
 
 <body class="draft-center-page">
@@ -32,9 +39,9 @@
         <div class="rules-header">
             <h2>Draft Center</h2>
             <p>Das Herzstück der Saisonvorbereitung. Hier findest du alle Tools zur Auslosung, das Live Draft Board sowie das offizielle Draft-Regelwerk.</p>
-            <div style="margin-top:22px; display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
-                <a href="team-dashboard.html" style="display:inline-flex;align-items:center;height:44px;padding:0 18px;border-radius:6px;background:#d18b2f;color:#17120c;text-decoration:none;font-weight:800;">🏈 Team Login</a>
-                <a href="draft-board.html" style="display:inline-flex;align-items:center;height:44px;padding:0 18px;border-radius:6px;background:#1f1f1f;color:#fff;text-decoration:none;font-weight:700;">Draft Board öffnen</a>
+            <div class="draft-center-login-actions">
+                <a href="team-dashboard.html" class="draft-login-3d">Team Login</a>
+                <a href="draft-control.html" class="draft-login-3d admin">Admin Draft Control</a>
             </div>
         </div>
 
@@ -59,13 +66,6 @@
                 <div class="card-content">
                     <h3>Draft Board</h3>
                     <p>Übersicht aller Picks & Roster</p>
-                </div>
-            </a>
-
-            <a href="draft-control.html" class="card" style="background-image: linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.75)), url('images/tile_draft_center.jpg');">
-                <div class="card-content">
-                    <h3>Admin Draft Control</h3>
-                    <p>Remote Picks, Autopick & Team-Status</p>
                 </div>
             </a>
 
