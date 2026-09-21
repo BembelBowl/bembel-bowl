@@ -28,8 +28,18 @@ export const COLLECTIONS = {
   users: 'users',
   teams: 'draftTeams',
   sheets: 'preDraftSheets',
-  pickRequests: 'pickRequests'
+  pickRequests: 'pickRequests',
+  draftOrder: 'draftOrder',
+  divisionOrder: 'divisionOrder'
 };
+
+
+export const LEAGUE_TEAMS = [
+  'Amity Island Sharks','Beard','Bishop Sycamore','Bojangles P-Stars','Brady Gaga',
+  'Broken Bembels ULB','E-Town Elephants','Fighting Farmers','Foxboro Forever','Frankfurt Bakers',
+  'K-Town Devils','Packers Ultras',"Pep's Band",'Randy Moss Lob Jünger','Steelersnation 7',
+  'The 49vengers','the Boys','Thunder Ducks','Wiesbaden Phantoms','Zeugen Ray Lewis'
+];
 
 export const NFL_TEAM_NAMES = {
   ARI: 'Arizona Cardinals', ATL: 'Atlanta Falcons', BAL: 'Baltimore Ravens', BUF: 'Buffalo Bills',
@@ -79,6 +89,7 @@ export const TEAM_LOGOS = {
   'Steelersnation 7': 'images/steelersnation.jpg',
   'The 49vengers': 'images/the49vengers.jpg',
   'The Boys': 'images/the_boys.jpg',
+  'the Boys': 'images/the_boys.jpg',
   'Thunder Ducks': 'images/thunder_ducks.jpg',
   'Wiesbaden Phantoms': 'images/wiesbaden_phantoms.jpg',
   'Zeugen Ray Lewis': 'images/zeugen_ray_lewis.jpg',

@@ -11,6 +11,7 @@ let players = [];
 let rankingsReady = false;
 let lastPickOverall = 0;
 let animationQueue = Promise.resolve();
+let liveAccessOpen = false;
 const $ = id => document.getElementById(id);
 const PLAYER_FALLBACK = 'images/player-silhouette.svg';
 
@@ -23,15 +24,15 @@ Promise.allSettled([loadRankings(), loadSleeperPlayers()]).then(([r, p]) => {
   render();
 });
 
-watchState(s => { state = s; renderTimer(); });
+watchState(s => { state = s || {}; liveAccessOpen = !!state.boardCreated && !!state.orderSet && state.status === 'live'; document.querySelector('.live-shell')?.classList.toggle('is-hidden', !liveAccessOpen); $('draftUnavailable')?.classList.toggle('is-hidden', liveAccessOpen); $('season').textContent = state.season || DRAFT.season; renderTimer(); if (liveAccessOpen) render(); });
 watchBoard(b => {
   const before = lastPickOverall;
   board = b;
   $('sync').textContent = 'LIVE';
-  render();
+  if (liveAccessOpen) render();
   const ordered = orderedPicks(b.picks || {});
   const latest = ordered.at(-1);
-  if (latest && latest.overall > before) {
+  if (liveAccessOpen && latest && latest.overall > before) {
     lastPickOverall = latest.overall;
     animationQueue = animationQueue.then(() => showPickSequence(latest)).catch(console.error);
   } else {
@@ -42,6 +43,7 @@ watchBoard(b => {
 setInterval(renderTimer, 250);
 
 function render() {
+  if (!liveAccessOpen) return;
   const next = getNextOpenSlot(board.picks || {});
   if (!next) {
     $('teamName').textContent = 'DRAFT COMPLETE';
@@ -82,6 +84,7 @@ function render() {
 }
 
 function renderTimer() {
+  if (!liveAccessOpen) return;
   const start = timestampMs(state.clockStartedAt);
   if (start) $('pickTimer').textContent = fmt(Date.now() - start);
 }
@@ -102,7 +105,7 @@ async function showPickSequence(p) {
   const overlay = $('pickOverlay');
   overlay.classList.add('show');
   overlay.setAttribute('aria-hidden', 'false');
-  await announcePick({ overall: p.overall, season: DRAFT.season, teamName, player: announcedPlayer });
+  await announcePick({ overall: p.overall, season: state.season || DRAFT.season, teamName, player: announcedPlayer });
   await sleep(1400);
   overlay.classList.remove('show');
   overlay.setAttribute('aria-hidden', 'true');

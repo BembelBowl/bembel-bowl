@@ -31,7 +31,7 @@ export class DraftAdminEngine {
     if (this.busy) return;
     const board = this.getBoard();
     const state = this.getState();
-    if (!board || !state) return;
+    if (!board || !state || state.status !== 'live' || !state.orderSet) return this.onCountdown(null);
     const next = getNextOpenSlot(board.picks || {});
     if (!next) return this.onCountdown(null);
     const teamId = board.teams?.[next.position - 1];

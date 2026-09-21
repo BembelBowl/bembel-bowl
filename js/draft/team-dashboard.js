@@ -19,8 +19,29 @@ let priorityState = Object.fromEntries(DRAFT.positions.map(p => [p, []]));
 let bootedUid = null;
 let wasOnClock = false;
 let popupTimer = null;
+let draftAccessOpen = false;
+
+watchState(s => {
+  state = s || {};
+  draftAccessOpen = !!state.boardCreated && !!state.orderSet && state.status === 'live';
+  updateAccessVisibility();
+  if (profile) render();
+});
+
+function updateAccessVisibility() {
+  const closed = $('accessClosed');
+  if (!draftAccessOpen) {
+    closed?.classList.remove('is-hidden');
+    $('loginCard').classList.add('is-hidden');
+    $('app').classList.add('is-hidden');
+  } else {
+    closed?.classList.add('is-hidden');
+    if (!auth.currentUser) $('loginCard').classList.remove('is-hidden');
+  }
+}
 
 $('loginBtn').onclick = async () => {
+  if (!draftAccessOpen) return;
   $('loginError').textContent = '';
   try {
     await signInWithEmailAndPassword(auth, $('email').value.trim(), $('password').value);
@@ -35,11 +56,13 @@ onAuthStateChanged(auth, async user => {
   if (!user) {
     bootedUid = null;
     profile = null;
-    $('loginCard').classList.remove('is-hidden');
+    $('loginCard').classList.toggle('is-hidden', !draftAccessOpen);
     $('app').classList.add('is-hidden');
+    updateAccessVisibility();
     return;
   }
   try {
+    if (!draftAccessOpen) { await signOut(auth); return; }
     profile = await getUserProfile(user.uid);
     if (!profile?.teamId || profile?.role !== 'team') {
       $('loginError').textContent = 'Für dieses Konto ist kein gültiges Team-Profil in /users/{uid} hinterlegt.';
@@ -81,7 +104,6 @@ async function boot() {
   buildRoundPlan();
   buildPriorityColumns();
   watchBoard(b => { board = b; render(); });
-  watchState(s => { state = s; render(); });
   watchTeam(profile.teamId, t => { team = t || { attendance: 'present' }; renderAttendance(); });
   watchSheet(profile.teamId, s => {
     sheet = s || {};
