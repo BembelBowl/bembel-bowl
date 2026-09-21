@@ -1537,12 +1537,20 @@ authPassword.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') authSubmitBtn.click();
 });
 
-auth.onAuthStateChanged((user) => {
-    isAdmin = !!user;
+auth.onAuthStateChanged(async (user) => {
+    isAdmin = false;
+    if (user) {
+        try {
+            const profile = await db.collection('users').doc(user.uid).get();
+            isAdmin = profile.exists && profile.data().role === 'admin';
+        } catch (err) {
+            console.warn('Admin-Rolle konnte nicht geprüft werden:', err);
+        }
+    }
     modeBadge.textContent = isAdmin ? 'ADMIN-MODUS' : 'ANSICHTSMODUS';
     modeBadge.className = 'rp-badge ' + (isAdmin ? 'rp-badge-admin' : 'rp-badge-view');
-    adminToggleBtn.textContent = isAdmin ? '🔓 Abmelden' : '🔒 Admin-Modus';
-    // Bearbeiten-Buttons neu anzeigen/verstecken, ohne komplett neu zu laden
+    adminToggleBtn.textContent = user ? '🔓 Abmelden' : '🔒 Admin-Modus';
+    // Nur echte Admins sehen Bearbeitungsfunktionen.
     document.querySelectorAll('.rp-report-edit-btn').forEach(btn => {
         btn.style.display = isAdmin ? 'block' : 'none';
     });
