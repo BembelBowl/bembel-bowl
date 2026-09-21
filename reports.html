@@ -777,6 +777,8 @@ const TEAM_LOGOS = {
 let isAdmin = false;
 let currentMatchups = []; // aktuell geladene Matchups des gewählten Spieltags
 const reportListeners = {}; // docId -> unsubscribe-Funktion
+const staticReportEntries = new Map(); // key: year|week / year|special:slug -> index.json entry
+let staticReportIndexLoaded = false;
 
 /* ==========================================================
    DOM
@@ -858,6 +860,14 @@ function specialLabel(type) {
         : type.replace(/-/g, ' ');
 }
 
+function staticSpecialType(slug) {
+    return slug === 'mid-season-recap' ? 'midseason'
+        : slug === 'regular-season-recap' ? 'regular-season'
+        : slug === 'season-awards' ? 'season-awards'
+        : slug === 'championship-week' ? 'championship'
+        : slug;
+}
+
 async function discoverReportAvailability() {
     const map = new Map();
     const ensure = year => {
@@ -865,6 +875,30 @@ async function discoverReportAvailability() {
         if (!map.has(y)) map.set(y, { weeks: new Set(), specials: new Map() });
         return map.get(y);
     };
+
+    staticReportEntries.clear();
+    try {
+        const res = await fetch('reference-reports/index.json', { cache:'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const idx = await res.json();
+        Object.entries(idx.years || {}).forEach(([year, entries]) => {
+            (entries || []).forEach(entry => {
+                if (entry.type === 'week' && entry.week != null) {
+                    ensure(year).weeks.add(Number(entry.week));
+                    staticReportEntries.set(`${year}|${Number(entry.week)}`, entry);
+                } else if (entry.type === 'special' && entry.slug) {
+                    const type = staticSpecialType(entry.slug);
+                    ensure(year).specials.set(type, entry.label || specialLabel(type));
+                    staticReportEntries.set(`${year}|special:${type}`, entry);
+                }
+            });
+        });
+        staticReportIndexLoaded = true;
+    } catch (err) {
+        staticReportIndexLoaded = false;
+        console.warn('reference-reports/index.json konnte nicht geladen werden:', err);
+    }
+
     try {
         const snap = await reportsCollection.get();
         snap.forEach(doc => {
@@ -881,11 +915,9 @@ async function discoverReportAvailability() {
             }
         });
     } catch (err) {
-        console.warn('Report-Verfügbarkeit konnte nicht geladen werden:', err);
+        console.warn('Firestore-Report-Verfügbarkeit konnte nicht geladen werden:', err);
     }
 
-    // Im eingebetteten Admin-Bereich bleibt die aktuelle Saison vollständig erreichbar,
-    // damit neue Wochenberichte direkt aus den ESPN-Matchups erstellt werden können.
     if (EMBEDDED_ADMIN) {
         const cur = ensure(CURRENT_SEASON);
         for (let w = 1; w <= WEEK_COUNT; w++) cur.weeks.add(w);
@@ -957,7 +989,61 @@ const SLOT_ORDER = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'DEF', 'K'];
 // Mapping auf die bestehenden farbigen pos-tag-Klassen aus style.css
 const POS_TAG_CLASS = { QB: 'pos-qb', RB: 'pos-rb', WR: 'pos-wr', TE: 'pos-te', K: 'pos-k', DEF: 'pos-def', FLEX: 'pos-def' };
 
+async function fetchStaticText(entry) {
+    const res = await fetch(entry.path, { cache:'no-store' });
+    if (!res.ok) throw new Error('Datei nicht gefunden: ' + entry.path);
+    return await res.text();
+}
+
+function parseStaticWeekReport(raw) {
+    const lines = String(raw || '').replace(/\r/g, '').split('\n');
+    const finalIndexes = [];
+    lines.forEach((line, i) => {
+        const parts = line.split('\t');
+        if ((parts[2] || '').trim().toUpperCase() === 'FINAL') finalIndexes.push(i);
+    });
+    const nextNonEmpty = start => {
+        for (let i = start; i < lines.length; i++) if (lines[i].trim()) return i;
+        return -1;
+    };
+    const games = [];
+    finalIndexes.forEach((fi, n) => {
+        const parts = lines[fi].split('\t');
+        const awayIdx = nextNonEmpty(fi + 1);
+        if (awayIdx < 0) return;
+        const headerIdx = nextNonEmpty(awayIdx + 1);
+        const scoreIdx = headerIdx >= 0 ? nextNonEmpty(headerIdx + 1) : -1;
+        const nextFinal = finalIndexes[n + 1] ?? lines.length;
+        let reportLines = lines.slice(scoreIdx >= 0 ? scoreIdx + 1 : awayIdx + 1, nextFinal);
+        while (reportLines.length && !reportLines[0].trim()) reportLines.shift();
+        while (reportLines.length && !reportLines.at(-1).trim()) reportLines.pop();
+        while (reportLines.length && /^\s*\(\d+[-–]\d+(?:[-–]\d+)?\)\s*$/.test(reportLines.at(-1))) reportLines.pop();
+        const homeScore = Number(String(parts[1] || '').replace(',', '.'));
+        const awayScore = Number(String(parts[3] || '').replace(',', '.'));
+        games.push({
+            index: n + 1,
+            homeTeam: (parts[0] || '?').trim(),
+            awayTeam: (lines[awayIdx].split('\t')[0] || '?').trim(),
+            homeScore: Number.isFinite(homeScore) ? homeScore : 0,
+            awayScore: Number.isFinite(awayScore) ? awayScore : 0,
+            homeBoxScore: [],
+            awayBoxScore: [],
+            reportText: reportLines.join('\n').trim(),
+            staticSource: true
+        });
+    });
+    return games;
+}
+
+async function fetchStaticWeek(year, week) {
+    const entry = staticReportEntries.get(`${year}|${week}`);
+    if (!entry) return null;
+    return parseStaticWeekReport(await fetchStaticText(entry));
+}
+
 async function fetchWeekMatchups(year, week) {
+    const staticWeek = await fetchStaticWeek(year, week);
+    if (staticWeek) return staticWeek;
     if (year !== CURRENT_SEASON) {
         return fetchHistoricalWeekFromFirestore(year, week);
     }
@@ -1231,9 +1317,8 @@ function renderMatchups(year, week, matchups) {
 
         matchupsContainer.appendChild(card);
 
-        // Live-Listener für diesen Bericht
-        reportListeners[docId] = reportsCollection.doc(docId).onSnapshot(doc => {
-            const text = doc.exists ? (doc.data().text || '') : '';
+        if (m.staticSource) {
+            const text = String(m.reportText || '');
             if (text.trim()) {
                 reportText.textContent = text;
                 reportText.dataset.raw = text;
@@ -1241,11 +1326,26 @@ function renderMatchups(year, week, matchups) {
                 reportEmpty.style.display = 'none';
             } else {
                 reportText.style.display = 'none';
-                reportText.dataset.raw = '';
-                reportEmpty.style.display = isAdmin ? 'none' : 'block';
+                reportEmpty.style.display = 'block';
             }
-            editBtn.style.display = isAdmin ? 'block' : 'none';
-        });
+            editBtn.style.display = 'none';
+        } else {
+            // Neue/laufende Berichte bleiben live an Firestore gekoppelt.
+            reportListeners[docId] = reportsCollection.doc(docId).onSnapshot(doc => {
+                const text = doc.exists ? (doc.data().text || '') : '';
+                if (text.trim()) {
+                    reportText.textContent = text;
+                    reportText.dataset.raw = text;
+                    reportText.style.display = 'block';
+                    reportEmpty.style.display = 'none';
+                } else {
+                    reportText.style.display = 'none';
+                    reportText.dataset.raw = '';
+                    reportEmpty.style.display = isAdmin ? 'none' : 'block';
+                }
+                editBtn.style.display = isAdmin ? 'block' : 'none';
+            });
+        }
     });
 }
 
@@ -1330,6 +1430,23 @@ async function loadSpecialReport(year, type) {
     quicknav.innerHTML = '';
     matchupsContainer.innerHTML = '';
     statusArea.innerHTML = '<div class="rp-loading">Lade Sonderbericht…</div>';
+
+    const staticEntry = staticReportEntries.get(`${year}|special:${type}`);
+    if (staticEntry) {
+        const raw = await fetchStaticText(staticEntry);
+        const article = document.createElement('article');
+        article.className = 'rp-special-report';
+        const title = document.createElement('h3');
+        title.textContent = staticEntry.label || specialLabel(type);
+        const content = document.createElement('div');
+        content.className = 'rp-special-content';
+        content.textContent = raw.trim();
+        article.appendChild(title);
+        article.appendChild(content);
+        statusArea.innerHTML = '';
+        matchupsContainer.appendChild(article);
+        return;
+    }
 
     const docId = year + '-special-' + type;
     const doc = await seasonReportsCollection.doc(docId).get();
