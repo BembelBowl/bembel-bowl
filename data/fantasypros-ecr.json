@@ -2,27 +2,27 @@
   "source": "FantasyPros Expert Consensus Rankings (ECR)",
   "format": "PPR",
   "year": 2026,
-  "updatedAt": "2026-09-20T21:35:08.662253Z",
+  "updatedAt": "2026-09-21T10:44:03.317673Z",
   "requestCount": 7,
   "positionMeta": {
     "QB": {
       "count": 10,
-      "totalExperts": 173,
+      "totalExperts": 176,
       "lastUpdated": "9/10"
     },
     "RB": {
       "count": 10,
-      "totalExperts": 176,
+      "totalExperts": 179,
       "lastUpdated": "9/10"
     },
     "WR": {
       "count": 10,
-      "totalExperts": 174,
+      "totalExperts": 177,
       "lastUpdated": "9/10"
     },
     "TE": {
       "count": 10,
-      "totalExperts": 165,
+      "totalExperts": 167,
       "lastUpdated": "9/10"
     },
     "K": {
@@ -628,7 +628,7 @@
       "bye_week": "8",
       "overall_ecr": null,
       "position_ecr": 9,
-      "tier": 3,
+      "tier": 2,
       "pos_rank": "WR9"
     },
     {
