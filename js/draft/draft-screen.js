@@ -11,7 +11,6 @@ let players = [];
 let rankingsReady = false;
 let lastPickOverall = 0;
 let animationQueue = Promise.resolve();
-let liveAccessOpen = false;
 const $ = id => document.getElementById(id);
 const PLAYER_FALLBACK = 'images/player-silhouette.svg';
 
@@ -24,15 +23,15 @@ Promise.allSettled([loadRankings(), loadSleeperPlayers()]).then(([r, p]) => {
   render();
 });
 
-watchState(s => { state = s || {}; liveAccessOpen = !!state.boardCreated && !!state.orderSet && state.status === 'live'; document.querySelector('.live-shell')?.classList.toggle('is-hidden', !liveAccessOpen); $('draftUnavailable')?.classList.toggle('is-hidden', liveAccessOpen); $('season').textContent = state.season || DRAFT.season; renderTimer(); if (liveAccessOpen) render(); });
+watchState(s => { state = s; renderTimer(); });
 watchBoard(b => {
   const before = lastPickOverall;
   board = b;
   $('sync').textContent = 'LIVE';
-  if (liveAccessOpen) render();
+  render();
   const ordered = orderedPicks(b.picks || {});
   const latest = ordered.at(-1);
-  if (liveAccessOpen && latest && latest.overall > before) {
+  if (latest && latest.overall > before) {
     lastPickOverall = latest.overall;
     animationQueue = animationQueue.then(() => showPickSequence(latest)).catch(console.error);
   } else {
@@ -43,7 +42,6 @@ watchBoard(b => {
 setInterval(renderTimer, 250);
 
 function render() {
-  if (!liveAccessOpen) return;
   const next = getNextOpenSlot(board.picks || {});
   if (!next) {
     $('teamName').textContent = 'DRAFT COMPLETE';
@@ -84,7 +82,6 @@ function render() {
 }
 
 function renderTimer() {
-  if (!liveAccessOpen) return;
   const start = timestampMs(state.clockStartedAt);
   if (start) $('pickTimer').textContent = fmt(Date.now() - start);
 }
@@ -105,23 +102,31 @@ async function showPickSequence(p) {
   const overlay = $('pickOverlay');
   overlay.classList.add('show');
   overlay.setAttribute('aria-hidden', 'false');
-  await announcePick({ overall: p.overall, season: state.season || DRAFT.season, teamName, player: announcedPlayer });
-  await sleep(1400);
-  overlay.classList.remove('show');
-  overlay.setAttribute('aria-hidden', 'true');
-  await sleep(450);
-  await showNextTeam();
+  await announcePick({ overall: p.overall, season: DRAFT.season, teamName, player: announcedPlayer });
+  await sleep(850);
+  await showNextTeam(overlay);
 }
 
-async function showNextTeam() {
+async function showNextTeam(previousOverlay = null) {
   const next = getNextOpenSlot(board.picks || {});
-  if (!next) return;
+  if (!next) {
+    if (previousOverlay) {
+      previousOverlay.classList.remove('show');
+      previousOverlay.setAttribute('aria-hidden', 'true');
+    }
+    return;
+  }
   const name = board.teams?.[next.position - 1] || '';
   $('nextTeam').textContent = name;
   setLogo($('nextLogo'), name);
   const overlay = $('nextOverlay');
   overlay.classList.add('show');
   overlay.setAttribute('aria-hidden', 'false');
+  await sleep(180);
+  if (previousOverlay) {
+    previousOverlay.classList.remove('show');
+    previousOverlay.setAttribute('aria-hidden', 'true');
+  }
   const spoken = announceClock(name);
   await Promise.all([spoken, sleep(5600)]);
   await sleep(700);

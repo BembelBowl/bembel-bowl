@@ -53,21 +53,21 @@ export async function stinger() {
     osc.start(t);
     osc.stop(t + .5);
   });
-  await sleep(1150);
+  await sleep(900);
 }
 
 
 export async function announcePick({ overall, season, teamName, player }) {
   stopSpeech();
   await stinger();
-  await sleep(250);
-  await speak('The pick is in!', { rate: .78, pitch: .78 });
-  await sleep(700);
+  await sleep(120);
+  await speak('The pick is in!', { rate: .84, pitch: .78 });
+  await sleep(220);
   const spokenTeam = TEAM_SPEECH_NAMES[teamName] || teamName;
   const position = POSITION_SPEECH[player.position] || player.position;
   const nfl = NFL_TEAM_NAMES[player.nflTeam] || player.nflTeam || '';
   const sentence = `With the ${ordinal(overall)} pick of the ${season} draft, ${spokenTeam} selects ${player.name}. ${position}, ${nfl}.`;
-  await speak(sentence, { rate: .81, pitch: .78 });
+  await speak(sentence, { rate: .88, pitch: .78 });
 }
 
 export async function announceClock(teamName) {
