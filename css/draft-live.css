@@ -34,3 +34,6 @@
 
 /* V6 access gate */
 .is-hidden{display:none!important}.draft-unavailable{position:fixed;inset:0;z-index:6000;background:#f4f1ea;display:grid;place-items:center;padding:24px;font-family:"Segoe UI",Arial,sans-serif}.draft-unavailable>div{max-width:620px;background:#fff;border-radius:16px;padding:40px;text-align:center;box-shadow:0 12px 40px rgba(31,31,31,.12);border-top:5px solid #d18b2f}.draft-unavailable span{color:#d18b2f;font-weight:900;letter-spacing:.18em;font-size:.78rem}.draft-unavailable h1{color:#1f1f1f;font-size:2.3rem;margin:10px 0}.draft-unavailable p{color:#6f6a62}.draft-unavailable a{display:inline-block;margin-top:12px;background:#1f1f1f;color:#fff;text-decoration:none;border-radius:8px;padding:11px 16px;font-weight:800}
+
+/* V6.6: keep selected player name white in the pick overlay */
+.pick-overlay .pick-title-row h2,#pickPlayer{color:#fff!important;}
