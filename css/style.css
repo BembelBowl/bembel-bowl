@@ -966,3 +966,40 @@ body.rules-page {
 .pos-k   { background-color: #9a6600; }
 .pos-def { background-color: #6e7781; }
 
+
+/* === Global navigation actions: keep consistent on every site page === */
+nav a.espn-btn,
+.navbar a.espn-btn {
+    background-color: #d50a0a !important;
+    color: #ffffff !important;
+    border-radius: 6px !important;
+    padding: 0 16px !important;
+    height: 38px !important;
+    box-shadow: none !important;
+}
+nav a.espn-btn:hover,
+.navbar a.espn-btn:hover {
+    background-color: #b30808 !important;
+    color: #ffffff !important;
+}
+nav a.site-login-btn,
+.navbar a.site-login-btn {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    background-color: #d18b2f !important;
+    color: #ffffff !important;
+    height: 38px !important;
+    padding: 0 16px !important;
+    border-radius: 6px !important;
+    text-decoration: none !important;
+    font-weight: 700 !important;
+    box-shadow: none !important;
+    transition: background-color .2s ease, transform .2s ease !important;
+}
+nav a.site-login-btn:hover,
+.navbar a.site-login-btn:hover {
+    background-color: #b8781f !important;
+    color: #ffffff !important;
+    transform: translateY(-1px);
+}
