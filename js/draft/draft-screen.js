@@ -1,6 +1,6 @@
 import { DRAFT } from './config.js';
 import { watchBoard, watchState, timestampMs } from './service.js';
-import { getNextOpenSlot, orderedPicks, concreteTeamNeeds } from './model.js';
+import { getNextOpenSlot, orderedPicks, concreteTeamNeeds, slotForOverall } from './model.js';
 import { loadRankings, bestAvailable } from './rankings.js';
 import { loadSleeperPlayers } from './players.js';
 import { unlockAudio, announcePick, announceClock, fullNflTeam, sleep } from './audio.js';
@@ -46,18 +46,32 @@ function render() {
   if (!next) {
     $('teamName').textContent = 'DRAFT COMPLETE';
     $('pickMeta').textContent = 'Alle Picks abgeschlossen';
-    $('draftProgress').textContent = 'COMPLETE';
     return;
   }
   const teamName = board.teams?.[next.position - 1] || `Position ${next.position}`;
   $('teamName').textContent = teamName;
-  $('pickMeta').textContent = `Runde ${next.round} · Overall Pick #${next.overall}`;
-  $('draftProgress').textContent = `PICK ${next.overall} / ${DRAFT.teamCount * DRAFT.roundCount}`;
+  $('pickMeta').textContent = `RUNDE ${next.round} · PICK #${next.overall}`;
   setLogo($('teamLogo'), teamName);
 
   const teamPicks = orderedPicks(board.picks || {}).filter(p => board.teams?.[p.position - 1] === teamName);
   const needs = concreteTeamNeeds(teamPicks);
-  $('needsList').innerHTML = needs.length ? needs.map(pos => `<span>${pos}</span>`).join('') : '<span>—</span>';
+  $('needsList').innerHTML = needs.length ? needs.map(pos => `<span>${pos}</span>`).join('') : '<span>Roster komplett</span>';
+
+  $('rosterCount').textContent = `${teamPicks.length} ${teamPicks.length === 1 ? 'PICK' : 'PICKS'}`;
+  $('currentRoster').innerHTML = teamPicks.length
+    ? teamPicks.map(p => `<div class="roster-chip"><span>${esc(p.position || '')}</span><strong>${esc(p.name)}</strong><small>${esc(fullNflTeam(p.nflTeam) || p.nflTeam || '')}</small></div>`).join('')
+    : '<div class="roster-empty">Noch keine Spieler gedraftet.</div>';
+
+  const maxPicks = DRAFT.teamCount * DRAFT.roundCount;
+  if (next.overall < maxPicks) {
+    const after = slotForOverall(next.overall + 1);
+    const nextTeamName = board.teams?.[after.position - 1] || '—';
+    $('nextMiniTeam').textContent = nextTeamName;
+    setLogo($('nextMiniLogo'), nextTeamName);
+  } else {
+    $('nextMiniTeam').textContent = 'Draft Ende';
+    $('nextMiniLogo').src = 'images/favicon.jpg';
+  }
 
   const picked = new Set(Object.values(board.picks || {}).map(p => p.name));
   const avail = rankingsReady ? bestAvailable(picked, 10) : [];

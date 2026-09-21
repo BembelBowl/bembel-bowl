@@ -35,28 +35,32 @@ export function speak(text, { rate = 0.84, pitch = 0.82, lang = 'en-US', volume 
   });
 }
 
-export function stinger() {
+export async function stinger() {
   if (!unlocked) return;
   ctx ||= new (window.AudioContext || window.webkitAudioContext)();
   const now = ctx.currentTime;
-  [146.8, 220, 293.7, 440, 587.3].forEach((freq, i) => {
+  const notes = [146.8, 220, 293.7, 369.9, 440, 587.3, 739.9];
+  notes.forEach((freq, i) => {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = i < 2 ? 'sawtooth' : 'triangle';
     osc.frequency.value = freq;
-    const t = now + i * .08;
+    const t = now + i * .11;
     gain.gain.setValueAtTime(.0001, t);
-    gain.gain.exponentialRampToValueAtTime(i === 4 ? .15 : .095, t + .025);
-    gain.gain.exponentialRampToValueAtTime(.0001, t + .38);
+    gain.gain.exponentialRampToValueAtTime(i >= 5 ? .16 : .105, t + .03);
+    gain.gain.exponentialRampToValueAtTime(.0001, t + .48);
     osc.connect(gain).connect(ctx.destination);
-    osc.start(t); osc.stop(t + .4);
+    osc.start(t);
+    osc.stop(t + .5);
   });
+  await sleep(1150);
 }
+
 
 export async function announcePick({ overall, season, teamName, player }) {
   stopSpeech();
-  stinger();
-  await sleep(350);
+  await stinger();
+  await sleep(250);
   await speak('The pick is in!', { rate: .78, pitch: .78 });
   await sleep(700);
   const spokenTeam = TEAM_SPEECH_NAMES[teamName] || teamName;
