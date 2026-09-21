@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js';
-import { getAuth } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js';
+import { getAuth, setPersistence, browserSessionPersistence } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js';
 import {
   getFirestore, doc, collection, onSnapshot, getDoc, getDocs, setDoc, updateDoc,
   runTransaction, serverTimestamp, Timestamp, query, orderBy, limit, deleteField
@@ -8,6 +8,7 @@ import { firebaseConfig } from './config.js';
 
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+await setPersistence(auth, browserSessionPersistence);
 export const db = getFirestore(app);
 export { doc, collection, onSnapshot, getDoc, getDocs, setDoc, updateDoc, runTransaction,
   serverTimestamp, Timestamp, query, orderBy, limit, deleteField };
