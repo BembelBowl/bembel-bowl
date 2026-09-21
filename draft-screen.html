@@ -19,23 +19,40 @@
     </div>
   </header>
 
-  <div class="broadcast-strip"><span>LIVE FROM BEMBEL BOWL DRAFT HQ</span><span class="dot"></span><span>20 TEAMS · 15 ROUNDS · PPR</span><span class="strip-progress" id="draftProgress">PICK 1 / 300</span></div>
-
   <main class="live-grid">
-    <section class="clock-card glass">
-      <div class="section-label">ON THE CLOCK</div>
-      <div class="team-hero"><div class="logo-stage"><img id="teamLogo" alt=""></div><div><h2 id="teamName">—</h2><div id="pickMeta">Runde — · Pick —</div></div></div>
-      <div class="timer-block"><span>TIME ON PICK</span><div class="timer" id="pickTimer">00:00</div></div>
-      <div class="needs"><div class="section-label">TEAM NEEDS</div><div id="needsList" class="need-pills"></div></div>
-    </section>
-
-    <section class="available-card glass">
-      <div class="section-head"><div><div class="section-label">DRAFT MARKET</div><h3>Top 10 Best Available</h3></div><span class="source">FantasyPros ECR · PPR</span></div>
+    <section class="available-card side-panel">
+      <div class="section-head"><div><div class="section-label">BEST AVAILABLE</div><h3>Top 10</h3></div><span class="source">FantasyPros ECR · PPR</span></div>
       <ol id="availableList" class="available-list"></ol>
     </section>
 
-    <section class="recent-card glass">
-      <div class="section-head"><div><div class="section-label">DRAFT FEED</div><h3>Last 10 Picks</h3></div></div>
+    <section class="clock-card center-stage">
+      <div id="pickMeta" class="pick-meta-large">RUNDE — · PICK #—</div>
+      <div class="section-label center-label">ON THE CLOCK</div>
+      <div class="team-hero">
+        <div class="logo-stage"><img id="teamLogo" alt=""></div>
+        <h2 id="teamName">—</h2>
+      </div>
+      <div class="timer-block"><span>TIME ON PICK</span><div class="timer" id="pickTimer">00:00</div></div>
+
+      <div class="center-info-grid">
+        <div class="needs roster-block">
+          <div class="section-label">TEAM NEEDS</div>
+          <div id="needsList" class="need-pills"></div>
+        </div>
+        <div class="next-up-card">
+          <div class="section-label">NEXT UP</div>
+          <div class="next-mini"><img id="nextMiniLogo" alt=""><strong id="nextMiniTeam">—</strong></div>
+        </div>
+      </div>
+
+      <div class="current-roster">
+        <div class="roster-heading"><span class="section-label">CURRENT ROSTER</span><span id="rosterCount" class="roster-count">0 PICKS</span></div>
+        <div id="currentRoster" class="current-roster-grid"></div>
+      </div>
+    </section>
+
+    <section class="recent-card side-panel">
+      <div class="section-head"><div><div class="section-label">LAST PICKS</div><h3>Last 10 Picks</h3></div></div>
       <div id="recentList" class="recent-list"></div>
     </section>
   </main>
