@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/team-dashboard.css">
   <link rel="stylesheet" href="css/draft-master.css">
-</head>
+<style>.reports-admin-frame{width:100%;min-height:1450px;border:0;border-radius:10px;background:#f4f1ea}.admin-reports-panel{overflow:hidden}@media(max-width:900px){.reports-admin-frame{min-height:1750px}}</style></head>
 <body class="draft-control-page">
 <header class="main-header dashboard-site-header">
   <nav class="navbar">
@@ -85,17 +85,8 @@
     </div>
     <section class="panel admin-reports-panel">
       <div class="panel-title"><div><span class="section-kicker">REPORTS</span><h2>Spielberichte verwalten</h2></div></div>
-      <div class="report-admin-filter"><label>Saison<input id="reportSeason" type="number" value="2026"></label><label>Spieltag<input id="reportWeek" type="number" min="1" max="18" value="1"></label><button id="loadReportsBtn" class="secondary-btn">Reports laden</button></div>
-      <div id="reportList" class="report-admin-list"></div>
-      <div class="report-admin-editor">
-        <label>Dokument-ID<input id="reportDocId" placeholder="2026-w1-m1"></label>
-        <div class="report-admin-grid"><label>Heim-Team<input id="reportHome"></label><label>Auswärts-Team<input id="reportAway"></label><label>Score Heim<input id="reportHomeScore" type="number" step="0.01"></label><label>Score Auswärts<input id="reportAwayScore" type="number" step="0.01"></label></div>
-        <label>Typ / Sonderbericht<input id="reportType" placeholder="optional, z.B. midseason"></label>
-        <label>Titel<input id="reportTitle" placeholder="optional"></label>
-        <label>Spielbericht<textarea id="reportText" rows="8"></textarea></label>
-        <details><summary>Box Scores (JSON, optional)</summary><div class="report-admin-grid"><label>Heim<textarea id="reportHomeBox" rows="6">[]</textarea></label><label>Auswärts<textarea id="reportAwayBox" rows="6">[]</textarea></label></div></details>
-        <div class="admin-action-row"><button id="saveReportBtn" class="primary-btn">Report speichern</button><button id="deleteReportBtn" class="danger-outline-btn">Report löschen</button></div><p id="reportAdminStatus" class="save-state"></p>
-      </div>
+      <p class="hint">Matchups und Box Scores werden automatisch geladen. Ergänze nur den Spielbericht, wenn nötig.</p>
+      <iframe id="reportsAdminFrame" class="reports-admin-frame" src="reports.html?embedded=admin" title="Spielberichte verwalten"></iframe>
     </section>
   </div>
 </main>
@@ -112,5 +103,6 @@
 </div>
 
 <script type="module" src="js/draft/draft-control.js"></script>
+<script src="js/site-nav.js" defer></script>
 </body>
 </html>

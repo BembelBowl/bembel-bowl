@@ -584,12 +584,15 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* Reports navigation tabs */
+.rp-tab-groups{display:grid;gap:12px;width:100%}.rp-tab-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.rp-tab-label{font-size:.78rem;font-weight:800;color:#666;min-width:58px;text-transform:uppercase;letter-spacing:.06em}.rp-tabs{display:flex;gap:7px;flex-wrap:wrap}.rp-tab-btn{border:1px solid #e0ded6;background:#fff;color:#1f1f1f;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer;transition:.18s}.rp-tab-btn:hover{border-color:#d18b2f;background:#fff8ec}.rp-tab-btn.active{background:#d18b2f;border-color:#d18b2f;color:#fff}.rp-tab-btn.special{border-style:dashed}.rp-hidden-select{display:none!important}.rp-admin-embed header,.rp-admin-embed .rp-header,.rp-admin-embed footer{display:none!important}.rp-admin-embed{padding-top:0!important;background:transparent}.rp-admin-embed .rp-wrap{max-width:none;margin:0;padding:0}.rp-admin-embed .rp-controlbar{box-shadow:none;border:1px solid #e0ded6}.rp-public .rp-report-edit-btn,.rp-public .rp-report-editor{display:none!important}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <style>
-#adminToggleBtn,#addHistoricalBtn,#modeBadge,#authModalOverlay,.rp-report-edit-btn,.rp-report-editor{display:none!important}
+#adminToggleBtn,#addHistoricalBtn,#modeBadge,#authModalOverlay{display:none!important}
 </style>
 </head>
 <body>
@@ -615,11 +618,11 @@ body {
 <section class="rp-wrap">
 
     <div class="rp-controlbar">
-        <div class="rp-controls-left">
-            <label for="seasonSelect" class="rp-label">📅 Saison:</label>
-            <select id="seasonSelect" class="rp-select"></select>
-            <label for="weekSelect" class="rp-label">🏈 Bericht:</label>
-            <select id="weekSelect" class="rp-select"></select>
+        <div class="rp-tab-groups">
+            <div class="rp-tab-row"><span class="rp-tab-label">Saison</span><div id="seasonTabs" class="rp-tabs"></div></div>
+            <div class="rp-tab-row"><span class="rp-tab-label">Bericht</span><div id="weekTabs" class="rp-tabs"></div></div>
+            <select id="seasonSelect" class="rp-hidden-select" aria-hidden="true"></select>
+            <select id="weekSelect" class="rp-hidden-select" aria-hidden="true"></select>
             <span id="modeBadge" class="rp-badge rp-badge-view">ANSICHTSMODUS</span>
         </div>
         <div>
@@ -745,6 +748,8 @@ const LEAGUE_ID = 843833275;
 const CURRENT_SEASON = 2026;
 const SEASONS = [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017];
 const WEEK_COUNT = 17; // Anzahl Spieltage der regulären Saison, bei Bedarf anpassen
+const EMBEDDED_ADMIN = new URLSearchParams(location.search).get('embedded') === 'admin';
+document.body.classList.add(EMBEDDED_ADMIN ? 'rp-admin-embed' : 'rp-public');
 
 const TEAM_LOGOS = {
     "Amity Island Sharks":   "images/amity_island_sharks.jpg",
@@ -778,6 +783,8 @@ const reportListeners = {}; // docId -> unsubscribe-Funktion
    ========================================================== */
 const seasonSelect = document.getElementById('seasonSelect');
 const weekSelect = document.getElementById('weekSelect');
+const seasonTabs = document.getElementById('seasonTabs');
+const weekTabs = document.getElementById('weekTabs');
 const modeBadge = document.getElementById('modeBadge');
 const adminToggleBtn = document.getElementById('adminToggleBtn');
 const addHistoricalBtn = document.getElementById('addHistoricalBtn');
@@ -841,65 +848,100 @@ function reportDocId(year, week, index) {
 /* ==========================================================
    AUFBAU DER AUSWAHLFELDER
    ========================================================== */
+let reportAvailability = new Map();
+
+function specialLabel(type) {
+    return type === 'midseason' ? 'Mid-Season Recap'
+        : type === 'regular-season' ? 'Regular Season Recap'
+        : type === 'season-awards' ? 'Season Awards'
+        : type === 'championship' ? 'Championship Recap'
+        : type.replace(/-/g, ' ');
+}
+
+async function discoverReportAvailability() {
+    const map = new Map();
+    const ensure = year => {
+        const y = Number(year);
+        if (!map.has(y)) map.set(y, { weeks: new Set(), specials: new Map() });
+        return map.get(y);
+    };
+    try {
+        const snap = await reportsCollection.get();
+        snap.forEach(doc => {
+            const data = doc.data() || {};
+            let m = doc.id.match(/^(\d{4})-w(\d+)-m\d+$/);
+            if (m && String(data.text || '').trim()) {
+                ensure(m[1]).weeks.add(Number(m[2]));
+                return;
+            }
+            m = doc.id.match(/^(\d{4})-special-(.+)$/);
+            if (m && String(data.content || data.text || '').trim()) {
+                const type = data.type || m[2];
+                ensure(m[1]).specials.set(type, data.title || specialLabel(type));
+            }
+        });
+    } catch (err) {
+        console.warn('Report-Verfügbarkeit konnte nicht geladen werden:', err);
+    }
+
+    // Im eingebetteten Admin-Bereich bleibt die aktuelle Saison vollständig erreichbar,
+    // damit neue Wochenberichte direkt aus den ESPN-Matchups erstellt werden können.
+    if (EMBEDDED_ADMIN) {
+        const cur = ensure(CURRENT_SEASON);
+        for (let w = 1; w <= WEEK_COUNT; w++) cur.weeks.add(w);
+    }
+    reportAvailability = map;
+}
+
 function buildSeasonSelect() {
+    const years = [...reportAvailability.keys()].sort((a,b) => b-a);
     seasonSelect.innerHTML = '';
-    SEASONS.forEach(year => {
+    years.forEach(year => {
         const opt = document.createElement('option');
         opt.value = String(year);
         opt.textContent = 'Saison ' + year;
         seasonSelect.appendChild(opt);
     });
+    if (!years.length) return;
+    if (![...seasonSelect.options].some(o => o.value === seasonSelect.value)) seasonSelect.value = String(years[0]);
+    renderSeasonTabs();
+}
+
+function renderSeasonTabs() {
+    seasonTabs.innerHTML = [...seasonSelect.options].map(opt => `<button type="button" class="rp-tab-btn ${opt.value===seasonSelect.value?'active':''}" data-season="${opt.value}">${opt.value}</button>`).join('');
 }
 
 async function buildWeekSelect(selectedValue) {
     const year = parseInt(seasonSelect.value, 10);
+    const info = reportAvailability.get(year) || { weeks:new Set(), specials:new Map() };
+    const items = [
+        ...[...info.weeks].sort((a,b)=>a-b).map(week => ({ value:String(week), label:`Spieltag ${week}`, special:false })),
+        ...[...info.specials.entries()].map(([type,title]) => ({ value:'special:'+type, label:'★ '+(title || specialLabel(type)), special:true }))
+    ];
     weekSelect.innerHTML = '';
-
-    const specialByAnchor = {
-        7: [],
-        14: [],
-        17: []
-    };
-
-    try {
-        const snap = await seasonReportsCollection.where('season', '==', year).get();
-        snap.forEach(doc => {
-            const data = doc.data() || {};
-            const type = data.type;
-            const anchor = type === 'midseason' ? 7 : (type === 'regular-season' || type === 'season-awards') ? 14 : type === 'championship' ? 17 : null;
-            if (anchor && specialByAnchor[anchor]) {
-                specialByAnchor[anchor].push({
-                    type,
-                    title: data.title || (type === 'midseason' ? 'Mid-Season Recap' : type === 'regular-season' ? 'Regular Season Recap' : type === 'season-awards' ? 'Season Awards' : 'Championship Recap')
-                });
-            }
-        });
-    } catch (err) {
-        console.warn('Sonderberichte konnten nicht geladen werden:', err);
-    }
-
-    for (let w = 1; w <= WEEK_COUNT; w++) {
+    items.forEach(item => {
         const opt = document.createElement('option');
-        opt.value = String(w);
-        opt.textContent = 'Spieltag ' + w;
-        if (String(selectedValue) === String(w)) opt.selected = true;
+        opt.value = item.value; opt.textContent = item.label; opt.dataset.special = item.special ? '1' : '0';
         weekSelect.appendChild(opt);
-
-        for (const special of specialByAnchor[w] || []) {
-            const specialOpt = document.createElement('option');
-            specialOpt.value = 'special:' + special.type;
-            specialOpt.textContent = special.type === 'midseason'
-                ? '★ Mid-Season Recap'
-                : special.type === 'regular-season'
-                    ? '★ Regular Season Recap'
-                    : special.type === 'season-awards'
-                        ? '★ Season Awards'
-                        : '★ Championship Recap';
-            if (String(selectedValue) === specialOpt.value) specialOpt.selected = true;
-            weekSelect.appendChild(specialOpt);
-        }
-    }
+    });
+    if (!items.length) { weekTabs.innerHTML = ''; return; }
+    const wanted = items.some(x => String(x.value) === String(selectedValue)) ? String(selectedValue) : items[items.length - 1].value;
+    weekSelect.value = wanted;
+    renderWeekTabs();
 }
+
+function renderWeekTabs() {
+    weekTabs.innerHTML = [...weekSelect.options].map(opt => `<button type="button" class="rp-tab-btn ${opt.dataset.special==='1'?'special':''} ${opt.value===weekSelect.value?'active':''}" data-report="${opt.value}">${opt.textContent}</button>`).join('');
+}
+
+seasonTabs.addEventListener('click', async e => {
+    const btn = e.target.closest('[data-season]'); if (!btn) return;
+    seasonSelect.value = btn.dataset.season; renderSeasonTabs(); await buildWeekSelect(); await loadSelectedWeek();
+});
+weekTabs.addEventListener('click', async e => {
+    const btn = e.target.closest('[data-report]'); if (!btn) return;
+    weekSelect.value = btn.dataset.report; renderWeekTabs(); await loadSelectedWeek();
+});
 
 /* ==========================================================
    ESPN: SCOREBOARD EINES SPIELTAGS LADEN
@@ -1160,7 +1202,7 @@ function renderMatchups(year, week, matchups) {
         card.appendChild(editor);
 
         editBtn.addEventListener('click', () => {
-            if (year !== CURRENT_SEASON) {
+            if (!EMBEDDED_ADMIN && year !== CURRENT_SEASON) {
                 openHistoricalForm(year, week, index, m, docId);
                 return;
             }
@@ -1174,13 +1216,16 @@ function renderMatchups(year, week, matchups) {
                 homeTeam: m.homeTeam,
                 awayTeam: m.awayTeam,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(() => editor.classList.remove('show'))
+            }, { merge: true }).then(async () => {
+                editor.classList.remove('show');
+                await discoverReportAvailability();
+            })
               .catch(err => alert('Speichern fehlgeschlagen: ' + err.message));
         });
         clearBtn.addEventListener('click', () => {
-            if (!confirm('Spielbericht wirklich löschen?')) return;
-            reportsCollection.doc(docId).delete()
-                .then(() => editor.classList.remove('show'))
+            if (!confirm('Spielbericht wirklich leeren? Matchup und Box Score bleiben erhalten.')) return;
+            reportsCollection.doc(docId).set({ text:'', updatedAt:firebase.firestore.FieldValue.serverTimestamp() }, { merge:true })
+                .then(async () => { editor.classList.remove('show'); await discoverReportAvailability(); })
                 .catch(err => alert('Löschen fehlgeschlagen: ' + err.message));
         });
 
@@ -1314,6 +1359,24 @@ async function loadSpecialReport(year, type) {
     content.className = 'rp-special-content';
     content.textContent = data.content || '';
     article.appendChild(content);
+
+    if (EMBEDDED_ADMIN && isAdmin) {
+        const editor = document.createElement('div');
+        editor.className = 'rp-report-editor show';
+        const textarea = document.createElement('textarea');
+        textarea.value = data.content || '';
+        textarea.rows = 12;
+        const actions = document.createElement('div');
+        actions.className = 'rp-report-editor-actions';
+        const save = document.createElement('button');
+        save.className = 'rp-btn rp-btn-primary'; save.textContent = 'Sonderbericht speichern';
+        save.onclick = async () => {
+            await seasonReportsCollection.doc(docId).set({ season:year, type, title:data.title || specialLabel(type), content:textarea.value, updatedAt:firebase.firestore.FieldValue.serverTimestamp() }, { merge:true });
+            content.textContent = textarea.value;
+            await discoverReportAvailability(); buildSeasonSelect(); seasonSelect.value=String(year); renderSeasonTabs(); await buildWeekSelect('special:'+type);
+        };
+        actions.appendChild(save); editor.appendChild(textarea); editor.appendChild(actions); article.appendChild(editor);
+    }
 
     statusArea.innerHTML = '';
     matchupsContainer.appendChild(article);
@@ -1501,10 +1564,11 @@ hfDeleteBtn.addEventListener('click', () => {
 });
 
 seasonSelect.addEventListener('change', async () => {
-    await buildWeekSelect(1);
+    renderSeasonTabs();
+    await buildWeekSelect();
     await loadSelectedWeek();
 });
-weekSelect.addEventListener('change', loadSelectedWeek);
+weekSelect.addEventListener('change', async () => { renderWeekTabs(); await loadSelectedWeek(); });
 
 /* ==========================================================
    ADMIN-ANMELDUNG
@@ -1551,6 +1615,7 @@ auth.onAuthStateChanged(async (user) => {
             console.warn('Admin-Rolle konnte nicht geprüft werden:', err);
         }
     }
+    if (EMBEDDED_ADMIN && user && !isAdmin) console.warn('Embedded Reports: User ist kein Admin.');
     modeBadge.textContent = isAdmin ? 'ADMIN-MODUS' : 'ANSICHTSMODUS';
     modeBadge.className = 'rp-badge ' + (isAdmin ? 'rp-badge-admin' : 'rp-badge-view');
     adminToggleBtn.textContent = user ? '🔓 Abmelden' : '🔒 Admin-Modus';
@@ -1559,18 +1624,25 @@ auth.onAuthStateChanged(async (user) => {
         btn.style.display = isAdmin ? 'block' : 'none';
     });
     updateAddHistoricalBtnVisibility();
+    if (EMBEDDED_ADMIN && isAdmin && String(weekSelect.value || '').startsWith('special:')) loadSelectedWeek();
 });
 
 /* ==========================================================
    INIT
    ========================================================== */
 async function initReportsPage() {
+    await discoverReportAvailability();
     buildSeasonSelect();
-    await buildWeekSelect(1);
-    await loadSelectedWeek();
+    if (!seasonSelect.options.length) {
+        statusArea.innerHTML = '<div class="rp-empty">Noch keine Spielberichte vorhanden.</div>';
+        return;
+    }
+    await buildWeekSelect();
+    if (weekSelect.options.length) await loadSelectedWeek();
 }
 initReportsPage();
 </script>
 
+<script src="js/site-nav.js" defer></script>
 </body>
 </html>
