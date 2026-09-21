@@ -20,28 +20,31 @@ let bootedUid = null;
 let wasOnClock = false;
 let popupTimer = null;
 let draftAccessOpen = false;
+let previousDraftAccessOpen = false;
 
-watchState(s => {
+watchState(async s => {
   state = s || {};
   draftAccessOpen = !!state.boardCreated && !!state.orderSet && state.status === 'live';
+  if (draftAccessOpen && !previousDraftAccessOpen && profile?.teamId) {
+    try { await ensureTeamDefaults(profile.teamId); } catch (e) { console.error(e); }
+  }
+  previousDraftAccessOpen = draftAccessOpen;
   updateAccessVisibility();
   if (profile) render();
 });
 
 function updateAccessVisibility() {
-  const closed = $('accessClosed');
-  if (!draftAccessOpen) {
-    closed?.classList.remove('is-hidden');
-    $('loginCard').classList.add('is-hidden');
-    $('app').classList.add('is-hidden');
-  } else {
-    closed?.classList.add('is-hidden');
-    if (!auth.currentUser) $('loginCard').classList.remove('is-hidden');
-  }
+  $('accessClosed')?.classList.add('is-hidden');
+  if (!auth.currentUser) { $('loginCard').classList.add('is-hidden'); $('app').classList.add('is-hidden'); return; }
+  $('loginCard').classList.add('is-hidden');
+  $('app').classList.remove('is-hidden');
+  $('draftNotReadyBanner')?.classList.toggle('is-hidden', draftAccessOpen);
+  const disabled = !draftAccessOpen;
+  document.querySelectorAll('#attendance button,[data-round],#saveSheet,.add-priority').forEach(el => el.disabled = disabled);
+  if (disabled) { $('pickSearch').disabled = true; $('livePickHint').classList.remove('is-hidden'); $('livePickHint').innerHTML = 'Live Pick und Draft Sheet werden freigeschaltet, sobald der Admin ein neues Board erzeugt und die Draft-Reihenfolge gespeichert hat.'; }
 }
 
 $('loginBtn').onclick = async () => {
-  if (!draftAccessOpen) return;
   $('loginError').textContent = '';
   try {
     await signInWithEmailAndPassword(auth, $('email').value.trim(), $('password').value);
@@ -50,23 +53,19 @@ $('loginBtn').onclick = async () => {
   }
 };
 $('password').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginBtn').click(); });
-$('logoutBtn').onclick = () => signOut(auth);
+$('logoutBtn').onclick = async () => { await signOut(auth); location.replace('login.html'); };
 
 onAuthStateChanged(auth, async user => {
   if (!user) {
-    bootedUid = null;
-    profile = null;
-    $('loginCard').classList.toggle('is-hidden', !draftAccessOpen);
-    $('app').classList.add('is-hidden');
-    updateAccessVisibility();
-    return;
+    bootedUid = null; profile = null; $('app').classList.add('is-hidden'); location.replace('login.html'); return;
   }
   try {
-    if (!draftAccessOpen) { await signOut(auth); return; }
     profile = await getUserProfile(user.uid);
+    if (profile?.role === 'admin') { location.replace('draft-control.html'); return; }
     if (!profile?.teamId || profile?.role !== 'team') {
-      $('loginError').textContent = 'Für dieses Konto ist kein gültiges Team-Profil in /users/{uid} hinterlegt.';
+      $('loginError').textContent = 'Für dieses Konto ist kein gültiges Team-Profil hinterlegt.';
       await signOut(auth);
+      location.replace('login.html');
       return;
     }
     $('loginCard').classList.add('is-hidden');
@@ -77,8 +76,9 @@ onAuthStateChanged(auth, async user => {
     $('teamLogo').onerror = () => { $('teamLogo').src = 'images/favicon.jpg'; };
     if (bootedUid !== user.uid) {
       bootedUid = user.uid;
-      await ensureTeamDefaults(profile.teamId);
+      if (draftAccessOpen) await ensureTeamDefaults(profile.teamId);
       await boot();
+      updateAccessVisibility();
     }
   } catch (e) {
     $('loginError').textContent = `Login konnte nicht initialisiert werden: ${e.message}`;
@@ -113,8 +113,9 @@ async function boot() {
 
 function render() {
   if (!profile) return;
-  const next = getNextOpenSlot(board.picks || {});
-  const onClock = !!next && board.teams?.[next.position - 1] === profile.teamId;
+  const next = draftAccessOpen ? getNextOpenSlot(board.picks || {}) : null;
+  const onClock = draftAccessOpen && !!next && board.teams?.[next.position - 1] === profile.teamId;
+  $('draftNotReadyBanner')?.classList.toggle('is-hidden', draftAccessOpen);
   $('clockBadge').classList.toggle('is-hidden', !onClock);
   if (onClock) $('clockBadge').textContent = `ON THE CLOCK · #${next.overall}`;
   $('pickSearch').disabled = !onClock;
@@ -141,7 +142,7 @@ function renderAttendance() {
 }
 $('attendance').onclick = async e => {
   const v = e.target.dataset.v;
-  if (!v) return;
+  if (!v || !draftAccessOpen) return;
   try {
     await setAttendance(profile.teamId, v);
   } catch (err) {
@@ -215,6 +216,7 @@ function hydrateSheet() {
 }
 
 $('saveSheet').onclick = async () => {
+  if (!draftAccessOpen) return setSaveState($('sheetSaveState'), 'Noch kein vorbereiteter Draft.', true);
   const status = $('sheetSaveState');
   setSaveState(status, 'Speichert…');
   try {
@@ -284,6 +286,7 @@ function getDragAfterElement(container, y) {
 $('posFilter').onchange = renderAvailable;
 $('availableSearch').oninput = renderAvailable;
 $('availableList').onclick = e => {
+  if (!draftAccessOpen) return;
   const id = e.target.closest('[data-add-id]')?.dataset.addId;
   if (!id) return;
   const p = ranked.find(x => String(x.id) === id);
@@ -304,6 +307,7 @@ function renderAvailable() {
     .slice(0, 140)
     .map((p, idx) => `<div class="avail-row"><b>#${idx + 1}</b><div><b>${esc(p.name)}</b><br><small>${esc(p.nflTeam || '')}${p.bye ? ` · Bye ${p.bye}` : ''}</small></div><span class="tag">${esc(p.position)}</span><small>${pos && p.positionEcr != null ? `Pos ECR ${p.positionEcr}` : `ECR ${p.ecr ?? '—'}`}</small><button class="add-priority" data-add-id="${esc(p.id)}">+ Liste</button></div>`)
     .join('') || '<p class="empty-state">Keine verfügbaren FantasyPros-ECR-Spieler für diesen Filter.</p>';
+  if (!draftAccessOpen) document.querySelectorAll('.add-priority').forEach(b => b.disabled = true);
 }
 
 function renderRoster() {
