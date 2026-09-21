@@ -47,6 +47,9 @@ body {
 /* --- STATUS / CONTROLS BAR --- */
 
 .rp-controlbar {
+    position: sticky;
+    top: 74px;
+    z-index: 80;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -586,7 +589,7 @@ body {
 }
 
 /* Reports navigation tabs */
-.rp-tab-groups{display:grid;gap:12px;width:100%}.rp-tab-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.rp-tab-label{font-size:.78rem;font-weight:800;color:#666;min-width:58px;text-transform:uppercase;letter-spacing:.06em}.rp-tabs{display:flex;gap:7px;flex-wrap:wrap}.rp-tab-btn{border:1px solid #e0ded6;background:#fff;color:#1f1f1f;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer;transition:.18s}.rp-tab-btn:hover{border-color:#d18b2f;background:#fff8ec}.rp-tab-btn.active{background:#d18b2f;border-color:#d18b2f;color:#fff}.rp-tab-btn.special{border-style:dashed}.rp-hidden-select{display:none!important}.rp-admin-embed header,.rp-admin-embed .rp-header,.rp-admin-embed footer{display:none!important}.rp-admin-embed{padding-top:0!important;background:transparent}.rp-admin-embed .rp-wrap{max-width:none;margin:0;padding:0}.rp-admin-embed .rp-controlbar{box-shadow:none;border:1px solid #e0ded6}.rp-public .rp-report-edit-btn,.rp-public .rp-report-editor{display:none!important}
+.rp-tab-groups{display:grid;gap:12px;width:100%}.rp-tab-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.rp-tab-label{font-size:.78rem;font-weight:800;color:#666;min-width:58px;text-transform:uppercase;letter-spacing:.06em}.rp-tabs{display:flex;gap:7px;flex-wrap:wrap}.rp-tab-btn{border:1px solid #e0ded6;background:#fff;color:#1f1f1f;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer;transition:.18s}.rp-tab-btn:hover{border-color:#d18b2f;background:#fff8ec}.rp-tab-btn.active{background:#d18b2f;border-color:#d18b2f;color:#fff}.rp-tab-btn.special{border-style:dashed}.rp-hidden-select{display:none!important}.rp-admin-embed header,.rp-admin-embed .rp-header,.rp-admin-embed footer{display:none!important}.rp-admin-embed{padding-top:0!important;background:transparent}.rp-admin-embed .rp-wrap{max-width:none;margin:0;padding:0}.rp-admin-embed .rp-controlbar{top:0;box-shadow:0 4px 15px rgba(0,0,0,.08);border:1px solid #e0ded6}.rp-public .rp-report-edit-btn,.rp-public .rp-report-editor{display:none!important}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
@@ -731,6 +734,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
+auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(console.warn);
 const reportsCollection = db.collection('matchReports');
 // Sonderberichte liegen absichtlich in derselben Collection wie Wochenberichte,
 // damit die bestehenden Firestore-Regeln weiter greifen.
@@ -1161,6 +1165,21 @@ function detachReportListeners() {
     for (const k in reportListeners) delete reportListeners[k];
 }
 
+function applyReportText(reportText, reportEmpty, text, isAdminMode) {
+    const value = String(text || '');
+    if (value.trim()) {
+        reportText.textContent = value;
+        reportText.dataset.raw = value;
+        reportText.style.display = 'block';
+        reportEmpty.style.display = 'none';
+    } else {
+        reportText.textContent = '';
+        reportText.dataset.raw = '';
+        reportText.style.display = 'none';
+        reportEmpty.style.display = isAdminMode ? 'none' : 'block';
+    }
+}
+
 function renderMatchups(year, week, matchups) {
     detachReportListeners();
     matchupsContainer.innerHTML = '';
@@ -1301,6 +1320,9 @@ function renderMatchups(year, week, matchups) {
                 text: textarea.value,
                 homeTeam: m.homeTeam,
                 awayTeam: m.awayTeam,
+                season: year,
+                week: week,
+                reportOverride: true,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true }).then(async () => {
                 editor.classList.remove('show');
@@ -1310,42 +1332,23 @@ function renderMatchups(year, week, matchups) {
         });
         clearBtn.addEventListener('click', () => {
             if (!confirm('Spielbericht wirklich leeren? Matchup und Box Score bleiben erhalten.')) return;
-            reportsCollection.doc(docId).set({ text:'', updatedAt:firebase.firestore.FieldValue.serverTimestamp() }, { merge:true })
+            reportsCollection.doc(docId).set({ text:'', season:year, week:week, reportOverride:true, updatedAt:firebase.firestore.FieldValue.serverTimestamp() }, { merge:true })
                 .then(async () => { editor.classList.remove('show'); await discoverReportAvailability(); })
                 .catch(err => alert('Löschen fehlgeschlagen: ' + err.message));
         });
 
         matchupsContainer.appendChild(card);
 
-        if (m.staticSource) {
-            const text = String(m.reportText || '');
-            if (text.trim()) {
-                reportText.textContent = text;
-                reportText.dataset.raw = text;
-                reportText.style.display = 'block';
-                reportEmpty.style.display = 'none';
-            } else {
-                reportText.style.display = 'none';
-                reportEmpty.style.display = 'block';
-            }
-            editBtn.style.display = 'none';
-        } else {
-            // Neue/laufende Berichte bleiben live an Firestore gekoppelt.
-            reportListeners[docId] = reportsCollection.doc(docId).onSnapshot(doc => {
-                const text = doc.exists ? (doc.data().text || '') : '';
-                if (text.trim()) {
-                    reportText.textContent = text;
-                    reportText.dataset.raw = text;
-                    reportText.style.display = 'block';
-                    reportEmpty.style.display = 'none';
-                } else {
-                    reportText.style.display = 'none';
-                    reportText.dataset.raw = '';
-                    reportEmpty.style.display = isAdmin ? 'none' : 'block';
-                }
-                editBtn.style.display = isAdmin ? 'block' : 'none';
-            });
-        }
+        const staticBaseText = m.staticSource ? String(m.reportText || '') : '';
+        if (m.staticSource) applyReportText(reportText, reportEmpty, staticBaseText, isAdmin);
+        // Firestore enthält nur Admin-Änderungen/Overrides. Ohne Override bleibt bei Archivberichten die GitHub-Datei die Quelle.
+        reportListeners[docId] = reportsCollection.doc(docId).onSnapshot(doc => {
+            const data = doc.exists ? (doc.data() || {}) : {};
+            const hasOverride = doc.exists && Object.prototype.hasOwnProperty.call(data, 'text');
+            const text = m.staticSource ? (hasOverride ? String(data.text || '') : staticBaseText) : String(data.text || '');
+            applyReportText(reportText, reportEmpty, text, isAdmin);
+            editBtn.style.display = isAdmin ? 'block' : 'none';
+        });
     });
 }
 
@@ -1431,24 +1434,41 @@ async function loadSpecialReport(year, type) {
     matchupsContainer.innerHTML = '';
     statusArea.innerHTML = '<div class="rp-loading">Lade Sonderbericht…</div>';
 
+    const docId = year + '-special-' + type;
     const staticEntry = staticReportEntries.get(`${year}|special:${type}`);
     if (staticEntry) {
         const raw = await fetchStaticText(staticEntry);
+        const override = await seasonReportsCollection.doc(docId).get().catch(() => null);
+        const overrideData = override && override.exists ? (override.data() || {}) : {};
+        const hasOverride = override && override.exists && Object.prototype.hasOwnProperty.call(overrideData, 'content');
+        const shownText = hasOverride ? String(overrideData.content || '') : raw.trim();
         const article = document.createElement('article');
         article.className = 'rp-special-report';
         const title = document.createElement('h3');
-        title.textContent = staticEntry.label || specialLabel(type);
+        title.textContent = overrideData.title || staticEntry.label || specialLabel(type);
         const content = document.createElement('div');
         content.className = 'rp-special-content';
-        content.textContent = raw.trim();
+        content.textContent = shownText;
         article.appendChild(title);
         article.appendChild(content);
+        if (EMBEDDED_ADMIN && isAdmin) {
+            const editor = document.createElement('div');
+            editor.className = 'rp-report-editor show';
+            const textarea = document.createElement('textarea');
+            textarea.value = shownText; textarea.rows = 12;
+            const actions = document.createElement('div'); actions.className = 'rp-report-editor-actions';
+            const save = document.createElement('button'); save.className = 'rp-btn rp-btn-primary'; save.textContent = 'Sonderbericht speichern';
+            save.onclick = async () => {
+                await seasonReportsCollection.doc(docId).set({ season:year, type, title:title.textContent, content:textarea.value, reportOverride:true, updatedAt:firebase.firestore.FieldValue.serverTimestamp() }, { merge:true });
+                content.textContent = textarea.value;
+            };
+            actions.appendChild(save); editor.appendChild(textarea); editor.appendChild(actions); article.appendChild(editor);
+        }
         statusArea.innerHTML = '';
         matchupsContainer.appendChild(article);
         return;
     }
 
-    const docId = year + '-special-' + type;
     const doc = await seasonReportsCollection.doc(docId).get();
     if (!doc.exists) {
         throw new Error('Sonderbericht ist noch nicht vorhanden.');
