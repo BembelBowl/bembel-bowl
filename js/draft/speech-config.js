@@ -1,5 +1,5 @@
 // Public endpoint of your Cloudflare Worker. Replace once after deployment.
-export const TTS_WORKER_URL = 'https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev/tts';
+export const TTS_WORKER_URL = 'https://bembel-bowl-tts.arcane-decksmith-api.workers.dev/tts';
 
 export const LOCAL_AUDIO = {
   pickIn: 'audio/pick-in-jingle.wav',
