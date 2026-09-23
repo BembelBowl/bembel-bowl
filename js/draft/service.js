@@ -7,6 +7,51 @@ export const stateRef = doc(db, ...COLLECTIONS.state);
 export const draftOrderRef = doc(db, COLLECTIONS.draftOrder, 'current');
 export const divisionOrderRef = doc(db, COLLECTIONS.divisionOrder, 'current');
 
+function canonicalPlayerName(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\s+(?:jr|sr|ii|iii|iv|v)$/i, '')
+    .trim();
+}
+
+function canonicalPosition(value) {
+  const pos = String(value || '').toUpperCase().trim();
+  if (['DST','D/ST','DEFENSE'].includes(pos)) return 'DEF';
+  if (pos === 'PK') return 'K';
+  return pos;
+}
+
+function canonicalNflTeam(value) {
+  return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+function samePlayerIdentity(a, b) {
+  if (!a || !b) return false;
+
+  const aId = String(a.playerId || a.id || a.sleeperId || '').trim();
+  const bId = String(b.playerId || b.id || b.sleeperId || '').trim();
+  if (aId && bId && aId === bId) return true;
+
+  const aName = canonicalPlayerName(a.name);
+  const bName = canonicalPlayerName(b.name);
+  if (!aName || !bName || aName !== bName) return false;
+
+  const aPos = canonicalPosition(a.position);
+  const bPos = canonicalPosition(b.position);
+  if (aPos && bPos && aPos !== bPos) return false;
+
+  const aTeam = canonicalNflTeam(a.nflTeam || a.team);
+  const bTeam = canonicalNflTeam(b.nflTeam || b.team);
+  if (aTeam && bTeam && aTeam !== bTeam) return false;
+
+  return true;
+}
+
 export function watchBoard(cb, err = console.error) { return onSnapshot(boardRef, s => cb(s.exists() ? s.data() : { teams: [], picks: {} }), err); }
 export function watchState(cb, err = console.error) { return onSnapshot(stateRef, s => cb(s.exists() ? s.data() : {}), err); }
 export function watchDraftOrder(cb, err = console.error) { return onSnapshot(draftOrderRef, s => cb(s.exists() ? s.data() : {}), err); }
@@ -200,7 +245,7 @@ export async function adminSetPick({ round, position, player, actorUid }) {
     const board = boardSnap.exists() ? boardSnap.data() : { teams: [], picks: {} };
     const state = stateSnap.exists() ? stateSnap.data() : {};
     if (!state.boardCreated || !state.orderSet) throw new Error('Kein aktiver Draft mit festgelegter Reihenfolge.');
-    const duplicateKey = Object.entries(board.picks || {}).find(([k,p]) => k !== key && p?.name?.toLowerCase() === player.name.toLowerCase());
+    const duplicateKey = Object.entries(board.picks || {}).find(([k,p]) => k !== key && samePlayerIdentity(p, player));
     if (duplicateKey) throw new Error(`${player.name} wurde bereits gedraftet.`);
 
     const existingPick = board.picks?.[key];
@@ -271,7 +316,7 @@ export async function submitPick({ teamId, player, source = 'remote', actorUid }
     if (!next) throw new Error('Draft ist bereits beendet.');
     const currentTeamName = board.teams?.[next.position - 1];
     if (teamId !== currentTeamName) throw new Error('Dieses Team ist nicht on the clock.');
-    const duplicate = Object.values(board.picks || {}).some(p => p?.name?.toLowerCase() === player.name.toLowerCase());
+    const duplicate = Object.values(board.picks || {}).some(p => samePlayerIdentity(p, player));
     if (duplicate) throw new Error(`${player.name} wurde bereits gedraftet.`);
     const now = Timestamp.now();
     const started = timestampMs(state.clockStartedAt);

@@ -176,23 +176,21 @@ function renderDivisions() {
   $('revealDivisionBtn').disabled = !seq.length || count >= seq.length;
 }
 
-let adminSelectedRound = 1;
-
 function renderAdminBoard() {
   const list = $('adminBoard');
   const tabs = $('adminRoundTabs');
   if (!list || !tabs) return;
 
-  adminSelectedRound = Math.max(1, Math.min(DRAFT.roundCount, Number(adminSelectedRound || 1)));
   const teamsOrder = board.teams || [];
+  const next = getNextOpenSlot(board.picks || {});
+  const completed = orderedPicks(board.picks || {});
+  const lastRound = completed.length ? Number(completed[completed.length - 1].round || 1) : 1;
+  const round = Math.max(1, Math.min(DRAFT.roundCount, Number(next?.round || lastRound || 1)));
 
-  tabs.innerHTML = Array.from({ length:DRAFT.roundCount }, (_, i) => {
-    const round = i + 1;
-    const hasPicks = Array.from({length:DRAFT.teamCount}, (_, p) => board.picks?.[`${round}-${p+1}`]).some(Boolean);
-    return `<button type="button" class="admin-round-tab ${round === adminSelectedRound ? 'active' : ''} ${hasPicks ? 'has-picks' : ''}" data-admin-round-tab="${round}">R${round}</button>`;
-  }).join('');
-
-  const round = adminSelectedRound;
+  // Admin Control always follows the actual draft automatically.
+  // No manual round switching: after the final pick of a round the board
+  // immediately moves to the next round.
+  tabs.innerHTML = `<button type="button" class="admin-round-tab active" disabled>R${round} · AKTUELL</button>`;
   const positions = Array.from({ length:DRAFT.teamCount }, (_, idx) => idx + 1);
   if (round % 2 === 0) positions.reverse();
 
@@ -217,12 +215,6 @@ function renderAdminBoard() {
   }).join('');
 }
 
-$('adminRoundTabs')?.addEventListener('click', e => {
-  const btn = e.target.closest('[data-admin-round-tab]');
-  if (!btn) return;
-  adminSelectedRound = Number(btn.dataset.adminRoundTab) || 1;
-  renderAdminBoard();
-});
 
 $('adminBoard').onclick = e => {
   const btn = e.target.closest('[data-round][data-pos]'); if (!btn) return;
@@ -236,11 +228,46 @@ $('adminBoard').onclick = e => {
 };
 $('pickModalClose').onclick = () => $('adminPickModal').classList.add('is-hidden');
 $('adminPickModal').onclick = e => { if (e.target === $('adminPickModal')) $('adminPickModal').classList.add('is-hidden'); };
+
+function adminCanonicalPlayerName(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\s+(?:jr|sr|ii|iii|iv|v)$/i, '')
+    .trim();
+}
+
+function adminSamePlayerIdentity(a, b) {
+  if (!a || !b) return false;
+  const aId = String(a.playerId || a.id || '').trim();
+  const bId = String(b.playerId || b.id || '').trim();
+  if (aId && bId && aId === bId) return true;
+
+  if (adminCanonicalPlayerName(a.name) !== adminCanonicalPlayerName(b.name)) return false;
+
+  const aPos = String(a.position || '').toUpperCase().replace('DST','DEF').replace('D/ST','DEF');
+  const bPos = String(b.position || '').toUpperCase().replace('DST','DEF').replace('D/ST','DEF');
+  if (aPos && bPos && aPos !== bPos) return false;
+
+  const aTeam = String(a.nflTeam || a.team || '').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  const bTeam = String(b.nflTeam || b.team || '').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if (aTeam && bTeam && aTeam !== bTeam) return false;
+
+  return true;
+}
+
 $('adminPlayerSearch').oninput = () => {
   const q=$('adminPlayerSearch').value.trim().toLowerCase();
   if (q.length<2) return $('adminPlayerResults').innerHTML='';
-  const pickedNames=new Set(Object.values(board.picks||{}).map(p=>String(p.name||'').toLowerCase()));
-  $('adminPlayerResults').innerHTML = players.filter(p=>p.search?.includes(q) || p.name.toLowerCase().includes(q)).slice(0,20).map(p=>`<div class="result"><span class="tag">${esc(p.position)}</span><div><b>${esc(p.name)}</b><br><small>${esc(p.nflTeam||'')}</small></div><button data-admin-player="${esc(p.id)}" ${pickedNames.has(p.name.toLowerCase()) ? 'disabled' : ''}>Eintragen</button></div>`).join('');
+  const pickedPlayers = Object.values(board.picks || {});
+  $('adminPlayerResults').innerHTML = players.filter(p=>p.search?.includes(q) || p.name.toLowerCase().includes(q)).slice(0,20).map(p=>{
+    const alreadyPicked = pickedPlayers.some(pick => adminSamePlayerIdentity(pick, p));
+    return `<div class="result"><span class="tag">${esc(p.position)}</span><div><b>${esc(p.name)}</b><br><small>${esc(p.nflTeam||'')}</small></div><button data-admin-player="${esc(p.id)}" ${alreadyPicked ? 'disabled' : ''}>${alreadyPicked ? 'Bereits gepickt' : 'Eintragen'}</button></div>`;
+  }).join('');
 };
 $('adminPlayerResults').onclick = async e => {
   const id=e.target.dataset.adminPlayer; if(!id||!editSlot) return;

@@ -4,7 +4,14 @@ let byTeamPos = new Map();
 let meta = {};
 
 function key(name) {
-  return String(name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+  return String(name || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+(?:jr|sr|ii|iii|iv|v)$/i, '')
+    .replace(/[^a-z0-9]/g, '');
 }
 function posKey(team, position) { return `${String(team || '').toUpperCase()}|${position === 'DST' ? 'DEF' : position}`; }
 function normPos(pos) { return pos === 'DST' || pos === 'D/ST' ? 'DEF' : (pos === 'PK' ? 'K' : pos); }
