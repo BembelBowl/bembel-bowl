@@ -15,11 +15,21 @@ let animationQueue = Promise.resolve();
 let resolveStateReady;
 const stateReady = new Promise(resolve => { resolveStateReady = resolve; });
 let stateSnapshotReady = false;
+let availablePositionFilter = '';
 const $ = id => document.getElementById(id);
 const PLAYER_FALLBACK = 'images/player-silhouette.svg';
 
 $('season').textContent = DRAFT.season;
 $('audioUnlock').onclick = () => { unlockAudio(); $('audioUnlock').textContent = '🔊 Audio bereit'; };
+$('availableFilters')?.addEventListener('click', e => {
+  const btn = e.target.closest('[data-pos]');
+  if (!btn) return;
+  availablePositionFilter = String(btn.dataset.pos || '').toUpperCase();
+  document.querySelectorAll('#availableFilters [data-pos]').forEach(b => {
+    b.classList.toggle('active', b === btn);
+  });
+  render();
+});
 
 Promise.allSettled([loadRankings(), loadSleeperPlayers()]).then(([r, p]) => {
   rankingsReady = r.status === 'fulfilled';
@@ -126,6 +136,11 @@ function render() {
     if (isDefensePosition(p.position)) {
       const defenseTeam = canonicalNflTeam(p.team || p.nflTeam || p.name);
       if (defenseTeam && pickedDefenseTeams.has(defenseTeam)) return false;
+    }
+
+    if (availablePositionFilter) {
+      const candidatePos = isDefensePosition(p.position) ? 'DEF' : String(p.position || '').toUpperCase();
+      if (candidatePos !== availablePositionFilter) return false;
     }
     return true;
   }).slice(0, 10);

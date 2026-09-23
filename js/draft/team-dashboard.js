@@ -114,38 +114,10 @@ async function boot() {
 
 function ownDraftSheetIdentitySet() {
   const identities = new Set();
-
-  const addPlayer = (p) => {
-    if (!p) return;
-    if (typeof p === 'string') {
-      const n = normalizeTeamPlayerName(p);
-      if (n) identities.add(n);
-      return;
-    }
-    const id = String(p.playerId || p.id || p.sleeperId || '').trim();
-    if (id) identities.add(`id:${id}`);
-    const n = normalizeTeamPlayerName(p.name);
-    if (n) identities.add(`name:${n}`);
-  };
-
-  const sheet = preferences || {};
-  const prioritySources = [
-    sheet.priorities,
-    sheet.playerPriorities,
-    sheet.priorityPlayers,
-    sheet.players
-  ];
-
-  prioritySources.forEach(src => {
-    if (Array.isArray(src)) src.forEach(addPlayer);
-    else if (src && typeof src === 'object') {
-      Object.values(src).forEach(value => {
-        if (Array.isArray(value)) value.forEach(addPlayer);
-        else addPlayer(value);
-      });
-    }
+  Object.values(priorityState || {}).flat().forEach(name => {
+    const normalized = normalizeTeamPlayerName(name);
+    if (normalized) identities.add(normalized);
   });
-
   return identities;
 }
 
@@ -344,8 +316,17 @@ function renderAvailable() {
   const pos = $('posFilter').value;
   const q = $('availableSearch').value.toLowerCase();
   const picked = pickedKeys();
+  const ownSheet = ownDraftSheetIdentitySet();
   const available = ranked
-    .filter(p => p.hasRanking && !picked.has(`id:${p.id}`) && !picked.has(`name:${p.name.toLowerCase()}`) && (!pos || p.position === pos) && (!q || p.name.toLowerCase().includes(q)))
+    .filter(p => {
+      const normalizedName = normalizeTeamPlayerName(p.name);
+      return p.hasRanking
+        && !picked.has(`id:${p.id}`)
+        && !picked.has(`name:${p.name.toLowerCase()}`)
+        && !ownSheet.has(normalizedName)
+        && (!pos || p.position === pos)
+        && (!q || p.name.toLowerCase().includes(q));
+    })
     .sort((a, b) => pos
       ? (a.positionEcr ?? a.ecr ?? 99999) - (b.positionEcr ?? b.ecr ?? 99999)
       : (a.ecr ?? 99999) - (b.ecr ?? 99999));
@@ -355,21 +336,69 @@ function renderAvailable() {
     .join('') || '<p class="empty-state">Keine verfügbaren FantasyPros-ECR-Spieler für diesen Filter.</p>';
 }
 
+function rosterRawPick(pick) {
+  return pick?.key ? (board.picks?.[pick.key] || {}) : {};
+}
+
+function rosterPlayerPosition(pick) {
+  const raw = rosterRawPick(pick);
+  return String(raw.position || raw.pos || '').toUpperCase();
+}
+
 function renderRoster() {
   if (!profile) return;
   const roster = orderedPicks(board.picks || {}).filter(p => board.teams?.[p.position - 1] === profile.teamId);
   $('rosterCount').textContent = `${roster.length} Pick${roster.length === 1 ? '' : 's'}`;
-  $('myRoster').innerHTML = roster.length ? roster.map(p => {
-    // Prefer the FantasyPros lookup because board picks themselves normally do not
-    // contain bye-week data. Team+position also resolves defenses reliably.
-    const ranking = rankForPlayer({ name: p.name, nflTeam: p.nflTeam, position: p.position });
-    const rankedPlayer = ranked.find(x =>
-      (p.playerId && String(x.id) === String(p.playerId)) ||
-      x.name?.toLowerCase() === String(p.name || '').toLowerCase()
-    );
-    const bye = p.bye ?? ranking?.bye ?? rankedPlayer?.bye ?? '';
-    return `<div class="roster-player"><span class="roster-pos">${esc(p.position)}</span><div><strong>${esc(p.name)}</strong><br><small>R${p.round} · #${p.overall} · ${esc(p.nflTeam || '')} · Bye ${esc(bye || '—')}</small></div></div>`;
-  }).join('') : '<p class="empty-state">Noch keine Spieler gedraftet.</p>';
+
+  if (!roster.length) {
+    $('myRoster').classList.remove('roster-grouped');
+    $('myRoster').innerHTML = '<p class="empty-state">Noch keine Spieler gedraftet.</p>';
+    return;
+  }
+
+  const groups = { QB:[], RB:[], WR:[], TE:[], K:[], DEF:[] };
+  roster.forEach(p => {
+    const playerPosRaw = rosterPlayerPosition(p);
+    const playerPos = ['DST','D/ST','DEFENSE'].includes(playerPosRaw) ? 'DEF' : playerPosRaw;
+    if (!groups[playerPos]) groups[playerPos] = [];
+    groups[playerPos].push(p);
+  });
+
+  const positionOrder = ['QB','RB','WR','TE','K','DEF'];
+  const otherPositions = Object.keys(groups).filter(pos => !positionOrder.includes(pos) && groups[pos].length);
+  const orderedPositions = [...positionOrder, ...otherPositions];
+
+  $('myRoster').classList.add('roster-grouped');
+  $('myRoster').innerHTML = orderedPositions
+    .filter(pos => groups[pos]?.length)
+    .map(pos => {
+      const cards = groups[pos].map(p => {
+        const raw = rosterRawPick(p);
+        const playerPosition = rosterPlayerPosition(p);
+        const ranking = rankForPlayer({
+          name: p.name,
+          nflTeam: p.nflTeam || raw.nflTeam,
+          position: playerPosition
+        });
+        const rankedPlayer = ranked.find(x =>
+          (p.playerId && String(x.id) === String(p.playerId)) ||
+          x.name?.toLowerCase() === String(p.name || '').toLowerCase()
+        );
+        const bye = raw.bye ?? p.bye ?? ranking?.bye ?? rankedPlayer?.bye ?? '';
+        return `<div class="roster-player">
+          <span class="roster-pos">${esc(pos)}</span>
+          <div>
+            <strong>${esc(p.name)}</strong><br>
+            <small>R${p.round} · #${p.overall} · ${esc(p.nflTeam || raw.nflTeam || '')} · Bye ${esc(bye || '—')}</small>
+          </div>
+        </div>`;
+      }).join('');
+
+      return `<section class="roster-position-group">
+        <div class="roster-position-heading"><strong>${esc(pos)}</strong><span>${groups[pos].length}</span></div>
+        <div class="roster-position-players">${cards}</div>
+      </section>`;
+    }).join('');
 }
 
 function renderRankingInfo() {
