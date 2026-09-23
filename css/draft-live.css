@@ -78,3 +78,15 @@
   border-color:var(--gold);
   color:#17120c;
 }
+
+/* V11: Top 25 Best Available remains usable on a 16:9 live screen */
+.available-list{
+  max-height:calc(100vh - 285px);
+  overflow-y:auto;
+  padding-right:4px;
+  scrollbar-width:thin;
+  scrollbar-color:#c89447 #eee8dc;
+}
+.available-list::-webkit-scrollbar{width:6px}
+.available-list::-webkit-scrollbar-track{background:#eee8dc;border-radius:6px}
+.available-list::-webkit-scrollbar-thumb{background:#c89447;border-radius:6px}
