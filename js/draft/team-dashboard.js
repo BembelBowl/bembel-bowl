@@ -20,13 +20,18 @@ let bootedUid = null;
 let wasOnClock = false;
 let popupTimer = null;
 let draftAccessOpen = false;
+let draftIsLive = false;
+let availablePositionFilter = '';
 let resolveDraftStateReady;
 const draftStateReady = new Promise(resolve => { resolveDraftStateReady = resolve; });
 let draftStateSeen = false;
 
 watchState(s => {
   state = s || {};
-  draftAccessOpen = !!state.boardCreated && !!state.orderSet && state.status === 'live';
+  draftIsLive = !!state.boardCreated && !!state.orderSet && state.status === 'live';
+  // Pre-draft access starts as soon as a new board exists (status "setup").
+  // The sheet is editable in setup and becomes read-only once the draft is live.
+  draftAccessOpen = !!state.boardCreated && ['setup', 'live'].includes(String(state.status || ''));
   if (!draftStateSeen) {
     draftStateSeen = true;
     resolveDraftStateReady();
@@ -148,8 +153,9 @@ function normalizeTeamPlayerName(value) {
 
 function render() {
   if (!profile) return;
+  applyDraftMode();
   const next = getNextOpenSlot(board.picks || {});
-  const onClock = !!next && board.teams?.[next.position - 1] === profile.teamId;
+  const onClock = draftIsLive && !!next && board.teams?.[next.position - 1] === profile.teamId;
   $('clockBadge').classList.toggle('is-hidden', !onClock);
   if (onClock) $('clockBadge').textContent = `ON THE CLOCK · #${next.overall}`;
   $('pickSearch').disabled = !onClock;
@@ -161,6 +167,42 @@ function render() {
   wasOnClock = onClock;
   renderAvailable();
   renderRoster();
+}
+
+
+function applyDraftMode() {
+  const editable = !draftIsLive;
+
+  $('sheetLockHint')?.classList.toggle('is-hidden', editable);
+  $('sheetDefaultBadge').textContent = draftIsLive
+    ? 'Schreibgeschützt'
+    : (sheet.usesDefaultPlan === false ? 'Individuelles Sheet' : 'Default-Regeln');
+
+  $('availableModeBadge').textContent = draftIsLive ? 'LIVE' : 'PRE-DRAFT';
+  $('availableModeBadge').classList.toggle('live', draftIsLive);
+  document.querySelector('.available-panel')?.classList.toggle('live-mode', draftIsLive);
+  document.querySelector('.sheet-panel')?.classList.toggle('sheet-locked', draftIsLive);
+  document.querySelector('.priorities-panel')?.classList.toggle('sheet-locked', draftIsLive);
+
+  $$('[data-round]').forEach(el => { el.disabled = !editable; });
+  if ($('saveSheet')) $('saveSheet').disabled = !editable;
+
+  document.querySelectorAll('.priority-player').forEach(el => {
+    el.draggable = editable;
+    el.classList.toggle('locked', !editable);
+  });
+
+  const liveHint = draftIsLive
+    ? 'Live-Modus: synchron zum Live Screen. Bereits gedraftete Spieler sind ausgeblendet.'
+    : 'Pre-Draft: vollständige ECR-Liste. Nur Spieler aus deinem eigenen Draft Sheet werden ausgeblendet.';
+  document.querySelector('.available-panel .mode-hint')?.remove();
+  const controls = document.querySelector('.team-available-controls');
+  if (controls) {
+    const hint = document.createElement('p');
+    hint.className = 'hint mode-hint';
+    hint.textContent = liveHint;
+    controls.insertAdjacentElement('afterend', hint);
+  }
 }
 
 function showOnClockPopup(teamName) {
@@ -247,11 +289,16 @@ function hydrateSheet() {
   DRAFT.positions.forEach(pos => { priorityState[pos] = [...(sheet.playerPriorities?.[pos] || [])]; });
   $('sheetDefaultBadge').textContent = sheet.usesDefaultPlan === false ? 'Individuelles Sheet' : 'Default-Regeln';
   renderPriorityLists();
+  applyDraftMode();
   renderAvailable();
 }
 
 $('saveSheet').onclick = async () => {
   const status = $('sheetSaveState');
+  if (draftIsLive) {
+    setSaveState(status, 'Draft läuft – das Draft Sheet ist schreibgeschützt.', true);
+    return;
+  }
   setSaveState(status, 'Speichert…');
   try {
     // Always save both parts in one atomic document write so neither can overwrite/reset the other.
@@ -273,18 +320,28 @@ function renderPriorityLists() {
     const list = document.querySelector(`[data-priority-list="${pos}"]`);
     if (!list) return;
     list.innerHTML = arr.length ? arr.map((name, index) => `
-      <div class="priority-player" draggable="true" data-pos="${pos}" data-name="${esc(name)}">
+      <div class="priority-player" draggable="${draftIsLive ? 'false' : 'true'}" data-pos="${pos}" data-name="${esc(name)}">
         <span class="drag">⋮⋮</span><span class="priority-num">${index + 1}</span><span class="priority-name">${esc(name)}</span><span class="remove" title="Entfernen">×</span>
       </div>`).join('') : '<div class="priority-empty">Noch keine Spieler ausgewählt.</div>';
   });
   $$('.priority-player').forEach(el => {
-    el.addEventListener('dragstart', () => el.classList.add('dragging'));
-    el.addEventListener('dragend', () => { el.classList.remove('dragging'); syncPriorityFromDom(el.dataset.pos); });
-    el.addEventListener('click', () => removePriority(el.dataset.pos, el.dataset.name));
+    el.classList.toggle('locked', draftIsLive);
+    el.addEventListener('dragstart', e => {
+      if (draftIsLive) { e.preventDefault(); return; }
+      el.classList.add('dragging');
+    });
+    el.addEventListener('dragend', () => {
+      el.classList.remove('dragging');
+      if (!draftIsLive) syncPriorityFromDom(el.dataset.pos);
+    });
+    el.addEventListener('click', () => {
+      if (!draftIsLive) removePriority(el.dataset.pos, el.dataset.name);
+    });
   });
 }
 
 function addPriority(player) {
+  if (draftIsLive) return;
   const pos = player.position;
   if (!DRAFT.positions.includes(pos)) return;
   const existsAnywhere = DRAFT.positions.some(p => priorityState[p].some(n => n.toLowerCase() === player.name.toLowerCase()));
@@ -295,6 +352,7 @@ function addPriority(player) {
   setSaveState($('sheetSaveState'), `${player.name} hinzugefügt – Draft Sheet noch speichern.`);
 }
 function removePriority(pos, name) {
+  if (draftIsLive) return;
   priorityState[pos] = (priorityState[pos] || []).filter(n => n !== name);
   renderPriorityLists();
   renderAvailable();
@@ -319,40 +377,152 @@ function getDragAfterElement(container, y) {
   }, { offset: Number.NEGATIVE_INFINITY }).element;
 }
 
-$('posFilter').onchange = renderAvailable;
+$('posTabs').onclick = e => {
+  const btn = e.target.closest('[data-pos]');
+  if (!btn) return;
+  availablePositionFilter = String(btn.dataset.pos || '').toUpperCase();
+  $$('#posTabs [data-pos]').forEach(b => b.classList.toggle('active', b === btn));
+  renderAvailable();
+};
 $('availableSearch').oninput = renderAvailable;
 $('availableList').onclick = e => {
+  if (draftIsLive) return;
   const id = e.target.closest('[data-add-id]')?.dataset.addId;
   if (!id) return;
   const p = ranked.find(x => String(x.id) === id);
   if (p) addPriority(p);
 };
 
+
+function isDefensePosition(position) {
+  return ['DEF','DST','D/ST','DEFENSE'].includes(String(position || '').toUpperCase());
+}
+
+function canonicalNflTeam(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const upper = raw.toUpperCase();
+  const aliases = {
+    ARI:'ARI','ARIZONA CARDINALS':'ARI',ATL:'ATL','ATLANTA FALCONS':'ATL',
+    BAL:'BAL','BALTIMORE RAVENS':'BAL',BUF:'BUF','BUFFALO BILLS':'BUF',
+    CAR:'CAR','CAROLINA PANTHERS':'CAR',CHI:'CHI','CHICAGO BEARS':'CHI',
+    CIN:'CIN','CINCINNATI BENGALS':'CIN',CLE:'CLE','CLEVELAND BROWNS':'CLE',
+    DAL:'DAL','DALLAS COWBOYS':'DAL',DEN:'DEN','DENVER BRONCOS':'DEN',
+    DET:'DET','DETROIT LIONS':'DET',GB:'GB','GREEN BAY PACKERS':'GB',
+    HOU:'HOU','HOUSTON TEXANS':'HOU','HOUSTON TEXANS DEFENSE':'HOU','HOU DEFENSE':'HOU',
+    IND:'IND','INDIANAPOLIS COLTS':'IND',JAX:'JAX',JAC:'JAX','JACKSONVILLE JAGUARS':'JAX',
+    KC:'KC','KANSAS CITY CHIEFS':'KC',LAC:'LAC','LOS ANGELES CHARGERS':'LAC',
+    LAR:'LAR','LOS ANGELES RAMS':'LAR',LV:'LV','LAS VEGAS RAIDERS':'LV',
+    MIA:'MIA','MIAMI DOLPHINS':'MIA',MIN:'MIN','MINNESOTA VIKINGS':'MIN',
+    NE:'NE','NEW ENGLAND PATRIOTS':'NE',NO:'NO','NEW ORLEANS SAINTS':'NO',
+    NYG:'NYG','NEW YORK GIANTS':'NYG',NYJ:'NYJ','NEW YORK JETS':'NYJ',
+    PHI:'PHI','PHILADELPHIA EAGLES':'PHI',PIT:'PIT','PITTSBURGH STEELERS':'PIT',
+    SEA:'SEA','SEATTLE SEAHAWKS':'SEA',SF:'SF','SAN FRANCISCO 49ERS':'SF','SAN FRANCISCO FORTY NINERS':'SF',
+    TB:'TB','TAMPA BAY BUCCANEERS':'TB',TEN:'TEN','TENNESSEE TITANS':'TEN',
+    WAS:'WAS',WSH:'WAS','WASHINGTON COMMANDERS':'WAS'
+  };
+  const cleaned = upper
+    .replace(/\s+D\/ST$/,'')
+    .replace(/\s+DST$/,'')
+    .replace(/\s+DEFENSE$/,'')
+    .replace(/\s+DEF$/,'')
+    .trim();
+  return aliases[upper] || aliases[cleaned] || cleaned;
+}
+
+function teamPlayerIdentityKey(player) {
+  if (!player) return '';
+  if (isDefensePosition(player.position)) {
+    const teamCode = canonicalNflTeam(player.nflTeam || player.team || player.name);
+    return teamCode ? `DEF:${teamCode}` : '';
+  }
+  const name = normalizeTeamPlayerName(player.name);
+  const pos = String(player.position || '').toUpperCase();
+  const teamCode = canonicalNflTeam(player.nflTeam || player.team || '');
+  return name ? `${name}|${pos}|${teamCode}` : '';
+}
+
+function livePickedSets() {
+  const picks = Object.values(board.picks || {});
+  return {
+    ids: new Set(picks.map(p => String(p.playerId || p.id || p.sleeperId || '').trim()).filter(Boolean)),
+    names: new Set(picks.map(p => normalizeTeamPlayerName(p.name)).filter(Boolean)),
+    keys: new Set(picks.map(p => teamPlayerIdentityKey(p)).filter(Boolean)),
+    defenses: new Set(
+      picks
+        .filter(p => isDefensePosition(p.position))
+        .map(p => canonicalNflTeam(p.nflTeam || p.team || p.name))
+        .filter(Boolean)
+    )
+  };
+}
+
+function isAlreadyDraftedLive(player, picked) {
+  const id = String(player.id || player.playerId || player.sleeperId || '').trim();
+  const name = normalizeTeamPlayerName(player.name);
+  const key = teamPlayerIdentityKey(player);
+
+  if (id && picked.ids.has(id)) return true;
+  if (name && picked.names.has(name)) return true;
+  if (key && picked.keys.has(key)) return true;
+
+  if (isDefensePosition(player.position)) {
+    const defenseTeam = canonicalNflTeam(player.team || player.nflTeam || player.name);
+    if (defenseTeam && picked.defenses.has(defenseTeam)) return true;
+  }
+  return false;
+}
+
 function renderAvailable() {
   if (!ranked.length) return;
-  const pos = $('posFilter').value;
-  const q = $('availableSearch').value.toLowerCase();
-  const picked = pickedKeys();
+
+  const pos = availablePositionFilter;
+  const q = $('availableSearch').value.toLowerCase().trim();
   const ownSheet = ownDraftSheetIdentitySet();
+  const picked = livePickedSets();
+
   const available = ranked
     .filter(p => {
-      const normalizedName = normalizeTeamPlayerName(p.name);
+      const playerPos = isDefensePosition(p.position) ? 'DEF' : String(p.position || '').toUpperCase();
+      if (!DRAFT.positions.includes(playerPos)) return false;
+      if (!p.hasRanking) return false;
+      if (pos && playerPos !== pos) return false;
+      if (q && !String(p.name || '').toLowerCase().includes(q)) return false;
+
+      if (draftIsLive) {
+        // Live mode mirrors the Live Screen: only drafted players are removed.
+        return !isAlreadyDraftedLive(p, picked);
+      }
+
+      // Pre-draft mode: nobody is removed because of the global board.
+      // Only this team's own Draft Sheet/priorities are hidden.
       const playerId = String(p.id || p.playerId || '').trim();
-      return p.hasRanking
-        && !picked.has(`id:${p.id}`)
-        && !picked.has(`name:${p.name.toLowerCase()}`)
-        && !(playerId && ownSheet.has(`id:${playerId}`))
-        && !ownSheet.has(`name:${normalizedName}`)
-        && (!pos || p.position === pos)
-        && (!q || p.name.toLowerCase().includes(q));
+      const normalizedName = normalizeTeamPlayerName(p.name);
+      if (playerId && ownSheet.has(`id:${playerId}`)) return false;
+      if (normalizedName && ownSheet.has(`name:${normalizedName}`)) return false;
+      return true;
     })
-    .sort((a, b) => pos
-      ? (a.positionEcr ?? a.ecr ?? 99999) - (b.positionEcr ?? b.ecr ?? 99999)
-      : (a.ecr ?? 99999) - (b.ecr ?? 99999));
+    // Keep the same overall ECR order as the Live Screen. Position tabs only filter that order.
+    .sort((a, b) =>
+      (a.overallEcr ?? a.ecr ?? a.sortRank ?? 999999) -
+      (b.overallEcr ?? b.ecr ?? b.sortRank ?? 999999)
+    );
+
   $('availableList').innerHTML = available
-    .slice(0, 140)
-    .map((p, idx) => `<div class="avail-row"><b>#${idx + 1}</b><div><b>${esc(p.name)}</b><br><small>${esc(p.nflTeam || '')}${p.bye ? ` · Bye ${p.bye}` : ''}</small></div><span class="tag">${esc(p.position)}</span><small>${pos && p.positionEcr != null ? `Pos ECR ${p.positionEcr}` : `ECR ${p.ecr ?? '—'}`}</small><button class="add-priority" data-add-id="${esc(p.id)}">+ Liste</button></div>`)
-    .join('') || '<p class="empty-state">Keine verfügbaren FantasyPros-ECR-Spieler für diesen Filter.</p>';
+    .map((p, idx) => {
+      const playerPos = isDefensePosition(p.position) ? 'DEF' : p.position;
+      const addButton = draftIsLive
+        ? ''
+        : `<button class="add-priority" data-add-id="${esc(p.id)}">+ Liste</button>`;
+      return `<div class="avail-row ${draftIsLive ? 'live-row' : ''}">
+        <b>#${idx + 1}</b>
+        <div><b>${esc(p.name)}</b><br><small>${esc(p.nflTeam || p.team || '')}${p.bye ? ` · Bye ${p.bye}` : ''}</small></div>
+        <span class="tag">${esc(playerPos)}</span>
+        <small>ECR ${p.overallEcr ?? p.ecr ?? '—'}</small>
+        ${addButton}
+      </div>`;
+    })
+    .join('') || '<p class="empty-state">Keine Spieler für diesen Filter verfügbar.</p>';
 }
 
 function rosterRawPick(pick) {
