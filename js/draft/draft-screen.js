@@ -87,8 +87,21 @@ function render() {
   }
 
   const pickedValues = Object.values(board.picks || {});
-  const pickedNames = new Set(pickedValues.map(p => String(p.name || '').trim().toLowerCase()).filter(Boolean));
-  const pickedIds = new Set(pickedValues.map(p => String(p.playerId || p.id || '').trim()).filter(Boolean));
+  const pickedIds = new Set(
+    pickedValues
+      .map(p => String(p.playerId || p.id || p.sleeperId || '').trim())
+      .filter(Boolean)
+  );
+  const pickedNames = new Set(
+    pickedValues
+      .map(p => normalizePlayerName(p.name))
+      .filter(Boolean)
+  );
+  const pickedKeys = new Set(
+    pickedValues
+      .map(p => playerIdentityKey(p))
+      .filter(Boolean)
+  );
   const pickedDefenseTeams = new Set(
     pickedValues
       .filter(p => isDefensePosition(p.position))
@@ -96,11 +109,14 @@ function render() {
       .filter(Boolean)
   );
 
-  const candidates = rankingsReady ? bestAvailable(new Set(), 80) : [];
+  const candidates = rankingsReady ? bestAvailable(new Set(), 120) : [];
   const avail = candidates.filter(p => {
-    const id = String(p.id || p.playerId || '').trim();
-    const name = String(p.name || '').trim().toLowerCase();
+    const id = String(p.id || p.playerId || p.sleeperId || '').trim();
+    const name = normalizePlayerName(p.name);
+    const key = playerIdentityKey(p);
+
     if (id && pickedIds.has(id)) return false;
+    if (key && pickedKeys.has(key)) return false;
     if (name && pickedNames.has(name)) return false;
 
     if (isDefensePosition(p.position)) {
@@ -116,6 +132,29 @@ function render() {
   $('recentList').innerHTML = recent.map(p => `<div class="recent-item"><strong>#${p.overall} ${esc(p.name)}</strong><span>${esc(board.teams?.[p.position - 1] || '')} · ${p.position} ${esc(fullNflTeam(p.nflTeam) || p.nflTeam || '')}</span></div>`).join('');
 }
 
+
+
+function normalizePlayerName(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function playerIdentityKey(player) {
+  if (!player) return '';
+  if (isDefensePosition(player.position)) {
+    const team = canonicalNflTeam(player.nflTeam || player.team || player.name);
+    return team ? `DEF:${team}` : '';
+  }
+  const name = normalizePlayerName(player.name);
+  const team = canonicalNflTeam(player.nflTeam || player.team || '');
+  const pos = String(player.position || '').toUpperCase();
+  return name ? `${name}|${pos}|${team}` : '';
+}
 
 function isDefensePosition(position) {
   return ['DEF','DST','D/ST','DEFENSE'].includes(String(position || '').toUpperCase());

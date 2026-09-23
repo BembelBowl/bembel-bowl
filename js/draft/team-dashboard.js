@@ -111,6 +111,55 @@ async function boot() {
   });
 }
 
+
+function ownDraftSheetIdentitySet() {
+  const identities = new Set();
+
+  const addPlayer = (p) => {
+    if (!p) return;
+    if (typeof p === 'string') {
+      const n = normalizeTeamPlayerName(p);
+      if (n) identities.add(n);
+      return;
+    }
+    const id = String(p.playerId || p.id || p.sleeperId || '').trim();
+    if (id) identities.add(`id:${id}`);
+    const n = normalizeTeamPlayerName(p.name);
+    if (n) identities.add(`name:${n}`);
+  };
+
+  const sheet = preferences || {};
+  const prioritySources = [
+    sheet.priorities,
+    sheet.playerPriorities,
+    sheet.priorityPlayers,
+    sheet.players
+  ];
+
+  prioritySources.forEach(src => {
+    if (Array.isArray(src)) src.forEach(addPlayer);
+    else if (src && typeof src === 'object') {
+      Object.values(src).forEach(value => {
+        if (Array.isArray(value)) value.forEach(addPlayer);
+        else addPlayer(value);
+      });
+    }
+  });
+
+  return identities;
+}
+
+function normalizeTeamPlayerName(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+
 function render() {
   if (!profile) return;
   const next = getNextOpenSlot(board.picks || {});
