@@ -44,3 +44,32 @@
 /* V2 transition: keep the pick broadcast background while hiding player content before stinger 2. */
 .pick-overlay .pick-inner{transition:opacity .24s ease,transform .24s ease}
 .pick-overlay.transitioning .pick-inner{opacity:0!important;transform:scale(.985)}
+
+
+.live-position-filters{
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+  margin:12px 0 2px;
+}
+.live-position-filters button{
+  border:1px solid rgba(209,139,47,.28);
+  background:#26221d;
+  color:#c9c2b7;
+  border-radius:6px;
+  padding:5px 8px;
+  font:inherit;
+  font-size:10px;
+  font-weight:900;
+  cursor:pointer;
+  min-width:31px;
+}
+.live-position-filters button:hover{
+  border-color:var(--gold);
+  color:#fff;
+}
+.live-position-filters button.active{
+  background:var(--gold);
+  border-color:var(--gold);
+  color:#17120c;
+}
