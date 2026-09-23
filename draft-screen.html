@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="css/draft-live.css">
 </head>
 <body>
-<div id="draftUnavailable" class="draft-unavailable is-hidden"><div><span>BEMBEL BOWL</span><h1>Live Draft nicht aktiv</h1><p>Der Live Screen wird automatisch freigeschaltet, sobald ein neues Draft Board erzeugt und die Draft-Reihenfolge festgelegt wurde.</p><a href="draft-board.html">Zum Draft Board</a></div></div>
 <div class="stadium-bg"><div class="field-line field-line-a"></div><div class="field-line field-line-b"></div></div>
 <div class="live-shell">
   <header class="live-topbar">
@@ -61,11 +60,21 @@
   <footer class="broadcast-footer"><span>BEMBEL BOWL FANTASY FOOTBALL LEAGUE</span><span id="footerClock">LIVE DRAFT</span></footer>
 </div>
 
+<div id="pickSignalOverlay" class="pick-signal-overlay" aria-hidden="true">
+  <div class="pick-signal-grid"></div>
+  <div class="pick-signal-glow"></div>
+  <div class="pick-signal-content">
+    <span class="pick-signal-league">BEMBEL BOWL DRAFT</span>
+    <div class="pick-signal-line"></div>
+    <h2><span>THE PICK</span><strong>IS IN</strong></h2>
+    <div class="pick-signal-line reverse"></div>
+  </div>
+</div>
+
 <div id="pickOverlay" class="pick-overlay" aria-hidden="true">
   <div class="pick-grid"></div>
   <div class="pick-inner">
     <div class="pick-player-stage">
-      <div class="pick-kicker">THE PICK IS IN</div>
       <div class="pick-player-ring">
         <img id="pickPhoto" class="pick-photo" src="images/player-silhouette.svg" alt="">
       </div>
@@ -80,7 +89,7 @@
 </div>
 
 <div id="nextOverlay" class="next-overlay" aria-hidden="true">
-  <div class="next-grid"></div><div class="next-inner"><div class="next-logo-wrap"><img id="nextLogo" alt=""></div><div><span>NEXT UP</span><h2 id="nextTeam"></h2><p>ARE ON THE CLOCK</p></div></div>
+  <div class="next-grid"></div><div class="next-inner"><div class="next-logo-wrap"><img id="nextLogo" alt=""></div><div><span>NEXT UP</span><h2 id="nextTeam"></h2><p><span id="nextVerb">ARE</span> ON THE CLOCK</p></div></div>
 </div>
 
 <script type="module" src="js/draft/draft-screen.js"></script>
