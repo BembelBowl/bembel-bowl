@@ -2,15 +2,11 @@ name: Weekly Reports
 
 on:
   schedule:
-    # Hauptlauf: Dienstag 12:17 Uhr Berliner Zeit.
-    # Minute 17 vermeidet die besonders belastete volle Stunde.
-    - cron: '17 12 * * 2'
-      timezone: 'Europe/Berlin'
-
-    # Sicherheitslauf: Dienstag 16:17 Uhr Berliner Zeit.
-    # Bereits vorhandene Berichte werden uebersprungen; nur fehlende
-    # Matchups werden noch erzeugt.
-    - cron: '17 16 * * 2'
+    # Vier Dienstag-Laeufe als robuste Wiederholungsfenster.
+    # Bereits vorhandene Berichte werden uebersprungen, daher sind die
+    # Wiederholungen idempotent und erzeugen keine Duplikate.
+    # Minute 23 liegt bewusst ausserhalb der stark belasteten vollen Stunde.
+    - cron: '23 12,14,16,18 * * 2'
       timezone: 'Europe/Berlin'
 
   workflow_dispatch:
@@ -62,7 +58,7 @@ concurrency:
 jobs:
   generate-reports:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 55
     steps:
       - name: Repo auschecken
         uses: actions/checkout@v4
@@ -84,6 +80,10 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           ESPN_LEAGUE_ID: ${{ secrets.ESPN_LEAGUE_ID }}
           GEMINI_MODEL: gemini-3.6-flash
+          GEMINI_MAX_ATTEMPTS: '5'
+          GEMINI_BASE_BACKOFF_SECONDS: '15'
+          MATCHUP_DELAY_SECONDS: '15'
+          MAX_CONSECUTIVE_GEMINI_FAILURES: '2'
           WEEK_OVERRIDE: ${{ github.event.inputs.week }}
 
           # Ein Schedule-Lauf darf NIE an einer lokalen Uhrzeitpruefung scheitern.
@@ -93,8 +93,8 @@ jobs:
           VALIDATE_ONLY: ${{ github.event.inputs.validate_only || 'false' }}
           SMOKE_TEST: ${{ github.event.inputs.smoke_test || 'false' }}
 
-          # Bei beiden automatischen Dienstag-Läufen vorhandene Berichte bewahren.
-          # Der Sicherheitslauf erzeugt dadurch nur noch fehlende Matchups.
+          # Bei allen automatischen Dienstag-Laeufen vorhandene Berichte bewahren.
+          # Spaetere Laeufe erzeugen dadurch nur noch fehlende Matchups.
           SKIP_EXISTING: ${{ github.event_name == 'schedule' && 'true' || 'false' }}
           EXPECTED_MATCHUP_COUNT: '10'
           REGULAR_SEASON_WEEKS: '14'
