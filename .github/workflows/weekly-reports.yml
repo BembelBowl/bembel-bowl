@@ -47,6 +47,14 @@ on:
         options:
           - 'true'
           - 'false'
+      regenerate_existing:
+        description: 'Vorhandene Wochenberichte neu erzeugen (normalerweise false)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
 
 permissions:
   contents: read
@@ -93,9 +101,10 @@ jobs:
           VALIDATE_ONLY: ${{ github.event.inputs.validate_only || 'false' }}
           SMOKE_TEST: ${{ github.event.inputs.smoke_test || 'false' }}
 
-          # Bei allen automatischen Dienstag-Laeufen vorhandene Berichte bewahren.
-          # Spaetere Laeufe erzeugen dadurch nur noch fehlende Matchups.
-          SKIP_EXISTING: ${{ github.event_name == 'schedule' && 'true' || 'false' }}
+          # Standardmaessig vorhandene Berichte immer bewahren - auch bei manuellen Laeufen.
+          # Nur wenn bei workflow_dispatch explizit regenerate_existing=true gewaehlt wird,
+          # werden bestehende Wochenberichte neu erzeugt.
+          SKIP_EXISTING: ${{ github.event_name == 'schedule' && 'true' || (github.event.inputs.regenerate_existing == 'true' && 'false' || 'true') }}
           EXPECTED_MATCHUP_COUNT: '10'
           REGULAR_SEASON_WEEKS: '14'
           MIDSEASON_WEEK: '7'
