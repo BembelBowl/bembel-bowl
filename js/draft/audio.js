@@ -1,84 +1,105 @@
-import { NFL_TEAM_NAMES, POSITION_SPEECH, TEAM_SPEECH_NAMES } from './config.js';
+import { NFL_TEAM_NAMES } from './config.js';
+import { TTS_WORKER_URL, LOCAL_AUDIO } from './speech-config.js';
 
-let unlocked = false;
-let ctx = null;
+let audioUnlocked = false;
+const localAudio = new Map();
 
 export function unlockAudio() {
-  unlocked = true;
-  ctx ||= new (window.AudioContext || window.webkitAudioContext)();
-  if (ctx.state === 'suspended') ctx.resume();
-  // Ein kurzer stummer Utterance hilft einigen Browsern, die Speech Engine nach User-Geste zu initialisieren.
-  if ('speechSynthesis' in window) speechSynthesis.getVoices();
+  audioUnlocked = true;
+  preloadLocal(LOCAL_AUDIO.pickIn);
+  preloadLocal(LOCAL_AUDIO.nextTeam);
 }
 
-export function stopSpeech() {
-  if ('speechSynthesis' in window) speechSynthesis.cancel();
+export async function playPickInJingle() {
+  return playLocal(LOCAL_AUDIO.pickIn);
 }
 
-export function speak(text, { rate = 0.84, pitch = 0.82, lang = 'en-US', volume = 1 } = {}) {
-  return new Promise(resolve => {
-    if (!('speechSynthesis' in window)) return resolve();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = lang;
-    u.rate = rate;
-    u.pitch = pitch;
-    u.volume = volume;
-    const voices = speechSynthesis.getVoices();
-    const preferredPatterns = /Guy|David|Mark|Daniel|Aaron|Alex|Google US English|Microsoft.*English/i;
-    const preferred = voices.find(v => v.lang?.toLowerCase().startsWith('en') && preferredPatterns.test(v.name))
-      || voices.find(v => v.lang === lang)
-      || voices.find(v => v.lang?.toLowerCase().startsWith('en'));
-    if (preferred) u.voice = preferred;
-    u.onend = () => resolve();
-    u.onerror = () => resolve();
-    speechSynthesis.speak(u);
+export async function playNextTeamJingle() {
+  return playLocal(LOCAL_AUDIO.nextTeam);
+}
+
+export function preparePickSpeech({ overall, season, teamName, player }) {
+  return requestSpeech({
+    type: 'pick', overall, season, teamName,
+    playerName: player.name,
+    position: player.position,
+    nflTeam: player.nflTeam
   });
 }
 
-export async function stinger() {
-  if (!unlocked) return;
-  ctx ||= new (window.AudioContext || window.webkitAudioContext)();
-  const now = ctx.currentTime;
-  const notes = [146.8, 220, 293.7, 369.9, 440, 587.3, 739.9];
-  notes.forEach((freq, i) => {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = i < 2 ? 'sawtooth' : 'triangle';
-    osc.frequency.value = freq;
-    const t = now + i * .11;
-    gain.gain.setValueAtTime(.0001, t);
-    gain.gain.exponentialRampToValueAtTime(i >= 5 ? .16 : .105, t + .03);
-    gain.gain.exponentialRampToValueAtTime(.0001, t + .48);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(t);
-    osc.stop(t + .5);
-  });
-  await sleep(900);
+export function prepareClockSpeech(teamName) {
+  return requestSpeech({ type: 'clock', teamName });
 }
 
-
-export async function announcePick({ overall, season, teamName, player }) {
-  stopSpeech();
-  await stinger();
-  await sleep(120);
-  await speak('The pick is in!', { rate: .84, pitch: .78 });
-  await sleep(220);
-  const spokenTeam = TEAM_SPEECH_NAMES[teamName] || teamName;
-  const position = POSITION_SPEECH[player.position] || player.position;
-  const nfl = NFL_TEAM_NAMES[player.nflTeam] || player.nflTeam || '';
-  const sentence = `With the ${ordinal(overall)} pick of the ${season} draft, ${spokenTeam} selects ${player.name}. ${position}, ${nfl}.`;
-  await speak(sentence, { rate: .88, pitch: .78 });
+export async function announcePick(args) {
+  return playPreparedSpeech(preparePickSpeech(args));
 }
 
 export async function announceClock(teamName) {
-  const spokenTeam = TEAM_SPEECH_NAMES[teamName] || teamName;
-  await speak(`${spokenTeam} are on the clock.`, { rate: .84, pitch: .8 });
+  return playPreparedSpeech(prepareClockSpeech(teamName));
+}
+
+export async function playPreparedSpeech(prepared) {
+  const blob = await prepared;
+  if (!blob) throw new Error('Azure speech audio is unavailable.');
+  const url = URL.createObjectURL(blob);
+  try { await playAudioUrl(url); }
+  finally { URL.revokeObjectURL(url); }
 }
 
 export function fullNflTeam(abbr) { return NFL_TEAM_NAMES[abbr] || abbr || ''; }
 export function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
-function ordinal(n) {
-  const s = ['th','st','nd','rd'], v = n % 100;
-  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
+async function requestSpeech(payload) {
+  if (!TTS_WORKER_URL || TTS_WORKER_URL.includes('YOUR-WORKER')) {
+    throw new Error('TTS Worker URL is not configured in js/draft/speech-config.js');
+  }
+  const res = await fetch(TTS_WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    let detail = '';
+    try { detail = JSON.stringify(await res.json()); } catch { detail = await res.text(); }
+    throw new Error(`TTS request failed (${res.status}): ${detail}`);
+  }
+  return res.blob();
+}
+
+function preloadLocal(src) {
+  if (localAudio.has(src)) return localAudio.get(src);
+  const a = new Audio(src);
+  a.preload = 'auto';
+  localAudio.set(src, a);
+  return a;
+}
+
+async function playLocal(src) {
+  if (!audioUnlocked) throw new Error('Audio must be enabled once on the live screen.');
+  const a = preloadLocal(src);
+  a.pause();
+  a.currentTime = 0;
+  return playElement(a);
+}
+
+function playAudioUrl(url) {
+  if (!audioUnlocked) return Promise.reject(new Error('Audio must be enabled once on the live screen.'));
+  const a = new Audio(url);
+  a.preload = 'auto';
+  return playElement(a);
+}
+
+function playElement(audio) {
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      audio.removeEventListener('ended', onEnd);
+      audio.removeEventListener('error', onError);
+    };
+    const onEnd = () => { cleanup(); resolve(); };
+    const onError = () => { cleanup(); reject(new Error('Audio playback failed.')); };
+    audio.addEventListener('ended', onEnd, { once: true });
+    audio.addEventListener('error', onError, { once: true });
+    audio.play().catch(err => { cleanup(); reject(err); });
+  });
 }

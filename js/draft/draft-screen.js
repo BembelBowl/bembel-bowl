@@ -3,7 +3,8 @@ import { watchBoard, watchState, timestampMs } from './service.js';
 import { getNextOpenSlot, orderedPicks, concreteTeamNeeds, slotForOverall } from './model.js';
 import { loadRankings, bestAvailable } from './rankings.js';
 import { loadSleeperPlayers } from './players.js';
-import { unlockAudio, announcePick, announceClock, fullNflTeam, sleep } from './audio.js';
+import { unlockAudio, preparePickSpeech, prepareClockSpeech, playPreparedSpeech, playPickInJingle, playNextTeamJingle, fullNflTeam, sleep } from './audio.js';
+import { AUDIO_TIMING, clockVerb } from './speech-config.js';
 
 let board = { teams: [], picks: {} };
 let state = {};
@@ -92,6 +93,7 @@ async function showPickSequence(p) {
   const resolvedPosition = player?.position || p.position || '';
   const resolvedTeam = player?.nflTeam || p.nflTeam || '';
   const announcedPlayer = { ...p, position: resolvedPosition, nflTeam: resolvedTeam };
+
   $('pickNumber').textContent = `ROUND ${p.round} · PICK #${p.overall}`;
   $('pickPlayer').textContent = p.name;
   $('pickPosition').textContent = resolvedPosition;
@@ -99,16 +101,37 @@ async function showPickSequence(p) {
   $('pickFantasyTeam').textContent = teamName;
   setPlayerPhoto(player?.headshot);
 
-  const overlay = $('pickOverlay');
-  overlay.classList.add('show');
-  overlay.setAttribute('aria-hidden', 'false');
-  await announcePick({ overall: p.overall, season: DRAFT.season, teamName, player: announcedPlayer });
-  await sleep(850);
-  await showNextTeam(overlay);
+  // Azure audio starts rendering while the local "Pick is in" signal runs.
+  const pickSpeech = preparePickSpeech({ overall: p.overall, season: DRAFT.season, teamName, player: announcedPlayer });
+  const next = getNextOpenSlot(board.picks || {});
+  const nextName = next ? (board.teams?.[next.position - 1] || '') : '';
+  const clockSpeech = nextName ? prepareClockSpeech(nextName) : null;
+
+  const signal = $('pickSignalOverlay');
+  signal.classList.add('show');
+  signal.setAttribute('aria-hidden', 'false');
+  await Promise.all([playPickInJingle().catch(err => console.error('Pick jingle failed:', err)), sleep(AUDIO_TIMING.pickSignalMinMs)]);
+
+  const pickOverlay = $('pickOverlay');
+  pickOverlay.classList.add('show');
+  pickOverlay.setAttribute('aria-hidden', 'false');
+  await sleep(AUDIO_TIMING.overlayCrossfadeMs);
+  signal.classList.remove('show');
+  signal.setAttribute('aria-hidden', 'true');
+
+  try {
+    await playPreparedSpeech(pickSpeech);
+  } catch (err) {
+    console.error('Azure pick speech failed:', err);
+  }
+
+  await sleep(AUDIO_TIMING.afterPickSpeechMs);
+  await playNextTeamJingle().catch(err => console.error('Next-team jingle failed:', err));
+  await showNextTeam(pickOverlay, next, nextName, clockSpeech);
 }
 
-async function showNextTeam(previousOverlay = null) {
-  const next = getNextOpenSlot(board.picks || {});
+async function showNextTeam(previousOverlay = null, next = null, name = '', preparedSpeech = null) {
+  next ||= getNextOpenSlot(board.picks || {});
   if (!next) {
     if (previousOverlay) {
       previousOverlay.classList.remove('show');
@@ -116,20 +139,27 @@ async function showNextTeam(previousOverlay = null) {
     }
     return;
   }
-  const name = board.teams?.[next.position - 1] || '';
+  name ||= board.teams?.[next.position - 1] || '';
   $('nextTeam').textContent = name;
+  $('nextVerb').textContent = clockVerb(name);
   setLogo($('nextLogo'), name);
   const overlay = $('nextOverlay');
   overlay.classList.add('show');
   overlay.setAttribute('aria-hidden', 'false');
-  await sleep(180);
+  await sleep(AUDIO_TIMING.overlayCrossfadeMs);
   if (previousOverlay) {
     previousOverlay.classList.remove('show');
     previousOverlay.setAttribute('aria-hidden', 'true');
   }
-  const spoken = announceClock(name);
-  await Promise.all([spoken, sleep(5600)]);
-  await sleep(700);
+
+  const minDisplay = sleep(AUDIO_TIMING.nextTeamOverlayMinMs);
+  try {
+    await Promise.all([playPreparedSpeech(preparedSpeech || prepareClockSpeech(name)), minDisplay]);
+  } catch (err) {
+    console.error('Azure clock speech failed:', err);
+    await minDisplay;
+  }
+
   overlay.classList.remove('show');
   overlay.setAttribute('aria-hidden', 'true');
 }
