@@ -86,12 +86,89 @@ function render() {
     $('nextMiniLogo').src = 'images/favicon.jpg';
   }
 
-  const picked = new Set(Object.values(board.picks || {}).map(p => p.name));
-  const avail = rankingsReady ? bestAvailable(picked, 10) : [];
+  const pickedValues = Object.values(board.picks || {});
+  const pickedNames = new Set(pickedValues.map(p => String(p.name || '').trim().toLowerCase()).filter(Boolean));
+  const pickedIds = new Set(pickedValues.map(p => String(p.playerId || p.id || '').trim()).filter(Boolean));
+  const pickedDefenseTeams = new Set(
+    pickedValues
+      .filter(p => isDefensePosition(p.position))
+      .map(p => canonicalNflTeam(p.nflTeam || p.team || p.name))
+      .filter(Boolean)
+  );
+
+  const candidates = rankingsReady ? bestAvailable(new Set(), 80) : [];
+  const avail = candidates.filter(p => {
+    const id = String(p.id || p.playerId || '').trim();
+    const name = String(p.name || '').trim().toLowerCase();
+    if (id && pickedIds.has(id)) return false;
+    if (name && pickedNames.has(name)) return false;
+
+    if (isDefensePosition(p.position)) {
+      const defenseTeam = canonicalNflTeam(p.team || p.nflTeam || p.name);
+      if (defenseTeam && pickedDefenseTeams.has(defenseTeam)) return false;
+    }
+    return true;
+  }).slice(0, 10);
+
   $('availableList').innerHTML = avail.map((p, i) => `<li><span class="rank">${i + 1}</span><div><div class="pname">${esc(p.name)}</div><div class="pmeta">${esc(fullNflTeam(p.team) || p.team || '')} · ${p.overallEcr != null ? `ECR ${p.overallEcr}` : `Pos ECR ${p.positionEcr ?? '—'}`}${p.bye ? ` · Bye ${p.bye}` : ''}</div></div><span class="pos">${p.position}</span></li>`).join('') || '<li>Ranking-Feed wird geladen…</li>';
 
   const recent = orderedPicks(board.picks || {}).slice(-10).reverse();
   $('recentList').innerHTML = recent.map(p => `<div class="recent-item"><strong>#${p.overall} ${esc(p.name)}</strong><span>${esc(board.teams?.[p.position - 1] || '')} · ${p.position} ${esc(fullNflTeam(p.nflTeam) || p.nflTeam || '')}</span></div>`).join('');
+}
+
+
+function isDefensePosition(position) {
+  return ['DEF','DST','D/ST','DEFENSE'].includes(String(position || '').toUpperCase());
+}
+
+function canonicalNflTeam(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  const upper = raw.toUpperCase();
+  const aliases = {
+    ARI:'ARI', 'ARIZONA CARDINALS':'ARI',
+    ATL:'ATL', 'ATLANTA FALCONS':'ATL',
+    BAL:'BAL', 'BALTIMORE RAVENS':'BAL',
+    BUF:'BUF', 'BUFFALO BILLS':'BUF',
+    CAR:'CAR', 'CAROLINA PANTHERS':'CAR',
+    CHI:'CHI', 'CHICAGO BEARS':'CHI',
+    CIN:'CIN', 'CINCINNATI BENGALS':'CIN',
+    CLE:'CLE', 'CLEVELAND BROWNS':'CLE',
+    DAL:'DAL', 'DALLAS COWBOYS':'DAL',
+    DEN:'DEN', 'DENVER BRONCOS':'DEN',
+    DET:'DET', 'DETROIT LIONS':'DET',
+    GB:'GB', 'GREEN BAY PACKERS':'GB',
+    HOU:'HOU', 'HOUSTON TEXANS':'HOU', 'HOUSTON TEXANS DEFENSE':'HOU', 'HOU DEFENSE':'HOU',
+    IND:'IND', 'INDIANAPOLIS COLTS':'IND',
+    JAX:'JAX', JAC:'JAX', 'JACKSONVILLE JAGUARS':'JAX',
+    KC:'KC', 'KANSAS CITY CHIEFS':'KC',
+    LAC:'LAC', 'LOS ANGELES CHARGERS':'LAC',
+    LAR:'LAR', 'LOS ANGELES RAMS':'LAR',
+    LV:'LV', 'LAS VEGAS RAIDERS':'LV',
+    MIA:'MIA', 'MIAMI DOLPHINS':'MIA',
+    MIN:'MIN', 'MINNESOTA VIKINGS':'MIN',
+    NE:'NE', 'NEW ENGLAND PATRIOTS':'NE',
+    NO:'NO', 'NEW ORLEANS SAINTS':'NO',
+    NYG:'NYG', 'NEW YORK GIANTS':'NYG',
+    NYJ:'NYJ', 'NEW YORK JETS':'NYJ',
+    PHI:'PHI', 'PHILADELPHIA EAGLES':'PHI',
+    PIT:'PIT', 'PITTSBURGH STEELERS':'PIT',
+    SEA:'SEA', 'SEATTLE SEAHAWKS':'SEA',
+    SF:'SF', 'SAN FRANCISCO 49ERS':'SF', 'SAN FRANCISCO FORTY NINERS':'SF',
+    TB:'TB', 'TAMPA BAY BUCCANEERS':'TB',
+    TEN:'TEN', 'TENNESSEE TITANS':'TEN',
+    WAS:'WAS', WSH:'WAS', 'WASHINGTON COMMANDERS':'WAS'
+  };
+
+  const cleaned = upper
+    .replace(/\s+D\/ST$/,'')
+    .replace(/\s+DST$/,'')
+    .replace(/\s+DEFENSE$/,'')
+    .replace(/\s+DEF$/,'')
+    .trim();
+
+  return aliases[upper] || aliases[cleaned] || cleaned;
 }
 
 function renderTimer() {
