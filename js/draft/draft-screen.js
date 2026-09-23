@@ -15,21 +15,11 @@ let animationQueue = Promise.resolve();
 let resolveStateReady;
 const stateReady = new Promise(resolve => { resolveStateReady = resolve; });
 let stateSnapshotReady = false;
-let availablePositionFilter = '';
 const $ = id => document.getElementById(id);
 const PLAYER_FALLBACK = 'images/player-silhouette.svg';
 
 $('season').textContent = DRAFT.season;
 $('audioUnlock').onclick = () => { unlockAudio(); $('audioUnlock').textContent = '🔊 Audio bereit'; };
-$('availableFilters')?.addEventListener('click', e => {
-  const btn = e.target.closest('[data-pos]');
-  if (!btn) return;
-  availablePositionFilter = String(btn.dataset.pos || '').toUpperCase();
-  document.querySelectorAll('#availableFilters [data-pos]').forEach(b => {
-    b.classList.toggle('active', b === btn);
-  });
-  render();
-});
 
 Promise.allSettled([loadRankings(), loadSleeperPlayers()]).then(([r, p]) => {
   rankingsReady = r.status === 'fulfilled';
@@ -123,10 +113,7 @@ function render() {
       .filter(Boolean)
   );
 
-  const filterPositions = availablePositionFilter ? [availablePositionFilter] : null;
-  const candidates = rankingsReady
-    ? bestAvailable(new Set(), availablePositionFilter ? 250 : 800, filterPositions)
-    : [];
+  const candidates = rankingsReady ? bestAvailable(new Set(), 800) : [];
   const avail = candidates.filter(p => {
     const id = String(p.id || p.playerId || p.sleeperId || '').trim();
     const name = normalizePlayerName(p.name);
@@ -141,12 +128,8 @@ function render() {
       if (defenseTeam && pickedDefenseTeams.has(defenseTeam)) return false;
     }
 
-    if (availablePositionFilter) {
-      const candidatePos = isDefensePosition(p.position) ? 'DEF' : String(p.position || '').toUpperCase();
-      if (candidatePos !== availablePositionFilter) return false;
-    }
     return true;
-  }).slice(0, 25);
+  }).slice(0, 15);
 
   $('availableList').innerHTML = avail.map((p, i) => `<li><span class="rank">${i + 1}</span><div><div class="pname">${esc(p.name)}</div><div class="pmeta">${esc(fullNflTeam(p.team) || p.team || '')} · ${p.overallEcr != null ? `ECR ${p.overallEcr}` : `Pos ECR ${p.positionEcr ?? '—'}`}${p.bye ? ` · Bye ${p.bye}` : ''}</div></div><span class="pos">${p.position}</span></li>`).join('') || '<li>Ranking-Feed wird geladen…</li>';
 
