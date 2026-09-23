@@ -3,7 +3,7 @@ import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https:/
 import { DRAFT, teamLogo } from './config.js';
 import { getUserProfile, watchBoard, watchState, watchTeam, watchSheet, setAttendance, savePreferenceSheet, requestRemotePick, ensureTeamDefaults } from './service.js';
 import { loadSleeperPlayers } from './players.js';
-import { loadRankings, mergeRanking, rankingMeta } from './rankings.js';
+import { loadRankings, mergeRanking, rankingMeta, rankForPlayer } from './rankings.js';
 import { getNextOpenSlot, orderedPicks } from './model.js';
 
 const $ = id => document.getElementById(id);
@@ -20,31 +20,28 @@ let bootedUid = null;
 let wasOnClock = false;
 let popupTimer = null;
 let draftAccessOpen = false;
-let previousDraftAccessOpen = false;
 
-watchState(async s => {
+watchState(s => {
   state = s || {};
   draftAccessOpen = !!state.boardCreated && !!state.orderSet && state.status === 'live';
-  if (draftAccessOpen && !previousDraftAccessOpen && profile?.teamId) {
-    try { await ensureTeamDefaults(profile.teamId); } catch (e) { console.error(e); }
-  }
-  previousDraftAccessOpen = draftAccessOpen;
   updateAccessVisibility();
   if (profile) render();
 });
 
 function updateAccessVisibility() {
-  $('accessClosed')?.classList.add('is-hidden');
-  if (!auth.currentUser) { $('loginCard').classList.add('is-hidden'); $('app').classList.add('is-hidden'); return; }
-  $('loginCard').classList.add('is-hidden');
-  $('app').classList.remove('is-hidden');
-  $('draftNotReadyBanner')?.classList.toggle('is-hidden', draftAccessOpen);
-  const disabled = !draftAccessOpen;
-  document.querySelectorAll('#attendance button,[data-round],#saveSheet,.add-priority').forEach(el => el.disabled = disabled);
-  if (disabled) { $('pickSearch').disabled = true; $('livePickHint').classList.remove('is-hidden'); $('livePickHint').innerHTML = 'Live Pick und Draft Sheet werden freigeschaltet, sobald der Admin ein neues Board erzeugt und die Draft-Reihenfolge gespeichert hat.'; }
+  const closed = $('accessClosed');
+  if (!draftAccessOpen) {
+    closed?.classList.remove('is-hidden');
+    $('loginCard').classList.add('is-hidden');
+    $('app').classList.add('is-hidden');
+  } else {
+    closed?.classList.add('is-hidden');
+    if (!auth.currentUser) $('loginCard').classList.remove('is-hidden');
+  }
 }
 
 $('loginBtn').onclick = async () => {
+  if (!draftAccessOpen) return;
   $('loginError').textContent = '';
   try {
     await signInWithEmailAndPassword(auth, $('email').value.trim(), $('password').value);
@@ -53,19 +50,23 @@ $('loginBtn').onclick = async () => {
   }
 };
 $('password').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginBtn').click(); });
-$('logoutBtn').onclick = async () => { await signOut(auth); location.replace('login.html'); };
+$('logoutBtn').onclick = () => signOut(auth);
 
 onAuthStateChanged(auth, async user => {
   if (!user) {
-    bootedUid = null; profile = null; $('app').classList.add('is-hidden'); location.replace('login.html'); return;
+    bootedUid = null;
+    profile = null;
+    $('loginCard').classList.toggle('is-hidden', !draftAccessOpen);
+    $('app').classList.add('is-hidden');
+    updateAccessVisibility();
+    return;
   }
   try {
+    if (!draftAccessOpen) { await signOut(auth); return; }
     profile = await getUserProfile(user.uid);
-    if (profile?.role === 'admin') { location.replace('draft-control.html'); return; }
     if (!profile?.teamId || profile?.role !== 'team') {
-      $('loginError').textContent = 'Für dieses Konto ist kein gültiges Team-Profil hinterlegt.';
+      $('loginError').textContent = 'Für dieses Konto ist kein gültiges Team-Profil in /users/{uid} hinterlegt.';
       await signOut(auth);
-      location.replace('login.html');
       return;
     }
     $('loginCard').classList.add('is-hidden');
@@ -76,9 +77,8 @@ onAuthStateChanged(auth, async user => {
     $('teamLogo').onerror = () => { $('teamLogo').src = 'images/favicon.jpg'; };
     if (bootedUid !== user.uid) {
       bootedUid = user.uid;
-      if (draftAccessOpen) await ensureTeamDefaults(profile.teamId);
+      await ensureTeamDefaults(profile.teamId);
       await boot();
-      updateAccessVisibility();
     }
   } catch (e) {
     $('loginError').textContent = `Login konnte nicht initialisiert werden: ${e.message}`;
@@ -113,9 +113,8 @@ async function boot() {
 
 function render() {
   if (!profile) return;
-  const next = draftAccessOpen ? getNextOpenSlot(board.picks || {}) : null;
-  const onClock = draftAccessOpen && !!next && board.teams?.[next.position - 1] === profile.teamId;
-  $('draftNotReadyBanner')?.classList.toggle('is-hidden', draftAccessOpen);
+  const next = getNextOpenSlot(board.picks || {});
+  const onClock = !!next && board.teams?.[next.position - 1] === profile.teamId;
   $('clockBadge').classList.toggle('is-hidden', !onClock);
   if (onClock) $('clockBadge').textContent = `ON THE CLOCK · #${next.overall}`;
   $('pickSearch').disabled = !onClock;
@@ -142,7 +141,7 @@ function renderAttendance() {
 }
 $('attendance').onclick = async e => {
   const v = e.target.dataset.v;
-  if (!v || !draftAccessOpen) return;
+  if (!v) return;
   try {
     await setAttendance(profile.teamId, v);
   } catch (err) {
@@ -216,7 +215,6 @@ function hydrateSheet() {
 }
 
 $('saveSheet').onclick = async () => {
-  if (!draftAccessOpen) return setSaveState($('sheetSaveState'), 'Noch kein vorbereiteter Draft.', true);
   const status = $('sheetSaveState');
   setSaveState(status, 'Speichert…');
   try {
@@ -286,7 +284,6 @@ function getDragAfterElement(container, y) {
 $('posFilter').onchange = renderAvailable;
 $('availableSearch').oninput = renderAvailable;
 $('availableList').onclick = e => {
-  if (!draftAccessOpen) return;
   const id = e.target.closest('[data-add-id]')?.dataset.addId;
   if (!id) return;
   const p = ranked.find(x => String(x.id) === id);
@@ -307,14 +304,23 @@ function renderAvailable() {
     .slice(0, 140)
     .map((p, idx) => `<div class="avail-row"><b>#${idx + 1}</b><div><b>${esc(p.name)}</b><br><small>${esc(p.nflTeam || '')}${p.bye ? ` · Bye ${p.bye}` : ''}</small></div><span class="tag">${esc(p.position)}</span><small>${pos && p.positionEcr != null ? `Pos ECR ${p.positionEcr}` : `ECR ${p.ecr ?? '—'}`}</small><button class="add-priority" data-add-id="${esc(p.id)}">+ Liste</button></div>`)
     .join('') || '<p class="empty-state">Keine verfügbaren FantasyPros-ECR-Spieler für diesen Filter.</p>';
-  if (!draftAccessOpen) document.querySelectorAll('.add-priority').forEach(b => b.disabled = true);
 }
 
 function renderRoster() {
   if (!profile) return;
   const roster = orderedPicks(board.picks || {}).filter(p => board.teams?.[p.position - 1] === profile.teamId);
   $('rosterCount').textContent = `${roster.length} Pick${roster.length === 1 ? '' : 's'}`;
-  $('myRoster').innerHTML = roster.length ? roster.map(p => `<div class="roster-player"><span class="roster-pos">${esc(p.position)}</span><div><strong>${esc(p.name)}</strong><br><small>R${p.round} · #${p.overall} · ${esc(p.nflTeam || '')}</small></div></div>`).join('') : '<p class="empty-state">Noch keine Spieler gedraftet.</p>';
+  $('myRoster').innerHTML = roster.length ? roster.map(p => {
+    // Prefer the FantasyPros lookup because board picks themselves normally do not
+    // contain bye-week data. Team+position also resolves defenses reliably.
+    const ranking = rankForPlayer({ name: p.name, nflTeam: p.nflTeam, position: p.position });
+    const rankedPlayer = ranked.find(x =>
+      (p.playerId && String(x.id) === String(p.playerId)) ||
+      x.name?.toLowerCase() === String(p.name || '').toLowerCase()
+    );
+    const bye = p.bye ?? ranking?.bye ?? rankedPlayer?.bye ?? '';
+    return `<div class="roster-player"><span class="roster-pos">${esc(p.position)}</span><div><strong>${esc(p.name)}</strong><br><small>R${p.round} · #${p.overall} · ${esc(p.nflTeam || '')} · Bye ${esc(bye || '—')}</small></div></div>`;
+  }).join('') : '<p class="empty-state">Noch keine Spieler gedraftet.</p>';
 }
 
 function renderRankingInfo() {

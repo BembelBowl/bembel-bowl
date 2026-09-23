@@ -106,12 +106,16 @@ async function showPickSequence(p) {
   const resolvedTeam = player?.nflTeam || p.nflTeam || '';
   const announcedPlayer = { ...p, position: resolvedPosition, nflTeam: resolvedTeam };
 
+  const isDefense = ['DEF','DST','D/ST','DEFENSE'].includes(String(resolvedPosition || '').toUpperCase());
+  const nflFull = fullNflTeam(resolvedTeam) || resolvedTeam || '';
+  const visiblePickName = isDefense && nflFull ? `${nflFull} Defense` : p.name;
+
   $('pickNumber').textContent = `ROUND ${p.round} · PICK #${p.overall}`;
-  $('pickPlayer').textContent = p.name;
+  $('pickPlayer').textContent = visiblePickName;
   $('pickPosition').textContent = resolvedPosition;
-  $('pickNfl').textContent = fullNflTeam(resolvedTeam) || resolvedTeam || '';
+  $('pickNfl').textContent = isDefense ? '' : nflFull;
   $('pickFantasyTeam').textContent = teamName;
-  setPlayerPhoto(player?.headshot);
+  setPlayerPhoto(player?.headshot, { isDefense, nflTeam: resolvedTeam });
 
   // Never fall back to the static config year for speech. A newly created draft
   // can already be 2027 while config.js still contains the previous default year.
@@ -192,10 +196,21 @@ async function showNextTeam(previousOverlay = null, next = null, name = '', prep
   overlay.setAttribute('aria-hidden', 'true');
 }
 
-function setPlayerPhoto(url) {
+function nflTeamLogo(team) {
+  const raw = String(team || '').trim().toUpperCase();
+  const codeMap = { WAS:'wsh', WSH:'wsh', JAC:'jax' };
+  const code = codeMap[raw] || raw.toLowerCase();
+  return code ? `https://a.espncdn.com/i/teamlogos/nfl/500/${code}.png` : '';
+}
+function setPlayerPhoto(url, { isDefense = false, nflTeam = '' } = {}) {
   const el = $('pickPhoto');
-  el.onerror = () => { el.onerror = null; el.src = PLAYER_FALLBACK; };
-  el.src = url || PLAYER_FALLBACK;
+  el.classList.toggle('defense-logo', isDefense);
+  el.onerror = () => {
+    el.onerror = null;
+    el.classList.remove('defense-logo');
+    el.src = PLAYER_FALLBACK;
+  };
+  el.src = isDefense ? (nflTeamLogo(nflTeam) || PLAYER_FALLBACK) : (url || PLAYER_FALLBACK);
 }
 function fmt(ms) {
   const s = Math.max(0, Math.floor(ms / 1000));
