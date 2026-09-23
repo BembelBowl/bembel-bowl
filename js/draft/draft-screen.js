@@ -119,15 +119,24 @@ async function showPickSequence(p) {
   signal.classList.remove('show');
   signal.setAttribute('aria-hidden', 'true');
 
+  const minimumPlayerDisplay = sleep(AUDIO_TIMING.pickOverlayMinMs || 8200);
   try {
-    await playPreparedSpeech(pickSpeech);
+    await Promise.all([playPreparedSpeech(pickSpeech), minimumPlayerDisplay]);
   } catch (err) {
     console.error('Azure pick speech failed:', err);
+    await minimumPlayerDisplay;
   }
 
   await sleep(AUDIO_TIMING.afterPickSpeechMs);
+
+  // Keep the broadcast background on screen, but remove the selected player
+  // before the transition stinger starts. This prevents the live screen from
+  // flashing briefly between the two overlays.
+  pickOverlay.classList.add('transitioning');
+  await sleep(AUDIO_TIMING.overlayCrossfadeMs);
   await playNextTeamJingle().catch(err => console.error('Next-team jingle failed:', err));
   await showNextTeam(pickOverlay, next, nextName, clockSpeech);
+  pickOverlay.classList.remove('transitioning');
 }
 
 async function showNextTeam(previousOverlay = null, next = null, name = '', preparedSpeech = null) {

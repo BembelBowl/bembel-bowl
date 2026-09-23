@@ -1,5 +1,5 @@
 // Public endpoint of your Cloudflare Worker. Replace once after deployment.
-export const TTS_WORKER_URL = 'https://bembel-bowl-tts.arcane-decksmith-api.workers.dev/tts';
+export const TTS_WORKER_URL = 'https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev/tts';
 
 export const LOCAL_AUDIO = {
   pickIn: 'audio/pick-in-jingle.wav',
@@ -7,15 +7,17 @@ export const LOCAL_AUDIO = {
 };
 
 export const AUDIO_TIMING = {
-  pickSignalMinMs: 1900,
-  afterPickSpeechMs: 260,
-  nextTeamOverlayMinMs: 4700,
-  overlayCrossfadeMs: 180
+  pickSignalMinMs: 2300,
+  pickOverlayMinMs: 8200,
+  afterPickSpeechMs: 550,
+  nextTeamOverlayMinMs: 5200,
+  overlayCrossfadeMs: 240
 };
 
 
 const SINGULAR_TEAMS = new Set([
   'Beard',
+  'BearD',
   'Bishop Sycamore',
   'Brady Gaga',
   'Foxboro Forever',
