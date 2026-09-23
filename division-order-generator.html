@@ -98,7 +98,7 @@ async function loadDivisionSeason(year){
    try{
      recoveredEspn=await fetchEspnDivisionRecovery(2026);
      render(recoveredEspn);
-     $('revealSlot').textContent='AUS ESPN WIEDERHERGESTELLT';
+     $('revealSlot').textContent='';
      $('revealTeam').style.display='';
      $('revealTeam').textContent='Saison 2026';
      return;
