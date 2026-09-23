@@ -1375,24 +1375,53 @@ def main():
 
         time.sleep(matchup_delay)  # API-Last zwischen Matchups reduzieren
 
+    # Nach dem Lauf den tatsaechlichen Gesamtstand in Firestore pruefen.
+    # Ein einzelner Gemini-Ausfall soll einen ansonsten erfolgreichen Spieltag
+    # nicht mehr als komplett fehlgeschlagen markieren.
+    existing_after_run = []
+    missing_after_run = []
+    for index in range(1, len(matchups) + 1):
+        if report_exists(db, SEASON, week, index):
+            existing_after_run.append(index)
+        else:
+            missing_after_run.append(index)
+
     if failures:
         summary = "; ".join(
             f"m{idx} {m['homeTeam']} vs. {m['awayTeam']}: {err}"
             for idx, m, err in failures
         )
-        raise RuntimeError(
-            f"{len(failures)} Bericht(e) in diesem Lauf fehlgeschlagen; "
-            f"{generated_count} neu gespeichert, {skipped_count} bereits vorhanden. "
-            f"Fehler: {summary}"
+
+        # GitHub Actions versteht ::warning:: als sichtbare Warnung, ohne den
+        # gesamten Workflow rot zu markieren. Der naechste Lauf versucht dank
+        # SKIP_EXISTING nur die noch fehlenden Matchups erneut.
+        print(
+            "::warning::"
+            f"Teilweise erfolgreich: {len(existing_after_run)}/{len(matchups)} Berichte "
+            f"sind vorhanden. Noch fehlend: {', '.join('m'+str(i) for i in missing_after_run) or 'keine'}. "
+            f"Fehler dieses Laufs: {summary}"
         )
 
-    # Sonderberichte werden erst nach einem vollstaendig erfolgreichen Wochenlauf erzeugt.
-    # Der Sicherheitslauf ist idempotent: vorhandene Spezialdokumente werden nicht dupliziert.
-    maybe_generate_special_reports(db, week, style_guide)
+    # Nur wenn wirklich kein einziger Bericht vorhanden ist, gilt der Lauf als
+    # vollstaendig gescheitert und soll in GitHub Actions rot werden.
+    if not existing_after_run:
+        raise RuntimeError(
+            f"Kein Bericht fuer Saison {SEASON}, Spieltag {week} konnte erzeugt werden."
+        )
+
+    # Sonderberichte erst erzeugen, wenn alle Wochenberichte vollstaendig sind.
+    if not missing_after_run:
+        maybe_generate_special_reports(db, week, style_guide)
+    else:
+        print(
+            f"Sonderberichte werden noch nicht erzeugt: {len(missing_after_run)} "
+            "Wochenbericht(e) fehlen noch."
+        )
 
     print(
         f"Fertig: {generated_count} neu erzeugt, {skipped_count} bereits vorhanden, "
-        f"{len(failures)} fehlgeschlagen."
+        f"{len(existing_after_run)}/{len(matchups)} insgesamt vorhanden, "
+        f"{len(missing_after_run)} noch fehlend."
     )
 
 
