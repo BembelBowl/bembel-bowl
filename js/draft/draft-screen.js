@@ -129,7 +129,7 @@ function render() {
     }
 
     return true;
-  }).slice(0, 15);
+  }).slice(0, 12);
 
   $('availableList').innerHTML = avail.map((p, i) => `<li><span class="rank">${i + 1}</span><div><div class="pname">${esc(p.name)}</div><div class="pmeta">${esc(fullNflTeam(p.team) || p.team || '')} · ${p.overallEcr != null ? `ECR ${p.overallEcr}` : `Pos ECR ${p.positionEcr ?? '—'}`}${p.bye ? ` · Bye ${p.bye}` : ''}</div></div><span class="pos">${p.position}</span></li>`).join('') || '<li>Ranking-Feed wird geladen…</li>';
 
@@ -302,9 +302,29 @@ async function showPickSequence(p) {
   const clockSpeech = nextName ? prepareClockSpeech(nextName) : null;
 
   const signal = $('pickSignalOverlay');
-  signal.classList.add('show');
-  signal.setAttribute('aria-hidden', 'false');
-  await Promise.all([playPickInJingle().catch(err => console.error('Pick jingle failed:', err)), sleep(AUDIO_TIMING.pickSignalMinMs)]);
+
+  // Synchronize the visual with the real audio start. Previously the overlay
+  // appeared before the browser had actually begun playing the local jingle,
+  // which could make the sound feel late on a cold/cache-miss start.
+  let resolveSignalStarted;
+  const signalStarted = new Promise(resolve => { resolveSignalStarted = resolve; });
+  let signalShown = false;
+  const showSignalWithAudio = () => {
+    if (signalShown) return;
+    signalShown = true;
+    signal.classList.add('show');
+    signal.setAttribute('aria-hidden', 'false');
+    resolveSignalStarted();
+  };
+
+  const pickJingle = playPickInJingle(showSignalWithAudio).catch(err => {
+    console.error('Pick jingle failed:', err);
+    // Never block the draft animation if audio playback fails.
+    showSignalWithAudio();
+  });
+
+  await signalStarted;
+  await Promise.all([pickJingle, sleep(AUDIO_TIMING.pickSignalMinMs)]);
 
   const pickOverlay = $('pickOverlay');
   pickOverlay.classList.add('show');

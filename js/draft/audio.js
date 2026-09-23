@@ -10,8 +10,8 @@ export function unlockAudio() {
   preloadLocal(LOCAL_AUDIO.nextTeam);
 }
 
-export async function playPickInJingle() {
-  return playLocal(LOCAL_AUDIO.pickIn);
+export async function playPickInJingle(onStarted = null) {
+  return playLocal(LOCAL_AUDIO.pickIn, onStarted);
 }
 
 export async function playNextTeamJingle() {
@@ -71,16 +71,17 @@ function preloadLocal(src) {
   if (localAudio.has(src)) return localAudio.get(src);
   const a = new Audio(src);
   a.preload = 'auto';
+  a.load();
   localAudio.set(src, a);
   return a;
 }
 
-async function playLocal(src) {
+async function playLocal(src, onStarted = null) {
   if (!audioUnlocked) throw new Error('Audio must be enabled once on the live screen.');
   const a = preloadLocal(src);
   a.pause();
   a.currentTime = 0;
-  return playElement(a);
+  return playElement(a, onStarted);
 }
 
 function playAudioUrl(url) {
@@ -90,16 +91,35 @@ function playAudioUrl(url) {
   return playElement(a);
 }
 
-function playElement(audio) {
+function playElement(audio, onStarted = null) {
   return new Promise((resolve, reject) => {
+    let started = false;
     const cleanup = () => {
+      audio.removeEventListener('playing', onPlaying);
       audio.removeEventListener('ended', onEnd);
       audio.removeEventListener('error', onError);
     };
+    const onPlaying = () => {
+      if (started) return;
+      started = true;
+      try { onStarted?.(); } catch (err) { console.error('Audio start callback failed:', err); }
+    };
     const onEnd = () => { cleanup(); resolve(); };
     const onError = () => { cleanup(); reject(new Error('Audio playback failed.')); };
+
+    audio.addEventListener('playing', onPlaying);
     audio.addEventListener('ended', onEnd, { once: true });
     audio.addEventListener('error', onError, { once: true });
-    audio.play().catch(err => { cleanup(); reject(err); });
+
+    // Force the preloaded local file to continue loading immediately.
+    if (audio.readyState < 2) audio.load();
+
+    audio.play().then(() => {
+      // Some browsers resolve play() before firing "playing"; keep "playing"
+      // as the authoritative sync point for the visual.
+    }).catch(err => {
+      cleanup();
+      reject(err);
+    });
   });
 }
