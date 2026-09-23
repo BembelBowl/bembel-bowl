@@ -75,7 +75,7 @@ onAuthStateChanged(auth, async user => {
 
 $('createDraftBtn').onclick = async () => {
   const year = Number($('seasonInput').value);
-  if (!confirm(`Neues leeres Draft Board für ${year} erzeugen? Abgeschlossene Draft Order und Divisionen werden vorher automatisch archiviert; nur das aktuelle Live-Board wird neu angelegt.`)) return;
+  if (!confirm(`Neues leeres Draft Board für ${year} erzeugen? Das aktuelle Live-Board wird überschrieben.`)) return;
   try { await createNewDraft(year); } catch (e) { alert(e.message); }
 };
 
@@ -192,20 +192,20 @@ function renderAdminBoard() {
     return `<button type="button" class="admin-round-tab ${round === adminSelectedRound ? 'active' : ''} ${hasPicks ? 'has-picks' : ''}" data-admin-round-tab="${round}">R${round}</button>`;
   }).join('');
 
-  list.innerHTML = Array.from({ length:DRAFT.teamCount }, (_, idx) => {
-    const position = idx + 1;
-    const round = adminSelectedRound;
+  const round = adminSelectedRound;
+  const positions = Array.from({ length:DRAFT.teamCount }, (_, idx) => idx + 1);
+  if (round % 2 === 0) positions.reverse();
+
+  list.innerHTML = positions.map(position => {
     const key = `${round}-${position}`;
     const pick = board.picks?.[key];
     const team = teamsOrder[position - 1] || '—';
     const overall = pickNumber(round, position);
-    const nextOpen = getNextOpenSlot(board.picks || {});
-    const canEdit = !!pick || nextOpen?.key === key;
     const playerHtml = pick
       ? `<div class="admin-round-player"><strong>${esc(pick.name)}</strong><span>Spieler</span></div><div class="admin-round-meta">${esc(pick.position || '')}${pick.nflTeam ? ` · ${esc(pick.nflTeam)}` : ''}</div>`
       : `<div class="admin-round-player"><strong class="admin-round-empty">+ Spieler eintragen</strong><span>Noch kein Pick</span></div><div class="admin-round-meta"></div>`;
 
-    return `<button type="button" class="admin-round-pick ${pick ? 'filled' : ''}" data-round="${round}" data-pos="${position}" ${(!state.orderSet || !canEdit) ? 'disabled' : ''} title="${!pick && !canEdit ? `Zuerst Pick #${nextOpen?.overall || 1} eintragen` : ''}">
+    return `<button type="button" class="admin-round-pick ${pick ? 'filled' : ''}" data-round="${round}" data-pos="${position}" ${!state.orderSet ? 'disabled' : ''}>
       <div class="admin-round-pick-number">#${overall}</div>
       <div class="admin-round-team"><strong>${esc(team)}</strong><span>Draft Position ${position}</span></div>
       ${playerHtml}
