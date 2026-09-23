@@ -199,11 +199,13 @@ function renderAdminBoard() {
     const pick = board.picks?.[key];
     const team = teamsOrder[position - 1] || '—';
     const overall = pickNumber(round, position);
+    const nextOpen = getNextOpenSlot(board.picks || {});
+    const canEdit = !!pick || nextOpen?.key === key;
     const playerHtml = pick
       ? `<div class="admin-round-player"><strong>${esc(pick.name)}</strong><span>Spieler</span></div><div class="admin-round-meta">${esc(pick.position || '')}${pick.nflTeam ? ` · ${esc(pick.nflTeam)}` : ''}</div>`
       : `<div class="admin-round-player"><strong class="admin-round-empty">+ Spieler eintragen</strong><span>Noch kein Pick</span></div><div class="admin-round-meta"></div>`;
 
-    return `<button type="button" class="admin-round-pick ${pick ? 'filled' : ''}" data-round="${round}" data-pos="${position}" ${!state.orderSet ? 'disabled' : ''}>
+    return `<button type="button" class="admin-round-pick ${pick ? 'filled' : ''}" data-round="${round}" data-pos="${position}" ${(!state.orderSet || !canEdit) ? 'disabled' : ''} title="${!pick && !canEdit ? `Zuerst Pick #${nextOpen?.overall || 1} eintragen` : ''}">
       <div class="admin-round-pick-number">#${overall}</div>
       <div class="admin-round-team"><strong>${esc(team)}</strong><span>Draft Position ${position}</span></div>
       ${playerHtml}

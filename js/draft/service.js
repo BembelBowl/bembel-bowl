@@ -197,8 +197,15 @@ export async function adminSetPick({ round, position, player, actorUid }) {
     if (!state.boardCreated || !state.orderSet) throw new Error('Kein aktiver Draft mit festgelegter Reihenfolge.');
     const duplicateKey = Object.entries(board.picks || {}).find(([k,p]) => k !== key && p?.name?.toLowerCase() === player.name.toLowerCase());
     if (duplicateKey) throw new Error(`${player.name} wurde bereits gedraftet.`);
-    const now = Timestamp.now();
+
+    const existingPick = board.picks?.[key];
     const next = getNextOpenSlot(board.picks || {});
+    // Bestehende Picks dürfen korrigiert werden. Neue Picks müssen strikt der Reihe nach erfolgen.
+    if (!existingPick && next?.key !== key) {
+      throw new Error(`Pick #${next?.overall || 1} muss zuerst eingetragen werden.`);
+    }
+
+    const now = Timestamp.now();
     const isCurrent = next?.key === key;
     const started = isCurrent ? timestampMs(state.clockStartedAt) : null;
     const pick = {
