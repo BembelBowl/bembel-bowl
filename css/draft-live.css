@@ -50,16 +50,21 @@
 .pick-overlay .pick-inner{transition:opacity .24s ease,transform .24s ease}
 .pick-overlay.transitioning .pick-inner{opacity:0!important;transform:scale(.985)}
 
-
-
-/* V12: Top 15 Best Available remains usable on a 16:9 live screen */
-.available-list{
-  max-height:calc(100vh - 285px);
-  overflow-y:auto;
-  padding-right:4px;
-  scrollbar-width:thin;
-  scrollbar-color:#c89447 #eee8dc;
+/* V13: Top 12 Best Available — compact, no internal scrolling */
+.side-panel:first-child .available-list{
+  max-height:none;
+  overflow:visible;
+  margin-top:8px;
+  gap:3px;
+  padding-right:0;
 }
-.available-list::-webkit-scrollbar{width:6px}
-.available-list::-webkit-scrollbar-track{background:#eee8dc;border-radius:6px}
-.available-list::-webkit-scrollbar-thumb{background:#c89447;border-radius:6px}
+.side-panel:first-child .available-list li{
+  padding:5px 7px;
+  min-height:0;
+}
+.side-panel:first-child .available-list .rank{
+  width:23px;
+  height:23px;
+}
+.side-panel:first-child .pname{font-size:11px}
+.side-panel:first-child .pmeta{font-size:8px;margin-top:2px}
