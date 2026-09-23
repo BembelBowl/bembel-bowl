@@ -53,6 +53,38 @@
   border-color:rgba(150,30,30,.25);
 }
 .admin-danger-zone .danger-outline-btn{width:100%}
+
+/* Draft Live: volle Breite, aber keine künstlich gleiche Kartenhöhe */
+.admin-live-stack{
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+  width:100%;
+  align-items:stretch;
+}
+.admin-live-stack > .panel{
+  width:100%;
+  min-width:0;
+  height:auto;
+  align-self:stretch;
+}
+.admin-live-stack .admin-status-grid{
+  min-height:0;
+}
+.admin-live-stack .admin-team-list{
+  width:100%;
+}
+.admin-live-stack .admin-auto-panel{
+  min-height:0;
+  height:auto;
+  padding-bottom:18px;
+}
+.admin-live-stack .admin-auto-panel #auto{
+  margin-bottom:0;
+  min-height:0;
+  height:auto;
+}
+
 @media(max-width:900px){
   .reports-admin-frame{min-height:1750px}
   .admin-tool-tabs{gap:6px}
@@ -133,12 +165,13 @@
         <div id="adminBoard" class="admin-round-list"></div>
       </section>
 
-      <div class="admin-control-grid">
+      <div class="admin-live-stack">
         <section class="panel admin-status-grid">
           <div class="panel-title"><div><span class="section-kicker">TEAMS</span><h2>Anwesenheitsstatus</h2></div></div>
           <div id="teams" class="admin-team-list"></div>
         </section>
-        <section class="panel">
+
+        <section class="panel admin-auto-panel">
           <div class="panel-title"><div><span class="section-kicker">LIVE AUTOMATIK</span><h2>Draft-Automatik</h2></div></div>
           <p id="auto" class="status-copy">Kein automatischer Pick aktiv.</p>
         </section>
