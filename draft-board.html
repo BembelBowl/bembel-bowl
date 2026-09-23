@@ -83,6 +83,30 @@ function focusCurrentPick(){
   const top=Math.max(0,cell.offsetTop-(shell.clientHeight-cell.offsetHeight)/2);
   shell.scrollTo({left,top,behavior:'smooth'});
 }
+
+const NFL_TEAM_NAMES={
+ ARI:'Arizona Cardinals',ATL:'Atlanta Falcons',BAL:'Baltimore Ravens',BUF:'Buffalo Bills',
+ CAR:'Carolina Panthers',CHI:'Chicago Bears',CIN:'Cincinnati Bengals',CLE:'Cleveland Browns',
+ DAL:'Dallas Cowboys',DEN:'Denver Broncos',DET:'Detroit Lions',GB:'Green Bay Packers',
+ HOU:'Houston Texans',IND:'Indianapolis Colts',JAX:'Jacksonville Jaguars',JAC:'Jacksonville Jaguars',KC:'Kansas City Chiefs',
+ LAC:'Los Angeles Chargers',LAR:'Los Angeles Rams',LV:'Las Vegas Raiders',MIA:'Miami Dolphins',
+ MIN:'Minnesota Vikings',NE:'New England Patriots',NO:'New Orleans Saints',NYG:'New York Giants',
+ NYJ:'New York Jets',PHI:'Philadelphia Eagles',PIT:'Pittsburgh Steelers',SEA:'Seattle Seahawks',
+ SF:'San Francisco 49ers',TB:'Tampa Bay Buccaneers',TEN:'Tennessee Titans',WAS:'Washington Commanders',WSH:'Washington Commanders'
+};
+function fullNflName(value){
+ const raw=String(value||'').trim();
+ return NFL_TEAM_NAMES[raw.toUpperCase()]||raw;
+}
+function boardPlayerName(pick){
+ const pos=String(pick?.position||'').toUpperCase();
+ if(['DEF','DST','D/ST','DEFENSE'].includes(pos)){
+   const team=fullNflName(pick?.nflTeam);
+   return team ? `${team} Defense` : String(pick?.name||'Defense');
+ }
+ return String(pick?.name||'');
+}
+
 function renderBoard(data,{restoreScroll=null,focusCurrent=false}={}){
   const teams=data.teamNames||[],tc=data.teamCount||teams.length||DRAFT.teamCount,rc=data.roundCount||DRAFT.roundCount;
   const currentOverall=nextOpenOverall({...data,teamCount:tc,roundCount:rc});
@@ -97,7 +121,7 @@ function renderBoard(data,{restoreScroll=null,focusCurrent=false}={}){
     for(let p=1;p<=tc;p++){
       const pick=data.picks?.[`${r}-${p}`],num=pickNumber(r,p,tc);
       const current=num===currentOverall?' current-pick':'';
-      html+=`<td class="db-cell ${pick?'filled':''}${current}" data-overall="${num}"><span class="db-pick-num">#${num}</span>${pick?`<span class="pos-tag ${posClass(pick.position)}">${esc(pick.position||'')}</span><div class="db-player-name">${esc(pick.name)}</div><div class="db-player-nfl">${esc(pick.nflTeam||'')}</div>`:''}</td>`;
+      html+=`<td class="db-cell ${pick?'filled':''}${current}" data-overall="${num}"><span class="db-pick-num">#${num}</span>${pick?`<span class="pos-tag ${posClass(pick.position)}">${esc(pick.position||'')}</span><div class="db-player-name">${esc(boardPlayerName(pick))}</div><div class="db-player-nfl">${esc(pick.nflTeam||'')}</div>`:''}</td>`;
     }
     html+='</tr>';
   }
