@@ -123,7 +123,10 @@ function render() {
       .filter(Boolean)
   );
 
-  const candidates = rankingsReady ? bestAvailable(new Set(), 120) : [];
+  const filterPositions = availablePositionFilter ? [availablePositionFilter] : null;
+  const candidates = rankingsReady
+    ? bestAvailable(new Set(), availablePositionFilter ? 250 : 800, filterPositions)
+    : [];
   const avail = candidates.filter(p => {
     const id = String(p.id || p.playerId || p.sleeperId || '').trim();
     const name = normalizePlayerName(p.name);
@@ -151,7 +154,13 @@ function render() {
   $('recentList').innerHTML = recent.map(p => {
     const playerPos = rawPlayerPosition(p);
     const nfl = fullNflTeam(p.nflTeam) || p.nflTeam || '';
-    return `<div class="recent-item"><strong>#${p.overall} ${esc(livePickDisplayName(p))}</strong><span>${esc(board.teams?.[p.position - 1] || '')} · ${esc(playerPos)}${nfl ? ` ${esc(nfl)}` : ''}</span></div>`;
+    return `<div class="recent-item">
+      <div class="recent-copy">
+        <strong>#${p.overall} ${esc(livePickDisplayName(p))}</strong>
+        <span class="recent-meta">${esc(board.teams?.[p.position - 1] || '')}${nfl ? ` · ${esc(nfl)}` : ''}</span>
+      </div>
+      <span class="recent-pos">${esc(playerPos || '—')}</span>
+    </div>`;
   }).join('');
 }
 
@@ -162,9 +171,24 @@ function rawPickForOrdered(pick) {
   return pick?.key ? (board.picks?.[pick.key] || {}) : {};
 }
 
+function normalizePlayerPosition(value) {
+  const raw = String(value || '').toUpperCase().trim();
+  if (!raw || /^\d+$/.test(raw)) return '';
+  if (raw === 'DST' || raw === 'D/ST' || raw === 'DEFENSE') return 'DEF';
+  if (raw === 'PK') return 'K';
+  return raw;
+}
+
 function rawPlayerPosition(pick) {
   const raw = rawPickForOrdered(pick);
-  return String(raw.position || raw.pos || pick?.playerPosition || '').toUpperCase();
+  const rawId = String(raw.playerId || raw.id || pick?.playerId || pick?.id || '').trim();
+  const sleeper = players.find(x =>
+    (rawId && String(x.id || x.playerId || '') === rawId) ||
+    normalizePlayerName(x.name) === normalizePlayerName(pick?.name)
+  );
+  return normalizePlayerPosition(
+    sleeper?.position || raw.position || raw.pos || pick?.playerPosition || ''
+  );
 }
 
 function livePickDisplayName(pick) {
@@ -258,9 +282,16 @@ function renderTimer() {
 
 async function showPickSequence(p) {
   const teamName = board.teams?.[p.position - 1] || '';
-  const player = players.find(x => x.name.toLowerCase() === String(p.name || '').toLowerCase());
-  const resolvedPosition = player?.position || p.position || '';
-  const resolvedTeam = player?.nflTeam || p.nflTeam || '';
+  const rawPick = rawPickForOrdered(p);
+  const rawPlayerId = String(rawPick.playerId || rawPick.id || p.playerId || p.id || '').trim();
+  const player = players.find(x =>
+    (rawPlayerId && String(x.id || x.playerId || '') === rawPlayerId) ||
+    normalizePlayerName(x.name) === normalizePlayerName(p.name)
+  );
+  const resolvedPosition = normalizePlayerPosition(
+    player?.position || rawPick.position || rawPick.pos || p.playerPosition || ''
+  );
+  const resolvedTeam = player?.nflTeam || rawPick.nflTeam || p.nflTeam || '';
   const announcedPlayer = { ...p, position: resolvedPosition, nflTeam: resolvedTeam };
 
   const isDefense = ['DEF','DST','D/ST','DEFENSE'].includes(String(resolvedPosition || '').toUpperCase());

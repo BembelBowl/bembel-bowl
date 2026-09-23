@@ -20,10 +20,17 @@ let bootedUid = null;
 let wasOnClock = false;
 let popupTimer = null;
 let draftAccessOpen = false;
+let resolveDraftStateReady;
+const draftStateReady = new Promise(resolve => { resolveDraftStateReady = resolve; });
+let draftStateSeen = false;
 
 watchState(s => {
   state = s || {};
   draftAccessOpen = !!state.boardCreated && !!state.orderSet && state.status === 'live';
+  if (!draftStateSeen) {
+    draftStateSeen = true;
+    resolveDraftStateReady();
+  }
   updateAccessVisibility();
   if (profile) render();
 });
@@ -62,6 +69,10 @@ onAuthStateChanged(auth, async user => {
     return;
   }
   try {
+    // The login page can route here faster than the first Firestore draftState
+    // snapshot arrives. Wait for it so a valid team session is not signed out
+    // during that short race condition.
+    await draftStateReady;
     if (!draftAccessOpen) { await signOut(auth); return; }
     profile = await getUserProfile(user.uid);
     if (!profile?.teamId || profile?.role !== 'team') {
@@ -114,9 +125,12 @@ async function boot() {
 
 function ownDraftSheetIdentitySet() {
   const identities = new Set();
-  Object.values(priorityState || {}).flat().forEach(name => {
+  Object.values(priorityState || {}).flat().forEach(item => {
+    const name = typeof item === 'string' ? item : item?.name;
+    const id = typeof item === 'object' ? String(item?.playerId || item?.id || '').trim() : '';
     const normalized = normalizeTeamPlayerName(name);
-    if (normalized) identities.add(normalized);
+    if (id) identities.add(`id:${id}`);
+    if (normalized) identities.add(`name:${normalized}`);
   });
   return identities;
 }
@@ -233,6 +247,7 @@ function hydrateSheet() {
   DRAFT.positions.forEach(pos => { priorityState[pos] = [...(sheet.playerPriorities?.[pos] || [])]; });
   $('sheetDefaultBadge').textContent = sheet.usesDefaultPlan === false ? 'Individuelles Sheet' : 'Default-Regeln';
   renderPriorityLists();
+  renderAvailable();
 }
 
 $('saveSheet').onclick = async () => {
@@ -276,11 +291,13 @@ function addPriority(player) {
   if (existsAnywhere) return;
   priorityState[pos].push(player.name);
   renderPriorityLists();
+  renderAvailable();
   setSaveState($('sheetSaveState'), `${player.name} hinzugefügt – Draft Sheet noch speichern.`);
 }
 function removePriority(pos, name) {
   priorityState[pos] = (priorityState[pos] || []).filter(n => n !== name);
   renderPriorityLists();
+  renderAvailable();
   setSaveState($('sheetSaveState'), `${name} entfernt – Draft Sheet noch speichern.`);
 }
 function syncPriorityFromDom(pos) {
@@ -320,10 +337,12 @@ function renderAvailable() {
   const available = ranked
     .filter(p => {
       const normalizedName = normalizeTeamPlayerName(p.name);
+      const playerId = String(p.id || p.playerId || '').trim();
       return p.hasRanking
         && !picked.has(`id:${p.id}`)
         && !picked.has(`name:${p.name.toLowerCase()}`)
-        && !ownSheet.has(normalizedName)
+        && !(playerId && ownSheet.has(`id:${playerId}`))
+        && !ownSheet.has(`name:${normalizedName}`)
         && (!pos || p.position === pos)
         && (!q || p.name.toLowerCase().includes(q));
     })
@@ -342,7 +361,21 @@ function rosterRawPick(pick) {
 
 function rosterPlayerPosition(pick) {
   const raw = rosterRawPick(pick);
-  return String(raw.position || raw.pos || '').toUpperCase();
+  const rawId = String(raw.playerId || raw.id || pick?.playerId || pick?.id || '').trim();
+  const sleeper = players.find(x =>
+    (rawId && String(x.id || x.playerId || '') === rawId) ||
+    normalizeTeamPlayerName(x.name) === normalizeTeamPlayerName(pick?.name)
+  );
+  const ranking = rankForPlayer({
+    name: pick?.name,
+    nflTeam: raw.nflTeam || pick?.nflTeam,
+    position: raw.position || raw.pos
+  });
+  let pos = String(sleeper?.position || ranking?.position || raw.position || raw.pos || '').toUpperCase().trim();
+  if (/^\d+$/.test(pos)) pos = '';
+  if (pos === 'DST' || pos === 'D/ST' || pos === 'DEFENSE') pos = 'DEF';
+  if (pos === 'PK') pos = 'K';
+  return pos;
 }
 
 function renderRoster() {
@@ -386,9 +419,9 @@ function renderRoster() {
         );
         const bye = raw.bye ?? p.bye ?? ranking?.bye ?? rankedPlayer?.bye ?? '';
         return `<div class="roster-player">
-          <span class="roster-pos">${esc(pos)}</span>
-          <div>
-            <strong>${esc(p.name)}</strong><br>
+          <span class="roster-pos">${esc(playerPosition || pos || '—')}</span>
+          <div class="roster-player-copy">
+            <strong>${esc(p.name)}</strong>
             <small>R${p.round} · #${p.overall} · ${esc(p.nflTeam || raw.nflTeam || '')} · Bye ${esc(bye || '—')}</small>
           </div>
         </div>`;
