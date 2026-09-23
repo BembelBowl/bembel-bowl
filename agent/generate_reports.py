@@ -456,41 +456,78 @@ BOX SCORE {away}:
 Schreibe einen dichten, unterhaltsamen Fliesstext. Antworte NUR mit dem Bericht selbst."""
 
 
-def generate_report(prompt, max_attempts=4, temperature=0.8, max_output_tokens=None):
+
+def _retry_delay(response, attempt, base_seconds):
+    """Retry-After von Google respektieren; sonst exponentiell warten."""
+    if response is not None:
+        retry_after = response.headers.get("Retry-After")
+        if retry_after:
+            try:
+                return max(base_seconds, min(int(float(retry_after)), 180))
+            except (TypeError, ValueError):
+                pass
+    return min(base_seconds * (2 ** (attempt - 1)), 180)
+
+
+def generate_report(prompt, max_attempts=None, temperature=0.8, max_output_tokens=None):
     api_key = os.environ["GEMINI_API_KEY"]
+    if max_attempts is None:
+        max_attempts = int(os.environ.get("GEMINI_MAX_ATTEMPTS", "5"))
+    base_backoff = int(os.environ.get("GEMINI_BASE_BACKOFF_SECONDS", "15"))
+
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": temperature},
     }
-
     if max_output_tokens:
         body["generationConfig"]["maxOutputTokens"] = max_output_tokens
 
+    transient_statuses = {429, 500, 502, 503, 504}
     last_err = None
+
     for attempt in range(1, max_attempts + 1):
+        response = None
         try:
-            res = requests.post(GEMINI_URL, params={"key": api_key}, json=body, timeout=180)
-            if res.status_code in {429, 500, 502, 503, 504} and attempt < max_attempts:
-                wait = 8 * attempt
-                print(f"  Gemini temporaer nicht verfuegbar (HTTP {res.status_code}), neuer Versuch in {wait}s ...")
-                time.sleep(wait)
-                continue
-            res.raise_for_status()
-            data = res.json()
+            response = requests.post(GEMINI_URL, params={"key": api_key}, json=body, timeout=180)
+            if response.status_code in transient_statuses:
+                last_err = requests.HTTPError(
+                    f"{response.status_code} Server/Rate-Limit Fehler fuer Gemini",
+                    response=response,
+                )
+                if attempt < max_attempts:
+                    wait = _retry_delay(response, attempt, base_backoff)
+                    print(
+                        f"  Gemini temporaer nicht verfuegbar (HTTP {response.status_code}), "
+                        f"Versuch {attempt}/{max_attempts}; neuer Versuch in {wait}s ..."
+                    )
+                    time.sleep(wait)
+                    continue
+
+            response.raise_for_status()
+            data = response.json()
             candidates = data.get("candidates") or []
             if not candidates:
                 raise RuntimeError(f"Gemini lieferte keine Antwort: {data}")
             parts = candidates[0].get("content", {}).get("parts", [])
-            text = "".join(p.get("text", "") for p in parts).strip()
+            text = "".join(part.get("text", "") for part in parts).strip()
             if not text:
                 raise RuntimeError(f"Gemini-Antwort war leer: {data}")
             return text
+
         except Exception as exc:  # noqa: BLE001
             last_err = exc
-            if attempt < max_attempts:
-                wait = 8 * attempt
-                print(f"  Gemini-Fehler ({exc}), neuer Versuch in {wait}s ...")
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            if status in transient_statuses and attempt < max_attempts:
+                wait = _retry_delay(getattr(exc, "response", None), attempt, base_backoff)
+                print(f"  Gemini-Fehler HTTP {status}; neuer Versuch in {wait}s ...")
                 time.sleep(wait)
+                continue
+            if status not in transient_statuses and attempt < max_attempts:
+                wait = min(base_backoff * attempt, 60)
+                print(f"  Gemini-Fehler ({exc}); neuer Versuch in {wait}s ...")
+                time.sleep(wait)
+                continue
+            break
 
     raise RuntimeError(f"Gemini nach {max_attempts} Versuchen fehlgeschlagen: {last_err}")
 
@@ -1199,6 +1236,8 @@ def main():
     validate_only = os.environ.get("VALIDATE_ONLY") == "true"
     smoke_test = os.environ.get("SMOKE_TEST") == "true"
     skip_existing = os.environ.get("SKIP_EXISTING") == "true"
+    matchup_delay = int(os.environ.get("MATCHUP_DELAY_SECONDS", "15"))
+    max_consecutive_gemini_failures = int(os.environ.get("MAX_CONSECUTIVE_GEMINI_FAILURES", "2"))
 
     # Bei GitHub-Schedule setzt der Workflow FORCE_RUN=true. Dadurch kann eine
     # von GitHub verspaetet gestartete Ausfuehrung niemals an dieser lokalen
@@ -1257,6 +1296,7 @@ def main():
     generated_count = 0
     skipped_count = 0
     generated_reports_this_run = []
+    consecutive_gemini_failures = 0
 
     for index, matchup in enumerate(matchups, start=1):
         if skip_existing and report_exists(db, SEASON, week, index):
@@ -1313,18 +1353,38 @@ def main():
             save_report(db, SEASON, week, index, matchup, text)
             generated_reports_this_run.append(text)
             generated_count += 1
+            consecutive_gemini_failures = 0
             print("  gespeichert.")
         except Exception as e:  # noqa: BLE001
-            failures.append((index, matchup, str(e)))
+            err_text = str(e)
+            failures.append((index, matchup, err_text))
             print(f"  FEHLER bei diesem Match-up: {e}")
-        time.sleep(6)  # Rate-Limit im kostenlosen Gemini-Tier schonen
+
+            # Bei einer globalen Gemini-Stoerung/Rate-Limit nicht alle zehn
+            # Matchups weiter bombardieren. Der naechste geplante Workflow
+            # versucht dank SKIP_EXISTING nur die fehlenden Berichte erneut.
+            if "Gemini" in err_text:
+                consecutive_gemini_failures += 1
+                if consecutive_gemini_failures >= max_consecutive_gemini_failures:
+                    print(
+                        f"  Abbruch nach {consecutive_gemini_failures} aufeinanderfolgenden "
+                        "Gemini-Fehlern. Bereits gespeicherte Berichte bleiben erhalten; "
+                        "der naechste Automatiklauf setzt bei den fehlenden Matchups fort."
+                    )
+                    break
+
+        time.sleep(matchup_delay)  # API-Last zwischen Matchups reduzieren
 
     if failures:
         summary = "; ".join(
             f"m{idx} {m['homeTeam']} vs. {m['awayTeam']}: {err}"
             for idx, m, err in failures
         )
-        raise RuntimeError(f"{len(failures)} von {len(matchups)} Berichten fehlgeschlagen: {summary}")
+        raise RuntimeError(
+            f"{len(failures)} Bericht(e) in diesem Lauf fehlgeschlagen; "
+            f"{generated_count} neu gespeichert, {skipped_count} bereits vorhanden. "
+            f"Fehler: {summary}"
+        )
 
     # Sonderberichte werden erst nach einem vollstaendig erfolgreichen Wochenlauf erzeugt.
     # Der Sicherheitslauf ist idempotent: vorhandene Spezialdokumente werden nicht dupliziert.
