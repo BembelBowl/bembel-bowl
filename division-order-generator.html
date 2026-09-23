@@ -24,7 +24,7 @@ function hasCurrentData(d){return !!(d?.divisions || (d?.revealSequence||[]).len
 function renderTabs(){
  const currentSeason=hasCurrentData(currentData)?Number(currentData.season):null;
  const seasons=[...new Set([...(currentSeason?[currentSeason]:[]),...archiveSeasons])].filter(Number.isInteger).sort((a,b)=>b-a);
- if(!selectedSeason) selectedSeason=archiveSeasons[0]||currentSeason||null;
+ if(!selectedSeason) selectedSeason=seasons[0]||null;
  $('seasonTabs').innerHTML=seasons.map(y=>`<button class="archive-tab ${Number(selectedSeason)===y?'active':''}" data-season="${y}">${y}${currentSeason===y && currentData.status!=='complete'?' LIVE':''}</button>`).join('');
 }
 function renderSchedule(divs){
@@ -47,6 +47,6 @@ async function selectSeason(year){selectedSeason=Number(year);renderTabs();const
 $('seasonTabs').addEventListener('click',e=>{const b=e.target.closest('[data-season]');if(b)selectSeason(b.dataset.season);});
 $('scheduleTabs').addEventListener('click',e=>{const btn=e.target.closest('[data-week]');if(!btn)return;selectedScheduleWeek=btn.dataset.week;renderSchedule(window.__bbDivisions||{A:[],B:[],C:[],D:[]});});
 archiveSeasons=await listDivisionArchiveSeasons().catch(()=>[]);
-watchDivisions(d=>{currentData=d||{};renderTabs();const currentSeason=Number(currentData?.season);if(!selectedSeason)selectedSeason=archiveSeasons[0]||currentSeason||null;if(Number(selectedSeason)===currentSeason&&hasCurrentData(currentData))render(currentData);else if(selectedSeason)getDivisionArchive(selectedSeason).then(render);});
+watchDivisions(d=>{currentData=d||{};renderTabs();const currentSeason=Number(currentData?.season);if(!selectedSeason){const seasons=[...new Set([...(currentSeason?[currentSeason]:[]),...archiveSeasons])].filter(Number.isInteger).sort((a,b)=>b-a);selectedSeason=seasons[0]||null;}if(Number(selectedSeason)===currentSeason&&hasCurrentData(currentData))render(currentData);else if(selectedSeason)getDivisionArchive(selectedSeason).then(render);});
 </script><script src="js/site-nav.js" defer></script>
 </body></html>

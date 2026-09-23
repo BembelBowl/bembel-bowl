@@ -12,7 +12,7 @@ function hasCurrentData(d){
 function renderTabs(){
   const currentSeason=hasCurrentData(currentData)?Number(currentData.season):null;
   const seasons=[...new Set([...(currentSeason?[currentSeason]:[]),...archiveSeasons])].filter(Number.isInteger).sort((a,b)=>b-a);
-  if(!selectedSeason) selectedSeason=archiveSeasons[0] || currentSeason || null;
+  if(!selectedSeason) selectedSeason=seasons[0] || null;
   $('seasonTabs').innerHTML=seasons.map(y=>`<button class="archive-tab ${Number(selectedSeason)===y?'active':''}" data-season="${y}">${y}${currentSeason===y && currentData.status!=='complete'?' LIVE':''}</button>`).join('');
 }
 function render(d){
@@ -38,7 +38,7 @@ stopCurrent=watchDraftOrder(d=>{
   currentData=d||{};
   renderTabs();
   const currentSeason=Number(currentData?.season);
-  if(!selectedSeason) selectedSeason=archiveSeasons[0]||currentSeason||null;
+  if(!selectedSeason){ const seasons=[...new Set([...(currentSeason?[currentSeason]:[]),...archiveSeasons])].filter(Number.isInteger).sort((a,b)=>b-a); selectedSeason=seasons[0]||null; }
   if(Number(selectedSeason)===currentSeason && hasCurrentData(currentData)) render(currentData);
   else if(selectedSeason) getDraftOrderArchive(selectedSeason).then(render);
 });
