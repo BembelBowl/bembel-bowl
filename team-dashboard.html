@@ -80,6 +80,7 @@
       <section class="panel sheet-panel">
         <div class="panel-title"><div><span class="section-kicker">PRE-DRAFT</span><h2>Draft Sheet</h2></div><span id="sheetDefaultBadge" class="mini-badge">Default-Regeln</span></div>
         <h3 class="subheading">Draft Reihenfolge</h3>
+        <p id="sheetLockHint" class="hint sheet-lock-hint is-hidden"><strong>Draft läuft:</strong> Dein Draft Sheet ist jetzt schreibgeschützt.</p>
         <p class="hint">Neue Teams starten automatisch mit der offiziellen Default-Reihenfolge aus dem Regelwerk. Du kannst jede Runde individuell ändern.</p>
         <div id="roundPlan" class="round-plan"></div>
 
@@ -98,10 +99,21 @@
       <section class="panel available-panel">
         <div class="panel-title">
           <div><span class="section-kicker">RANKINGS</span><h2>Best Available</h2></div>
-          <span id="rankingInfo" class="ranking-info">FantasyPros ECR wird geladen…</span>
+          <div class="available-title-meta">
+            <span id="availableModeBadge" class="mini-badge">Pre-Draft</span>
+            <span id="rankingInfo" class="ranking-info">FantasyPros ECR wird geladen…</span>
+          </div>
         </div>
-        <div class="filters">
-          <select id="posFilter"><option value="">Alle Positionen</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>K</option><option>DEF</option></select>
+        <div class="team-available-controls">
+          <div id="posTabs" class="team-position-tabs" role="tablist" aria-label="Best Available nach Position filtern">
+            <button type="button" class="active" data-pos="">ALL</button>
+            <button type="button" data-pos="QB">QB</button>
+            <button type="button" data-pos="RB">RB</button>
+            <button type="button" data-pos="WR">WR</button>
+            <button type="button" data-pos="TE">TE</button>
+            <button type="button" data-pos="K">K</button>
+            <button type="button" data-pos="DEF">DEF</button>
+          </div>
           <input id="availableSearch" placeholder="Nach Spielername filtern">
         </div>
         <div id="availableList" class="available-list"></div>
@@ -111,6 +123,5 @@
 </main>
 
 <script type="module" src="js/draft/team-dashboard.js"></script>
-<script src="js/site-nav.js" defer></script>
 </body>
 </html>
