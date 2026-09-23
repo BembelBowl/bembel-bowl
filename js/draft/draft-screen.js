@@ -67,12 +67,16 @@ function render() {
   setLogo($('teamLogo'), teamName);
 
   const teamPicks = orderedPicks(board.picks || {}).filter(p => board.teams?.[p.position - 1] === teamName);
-  const needs = concreteTeamNeeds(teamPicks);
+  const teamPicksForNeeds = teamPicks.map(p => ({
+    ...p,
+    position: rawPlayerPosition(p)
+  }));
+  const needs = concreteTeamNeeds(teamPicksForNeeds);
   $('needsList').innerHTML = needs.length ? needs.map(pos => `<span>${pos}</span>`).join('') : '<span>Roster komplett</span>';
 
   $('rosterCount').textContent = `${teamPicks.length} ${teamPicks.length === 1 ? 'PICK' : 'PICKS'}`;
   $('currentRoster').innerHTML = teamPicks.length
-    ? teamPicks.map(p => `<div class="roster-chip"><span>${esc(p.position || '')}</span><strong>${esc(p.name)}</strong><small>${esc(fullNflTeam(p.nflTeam) || p.nflTeam || '')}</small></div>`).join('')
+    ? teamPicks.map(p => `<div class="roster-chip"><span>${esc(rawPlayerPosition(p) || '')}</span><strong>${esc(livePickDisplayName(p))}</strong><small>${esc(fullNflTeam(p.nflTeam) || p.nflTeam || '')}${p.overall ? ` · #${p.overall}` : ''}</small></div>`).join('')
     : '<div class="roster-empty">Noch keine Spieler gedraftet.</div>';
 
   const maxPicks = DRAFT.teamCount * DRAFT.roundCount;
@@ -129,10 +133,32 @@ function render() {
   $('availableList').innerHTML = avail.map((p, i) => `<li><span class="rank">${i + 1}</span><div><div class="pname">${esc(p.name)}</div><div class="pmeta">${esc(fullNflTeam(p.team) || p.team || '')} · ${p.overallEcr != null ? `ECR ${p.overallEcr}` : `Pos ECR ${p.positionEcr ?? '—'}`}${p.bye ? ` · Bye ${p.bye}` : ''}</div></div><span class="pos">${p.position}</span></li>`).join('') || '<li>Ranking-Feed wird geladen…</li>';
 
   const recent = orderedPicks(board.picks || {}).slice(-10).reverse();
-  $('recentList').innerHTML = recent.map(p => `<div class="recent-item"><strong>#${p.overall} ${esc(p.name)}</strong><span>${esc(board.teams?.[p.position - 1] || '')} · ${p.position} ${esc(fullNflTeam(p.nflTeam) || p.nflTeam || '')}</span></div>`).join('');
+  $('recentList').innerHTML = recent.map(p => {
+    const playerPos = rawPlayerPosition(p);
+    const nfl = fullNflTeam(p.nflTeam) || p.nflTeam || '';
+    return `<div class="recent-item"><strong>#${p.overall} ${esc(livePickDisplayName(p))}</strong><span>${esc(board.teams?.[p.position - 1] || '')} · ${esc(playerPos)}${nfl ? ` ${esc(nfl)}` : ''}</span></div>`;
+  }).join('');
 }
 
 
+
+
+function rawPickForOrdered(pick) {
+  return pick?.key ? (board.picks?.[pick.key] || {}) : {};
+}
+
+function rawPlayerPosition(pick) {
+  const raw = rawPickForOrdered(pick);
+  return String(raw.position || raw.pos || pick?.playerPosition || '').toUpperCase();
+}
+
+function livePickDisplayName(pick) {
+  const pos = rawPlayerPosition(pick);
+  if (isDefensePosition(pos)) {
+    return fullNflTeam(pick?.nflTeam || rawPickForOrdered(pick)?.nflTeam) || pick?.name || 'Defense';
+  }
+  return pick?.name || '';
+}
 
 function normalizePlayerName(value) {
   return String(value || '')
