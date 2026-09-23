@@ -12,6 +12,9 @@ let players = [];
 let rankingsReady = false;
 let lastPickOverall = 0;
 let animationQueue = Promise.resolve();
+let resolveStateReady;
+const stateReady = new Promise(resolve => { resolveStateReady = resolve; });
+let stateSnapshotReady = false;
 const $ = id => document.getElementById(id);
 const PLAYER_FALLBACK = 'images/player-silhouette.svg';
 
@@ -24,7 +27,16 @@ Promise.allSettled([loadRankings(), loadSleeperPlayers()]).then(([r, p]) => {
   render();
 });
 
-watchState(s => { state = s; renderTimer(); });
+watchState(s => {
+  state = s || {};
+  if (!stateSnapshotReady) {
+    stateSnapshotReady = true;
+    resolveStateReady();
+  }
+  const activeSeason = Number(state.season);
+  $('season').textContent = Number.isInteger(activeSeason) ? activeSeason : '—';
+  renderTimer();
+});
 watchBoard(b => {
   const before = lastPickOverall;
   board = b;
@@ -101,8 +113,15 @@ async function showPickSequence(p) {
   $('pickFantasyTeam').textContent = teamName;
   setPlayerPhoto(player?.headshot);
 
-  // Azure audio starts rendering while the local "Pick is in" signal runs.
-  const pickSpeech = preparePickSpeech({ overall: p.overall, season: DRAFT.season, teamName, player: announcedPlayer });
+  // Never fall back to the static config year for speech. A newly created draft
+  // can already be 2027 while config.js still contains the previous default year.
+  // Wait for draftState/current so Azure always receives the actual active season.
+  await stateReady;
+  const speechSeason = Number(state.season);
+  if (!Number.isInteger(speechSeason) || speechSeason < 2020 || speechSeason > 2100) {
+    throw new Error('Aktive Draft-Saison fehlt in draftState/current – Azure-Ansage wurde gestoppt, damit kein falsches Jahr gesprochen wird.');
+  }
+  const pickSpeech = preparePickSpeech({ overall: p.overall, season: speechSeason, teamName, player: announcedPlayer });
   const next = getNextOpenSlot(board.picks || {});
   const nextName = next ? (board.teams?.[next.position - 1] || '') : '';
   const clockSpeech = nextName ? prepareClockSpeech(nextName) : null;
