@@ -14,6 +14,11 @@ export function watchDivisions(cb, err = console.error) { return onSnapshot(divi
 export function watchTeam(teamId, cb, err = console.error) { return onSnapshot(doc(db, COLLECTIONS.teams, teamId), s => cb(s.exists() ? s.data() : null), err); }
 export function watchSheet(teamId, cb, err = console.error) { return onSnapshot(doc(db, COLLECTIONS.sheets, teamId), s => cb(s.exists() ? s.data() : null), err); }
 
+export async function getPreferenceSheet(teamId) {
+  const snap = await getDoc(doc(db, COLLECTIONS.sheets, teamId));
+  return snap.exists() ? snap.data() : null;
+}
+
 export async function getUserProfile(uid) {
   const s = await getDoc(doc(db, COLLECTIONS.users, uid));
   return s.exists() ? s.data() : null;
