@@ -8,7 +8,58 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/team-dashboard.css">
   <link rel="stylesheet" href="css/draft-master.css">
-<style>.reports-admin-frame{width:100%;min-height:1450px;border:0;border-radius:10px;background:#f4f1ea}.admin-reports-panel{overflow:hidden}@media(max-width:900px){.reports-admin-frame{min-height:1750px}}</style></head>
+<style>
+.reports-admin-frame{width:100%;min-height:1450px;border:0;border-radius:10px;background:#f4f1ea}
+.admin-reports-panel{overflow:hidden}
+
+.admin-tool-tabs{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin:18px 0 22px;
+  padding:6px;
+  background:#fff;
+  border:1px solid rgba(0,0,0,.10);
+  border-radius:12px;
+  box-shadow:0 3px 14px rgba(0,0,0,.06);
+}
+.admin-tool-tab{
+  appearance:none;
+  border:0;
+  background:transparent;
+  color:#222;
+  font:inherit;
+  font-weight:800;
+  padding:11px 18px;
+  border-radius:8px;
+  cursor:pointer;
+  transition:.18s ease;
+}
+.admin-tool-tab:hover{background:#f4f1ea}
+.admin-tool-tab.active{
+  background:#d97706;
+  color:#fff;
+  box-shadow:0 2px 8px rgba(0,0,0,.14);
+}
+.admin-tab-panel{display:none}
+.admin-tab-panel.active{display:block}
+.admin-tab-panel > .panel:first-child{margin-top:0}
+.admin-system-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:18px;
+}
+.admin-danger-zone{
+  border-color:rgba(150,30,30,.25);
+}
+.admin-danger-zone .danger-outline-btn{width:100%}
+@media(max-width:900px){
+  .reports-admin-frame{min-height:1750px}
+  .admin-tool-tabs{gap:6px}
+  .admin-tool-tab{flex:1 1 calc(50% - 6px); padding:10px 8px}
+  .admin-system-grid{grid-template-columns:1fr}
+}
+</style></head>
 <body class="draft-control-page">
 <header class="main-header dashboard-site-header">
   <nav class="navbar">
@@ -33,61 +84,89 @@
       <div class="hero-actions"><span id="adminStatus" class="admin-active-badge">Admin aktiv</span><button id="logoutBtn" class="secondary-btn">Abmelden</button></div>
     </section>
 
-    <section class="panel admin-lifecycle-panel">
-      <div class="panel-title"><div><span class="section-kicker">SAISON</span><h2>Draft Lifecycle</h2></div><span id="lifecycleBadge" class="mini-badge">—</span></div>
-      <div class="admin-inline-controls">
-        <label>Draft-Jahr<input id="seasonInput" type="number" min="2000" max="2100" value="2027"></label>
-        <button id="createDraftBtn" class="primary-btn">Neues Draft Board erzeugen</button>
-        <button id="finalizeDraftBtn" class="danger-outline-btn">Draft abschließen & archivieren</button>
+    <div class="admin-tool-tabs" role="tablist" aria-label="Admin Bereiche">
+      <button class="admin-tool-tab active" type="button" role="tab" aria-selected="true" data-admin-tab="prep">Draft Vorbereitung</button>
+      <button class="admin-tool-tab" type="button" role="tab" aria-selected="false" data-admin-tab="live">Draft Live</button>
+      <button class="admin-tool-tab" type="button" role="tab" aria-selected="false" data-admin-tab="reports">Spielberichte</button>
+      <button class="admin-tool-tab" type="button" role="tab" aria-selected="false" data-admin-tab="system">System</button>
+    </div>
+
+    <div id="adminTabPrep" class="admin-tab-panel active" data-admin-panel="prep">
+      <section class="panel admin-lifecycle-panel">
+        <div class="panel-title"><div><span class="section-kicker">SAISON</span><h2>Draft vorbereiten</h2></div><span id="lifecycleBadge" class="mini-badge">—</span></div>
+        <div class="admin-inline-controls">
+          <label>Draft-Jahr<input id="seasonInput" type="number" min="2000" max="2100" value="2027"></label>
+          <button id="createDraftBtn" class="primary-btn">Neues Draft Board erzeugen</button>
+        </div>
+        <p id="lifecycleInfo" class="status-copy"></p>
+      </section>
+
+      <div class="admin-control-grid">
+        <section class="panel">
+          <div class="panel-title"><div><span class="section-kicker">DRAFT ORDER</span><h2>Draft-Reihenfolge</h2></div></div>
+          <div class="admin-action-row">
+            <button id="prepareOrderDrawBtn" class="secondary-btn">Auslosung vorbereiten</button>
+            <button id="revealOrderBtn" class="primary-btn">Nächstes Team aufdecken</button>
+          </div>
+          <p id="orderDrawStatus" class="status-copy"></p>
+          <div id="orderEditor" class="order-editor"></div>
+          <button id="saveOrderBtn" class="primary-btn admin-full-btn">Reihenfolge speichern & Draft freigeben</button>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title"><div><span class="section-kicker">DIVISIONS</span><h2>Division-Auslosung</h2></div></div>
+          <div class="admin-action-row">
+            <button id="prepareDivisionDrawBtn" class="secondary-btn">Auslosung vorbereiten</button>
+            <button id="revealDivisionBtn" class="primary-btn">Nächstes Team aufdecken</button>
+          </div>
+          <p id="divisionDrawStatus" class="status-copy"></p>
+          <div id="divisionPreview" class="division-preview"></div>
+        </section>
       </div>
-      <p id="lifecycleInfo" class="status-copy"></p>
-    </section>
+    </div>
 
-    <div class="admin-control-grid">
-      <section class="panel">
-        <div class="panel-title"><div><span class="section-kicker">DRAFT ORDER</span><h2>Draft-Reihenfolge</h2></div></div>
-        <div class="admin-action-row">
-          <button id="prepareOrderDrawBtn" class="secondary-btn">Auslosung vorbereiten</button>
-          <button id="revealOrderBtn" class="primary-btn">Nächstes Team aufdecken</button>
-        </div>
-        <p id="orderDrawStatus" class="status-copy"></p>
-        <div id="orderEditor" class="order-editor"></div>
-        <button id="saveOrderBtn" class="primary-btn admin-full-btn">Reihenfolge speichern & Draft freigeben</button>
+    <div id="adminTabLive" class="admin-tab-panel" data-admin-panel="live">
+      <section class="panel admin-board-panel">
+        <div class="panel-title"><div><span class="section-kicker">PICKS</span><h2>Draft Board verwalten</h2></div><span id="current" class="mini-badge">—</span></div>
+        <p class="hint">Klicke auf einen Pick, um einen Spieler einzutragen, zu korrigieren oder zu löschen.</p>
+        <div class="admin-board-scroll"><table id="adminBoard" class="admin-board-table"></table></div>
       </section>
 
-      <section class="panel">
-        <div class="panel-title"><div><span class="section-kicker">DIVISIONS</span><h2>Division-Auslosung</h2></div></div>
-        <div class="admin-action-row">
-          <button id="prepareDivisionDrawBtn" class="secondary-btn">Auslosung vorbereiten</button>
-          <button id="revealDivisionBtn" class="primary-btn">Nächstes Team aufdecken</button>
-        </div>
-        <p id="divisionDrawStatus" class="status-copy"></p>
-        <div id="divisionPreview" class="division-preview"></div>
+      <div class="admin-control-grid">
+        <section class="panel admin-status-grid">
+          <div class="panel-title"><div><span class="section-kicker">TEAMS</span><h2>Anwesenheitsstatus</h2></div></div>
+          <div id="teams" class="admin-team-list"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-title"><div><span class="section-kicker">LIVE AUTOMATIK</span><h2>Draft-Automatik</h2></div></div>
+          <p id="auto" class="status-copy">Kein automatischer Pick aktiv.</p>
+        </section>
+      </div>
+    </div>
+
+    <div id="adminTabReports" class="admin-tab-panel" data-admin-panel="reports">
+      <section class="panel admin-reports-panel">
+        <div class="panel-title"><div><span class="section-kicker">REPORTS</span><h2>Spielberichte verwalten</h2></div></div>
+        <p class="hint">Matchups und Box Scores werden automatisch geladen. Ergänze nur den Spielbericht, wenn nötig.</p>
+        <iframe id="reportsAdminFrame" class="reports-admin-frame" src="reports.html?embedded=admin" title="Spielberichte verwalten"></iframe>
       </section>
     </div>
 
-    <section class="panel admin-board-panel">
-      <div class="panel-title"><div><span class="section-kicker">PICKS</span><h2>Draft Board verwalten</h2></div><span id="current" class="mini-badge">—</span></div>
-      <p class="hint">Klicke auf einen Pick, um einen Spieler einzutragen, zu korrigieren oder zu löschen.</p>
-      <div class="admin-board-scroll"><table id="adminBoard" class="admin-board-table"></table></div>
-    </section>
+    <div id="adminTabSystem" class="admin-tab-panel" data-admin-panel="system">
+      <div class="admin-system-grid">
+        <section class="panel">
+          <div class="panel-title"><div><span class="section-kicker">SYSTEM</span><h2>Status</h2></div></div>
+          <p id="infraStatus" class="save-state"></p>
+          <p class="hint">Technischer Status der Draft-Infrastruktur und Synchronisierung.</p>
+        </section>
 
-    <div class="admin-control-grid">
-      <section class="panel admin-status-grid">
-        <div class="panel-title"><div><span class="section-kicker">TEAMS</span><h2>Anwesenheitsstatus</h2></div></div>
-        <div id="teams" class="admin-team-list"></div>
-      </section>
-      <section class="panel">
-        <div class="panel-title"><div><span class="section-kicker">SYSTEM</span><h2>Automatik</h2></div></div>
-        <p id="auto" class="status-copy">Kein automatischer Pick aktiv.</p>
-        <p id="infraStatus" class="save-state"></p>
-      </section>
+        <section class="panel admin-danger-zone">
+          <div class="panel-title"><div><span class="section-kicker">SAISON</span><h2>Draft abschließen</h2></div></div>
+          <p class="hint">Archiviert den aktuellen Draft und beendet den Live-Draft. Nur verwenden, wenn der Draft vollständig abgeschlossen ist.</p>
+          <button id="finalizeDraftBtn" class="danger-outline-btn">Draft abschließen & archivieren</button>
+        </section>
+      </div>
     </div>
-    <section class="panel admin-reports-panel">
-      <div class="panel-title"><div><span class="section-kicker">REPORTS</span><h2>Spielberichte verwalten</h2></div></div>
-      <p class="hint">Matchups und Box Scores werden automatisch geladen. Ergänze nur den Spielbericht, wenn nötig.</p>
-      <iframe id="reportsAdminFrame" class="reports-admin-frame" src="reports.html?embedded=admin" title="Spielberichte verwalten"></iframe>
-    </section>
   </div>
 </main>
 
@@ -102,6 +181,31 @@
   </div>
 </div>
 
+<script>
+(() => {
+  const buttons = [...document.querySelectorAll("[data-admin-tab]")];
+  const panels = [...document.querySelectorAll("[data-admin-panel]")];
+
+  function openAdminTab(name) {
+    buttons.forEach(btn => {
+      const active = btn.dataset.adminTab === name;
+      btn.classList.toggle("active", active);
+      btn.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    panels.forEach(panel => panel.classList.toggle("active", panel.dataset.adminPanel === name));
+    try { sessionStorage.setItem("bembelAdminTab", name); } catch (_) {}
+  }
+
+  buttons.forEach(btn => btn.addEventListener("click", () => openAdminTab(btn.dataset.adminTab)));
+
+  let initial = "prep";
+  try {
+    const saved = sessionStorage.getItem("bembelAdminTab");
+    if (buttons.some(btn => btn.dataset.adminTab === saved)) initial = saved;
+  } catch (_) {}
+  openAdminTab(initial);
+})();
+</script>
 <script type="module" src="js/draft/draft-control.js"></script>
 <script src="js/site-nav.js" defer></script>
 </body>
