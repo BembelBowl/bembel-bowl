@@ -1,4 +1,4 @@
-import { db, doc, onSnapshot, getDoc, setDoc, runTransaction, serverTimestamp, Timestamp, deleteField } from './firebase.js';
+import { db, doc, collection, onSnapshot, getDoc, getDocs, setDoc, runTransaction, serverTimestamp, Timestamp, deleteField } from './firebase.js';
 import { COLLECTIONS, DRAFT } from './config.js';
 import { getNextOpenSlot, orderedPicks } from './model.js';
 
@@ -69,9 +69,65 @@ export async function ensureDraftInfrastructure() {
   }, { merge: true });
 }
 
+
+
+async function archiveCompletedSetupBeforeReset() {
+  const [orderSnap, divSnap] = await Promise.all([getDoc(draftOrderRef), getDoc(divisionOrderRef)]);
+  const jobs = [];
+
+  if (orderSnap.exists()) {
+    const data = orderSnap.data() || {};
+    const year = Number(data.season);
+    const hasCompleteOrder = Array.isArray(data.order) && data.order.filter(Boolean).length === DRAFT.teamCount;
+    if (Number.isInteger(year) && hasCompleteOrder) {
+      jobs.push(setDoc(doc(db, 'draftOrder_archive', String(year)), {
+        ...data,
+        archivedAt: serverTimestamp()
+      }, { merge: true }));
+    }
+  }
+
+  if (divSnap.exists()) {
+    const data = divSnap.data() || {};
+    const year = Number(data.season);
+    const divisions = data.divisions || null;
+    const hasCompleteDivisions = divisions && ['A','B','C','D'].every(k => Array.isArray(divisions[k]) && divisions[k].filter(Boolean).length === 5);
+    if (Number.isInteger(year) && hasCompleteDivisions) {
+      jobs.push(setDoc(doc(db, 'divisionOrder_archive', String(year)), {
+        ...data,
+        archivedAt: serverTimestamp()
+      }, { merge: true }));
+    }
+  }
+
+  if (jobs.length) await Promise.all(jobs);
+}
+
+export async function listDraftOrderArchiveSeasons() {
+  const snap = await getDocs(collection(db, 'draftOrder_archive'));
+  return snap.docs.map(d => Number(d.id)).filter(Number.isInteger).sort((a,b) => b-a);
+}
+
+export async function listDivisionArchiveSeasons() {
+  const snap = await getDocs(collection(db, 'divisionOrder_archive'));
+  return snap.docs.map(d => Number(d.id)).filter(Number.isInteger).sort((a,b) => b-a);
+}
+
+export async function getDraftOrderArchive(season) {
+  const snap = await getDoc(doc(db, 'draftOrder_archive', String(season)));
+  return snap.exists() ? snap.data() : null;
+}
+
+export async function getDivisionArchive(season) {
+  const snap = await getDoc(doc(db, 'divisionOrder_archive', String(season)));
+  return snap.exists() ? snap.data() : null;
+}
+
 export async function createNewDraft(season) {
   const year = Number(season);
   if (!Number.isInteger(year) || year < 2000 || year > 2100) throw new Error('Ungültiges Draft-Jahr.');
+  // Vor jedem Reset abgeschlossene Draft Order / Divisionen automatisch sichern.
+  await archiveCompletedSetupBeforeReset();
   await setDoc(boardRef, { teams: Array(DRAFT.teamCount).fill(null), picks: {}, season: year, updatedAt: serverTimestamp() });
   await setDoc(stateRef, {
     status: 'setup', season: year, boardCreated: true, orderSet: false,

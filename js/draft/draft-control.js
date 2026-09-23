@@ -75,7 +75,7 @@ onAuthStateChanged(auth, async user => {
 
 $('createDraftBtn').onclick = async () => {
   const year = Number($('seasonInput').value);
-  if (!confirm(`Neues leeres Draft Board für ${year} erzeugen? Das aktuelle Live-Board wird überschrieben.`)) return;
+  if (!confirm(`Neues leeres Draft Board für ${year} erzeugen? Abgeschlossene Draft Order und Divisionen werden vorher automatisch archiviert; nur das aktuelle Live-Board wird neu angelegt.`)) return;
   try { await createNewDraft(year); } catch (e) { alert(e.message); }
 };
 
