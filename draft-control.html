@@ -73,6 +73,14 @@
 }
 .admin-live-stack .admin-team-list{
   width:100%;
+  display:grid !important;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px 18px;
+  align-items:start;
+}
+.admin-live-stack .admin-team-list > *{
+  min-width:0;
+  width:100%;
 }
 .admin-live-stack .admin-auto-panel{
   min-height:0;
@@ -90,6 +98,7 @@
   .admin-tool-tabs{gap:6px}
   .admin-tool-tab{flex:1 1 calc(50% - 6px); padding:10px 8px}
   .admin-system-grid{grid-template-columns:1fr}
+  .admin-live-stack .admin-team-list{grid-template-columns:1fr}
 }
 </style></head>
 <body class="draft-control-page">
