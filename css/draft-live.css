@@ -51,35 +51,8 @@
 .pick-overlay.transitioning .pick-inner{opacity:0!important;transform:scale(.985)}
 
 
-.live-position-filters{
-  display:flex;
-  flex-wrap:wrap;
-  gap:5px;
-  margin:12px 0 2px;
-}
-.live-position-filters button{
-  border:1px solid rgba(209,139,47,.28);
-  background:#26221d;
-  color:#c9c2b7;
-  border-radius:6px;
-  padding:5px 8px;
-  font:inherit;
-  font-size:10px;
-  font-weight:900;
-  cursor:pointer;
-  min-width:31px;
-}
-.live-position-filters button:hover{
-  border-color:var(--gold);
-  color:#fff;
-}
-.live-position-filters button.active{
-  background:var(--gold);
-  border-color:var(--gold);
-  color:#17120c;
-}
 
-/* V11: Top 25 Best Available remains usable on a 16:9 live screen */
+/* V12: Top 15 Best Available remains usable on a 16:9 live screen */
 .available-list{
   max-height:calc(100vh - 285px);
   overflow-y:auto;
