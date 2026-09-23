@@ -213,10 +213,17 @@ export async function adminSetPick({ round, position, player, actorUid }) {
     const now = Timestamp.now();
     const isCurrent = next?.key === key;
     const started = isCurrent ? timestampMs(state.clockStartedAt) : null;
+
+    // A correction of an already completed pick must not destroy its timing data.
+    const pickedAt = existingPick?.pickedAt || now;
+    const pickDurationSeconds = existingPick
+      ? (existingPick.pickDurationSeconds ?? null)
+      : (started ? Math.max(0, Math.round((now.toMillis() - started) / 1000)) : null);
+
     const pick = {
       playerId: player.id || null, name: player.name, position: player.position,
-      nflTeam: player.nflTeam || player.team || '', pickedAt: now,
-      pickDurationSeconds: started ? Math.max(0, Math.round((now.toMillis() - started) / 1000)) : null,
+      nflTeam: player.nflTeam || player.team || '', pickedAt,
+      pickDurationSeconds,
       source: 'admin', actorUid: actorUid || null
     };
     tx.update(boardRef, { [`picks.${key}`]: pick, updatedAt: serverTimestamp() });

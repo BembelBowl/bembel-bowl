@@ -201,9 +201,13 @@ function renderAdminBoard() {
     const pick = board.picks?.[key];
     const team = teamsOrder[position - 1] || '—';
     const overall = pickNumber(round, position);
+    const durationSeconds = pick ? getPickDurationSeconds(round, position, pick) : null;
+    const duration = pick ? formatPickDuration(durationSeconds) : '';
     const playerHtml = pick
-      ? `<div class="admin-round-player"><strong>${esc(pick.name)}</strong><span>Spieler</span></div><div class="admin-round-meta">${esc(pick.position || '')}${pick.nflTeam ? ` · ${esc(pick.nflTeam)}` : ''}</div>`
-      : `<div class="admin-round-player"><strong class="admin-round-empty">+ Spieler eintragen</strong><span>Noch kein Pick</span></div><div class="admin-round-meta"></div>`;
+      ? `<div class="admin-round-player"><strong>${esc(pick.name)}</strong><span>Spieler</span></div>
+         <div class="admin-round-meta">${esc(pick.position || '')}${pick.nflTeam ? ` · ${esc(pick.nflTeam)}` : ''}</div>
+         <div class="admin-round-duration" style="font-size:.78rem;font-weight:900;color:#9a611c;white-space:nowrap">⏱ Dauer ${duration || '—'}</div>`
+      : `<div class="admin-round-player"><strong class="admin-round-empty">+ Spieler eintragen</strong><span>Noch kein Pick</span></div><div class="admin-round-meta"></div><div></div>`;
 
     return `<button type="button" class="admin-round-pick ${pick ? 'filled' : ''}" data-round="${round}" data-pos="${position}" ${!state.orderSet ? 'disabled' : ''}>
       <div class="admin-round-pick-number">#${overall}</div>
@@ -258,4 +262,58 @@ $('teams').addEventListener('change', async e => { const id=e.target.dataset.tea
 
 function shuffle(arr){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function formatCountdown(ms){const s=Math.max(0,Math.ceil(ms/1000));return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;}
+function pickTimestampMs(value) {
+  if (!value) return null;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string' && Number.isFinite(Number(value))) return Number(value);
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  if (typeof value.seconds === 'number') {
+    return value.seconds * 1000 + Math.floor((value.nanoseconds || 0) / 1e6);
+  }
+  return null;
+}
+
+function previousPickByOverall(overall) {
+  if (overall <= 1) return null;
+  let previous = null;
+  for (const [key, candidate] of Object.entries(board.picks || {})) {
+    const [round, position] = key.split('-').map(Number);
+    if (!round || !position || !candidate) continue;
+    if (pickNumber(round, position) === overall - 1) {
+      previous = candidate;
+      break;
+    }
+  }
+  return previous;
+}
+
+function getPickDurationSeconds(round, position, pick) {
+  const explicit = Number(
+    pick?.pickDurationSeconds ??
+    pick?.durationSeconds ??
+    pick?.pickTimeSeconds ??
+    NaN
+  );
+  if (Number.isFinite(explicit) && explicit >= 0) return explicit;
+
+  // Compatibility for older picks: reconstruct from consecutive pickedAt timestamps.
+  const overall = pickNumber(round, position);
+  const currentMs = pickTimestampMs(pick?.pickedAt);
+  const previous = previousPickByOverall(overall);
+  const previousMs = pickTimestampMs(previous?.pickedAt);
+
+  if (currentMs && previousMs && currentMs >= previousMs) {
+    return Math.round((currentMs - previousMs) / 1000);
+  }
+  return null;
+}
+
+function formatPickDuration(seconds) {
+  const value = Number(seconds);
+  if (!Number.isFinite(value) || value < 0) return '';
+  const total = Math.round(value);
+  const minutes = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${String(minutes).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+}
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
