@@ -173,29 +173,36 @@ function render() {
 
 
 function applyDraftMode() {
-  const editable = !draftIsLive;
+  const prioritiesEditable = !draftIsLive;
 
-  $('sheetLockHint')?.classList.toggle('is-hidden', editable);
+  $('sheetLockHint')?.classList.toggle('is-hidden', prioritiesEditable);
+  if ($('sheetLockHint') && draftIsLive) {
+    $('sheetLockHint').innerHTML = '<strong>Draft läuft:</strong> Die Prioritätenlisten sind gesperrt. Die Positionsplanung pro Runde bleibt bearbeitbar.';
+  }
+
   $('sheetDefaultBadge').textContent = draftIsLive
-    ? 'Schreibgeschützt'
+    ? 'Prioritäten gesperrt'
     : (sheet.usesDefaultPlan === false ? 'Individuelles Sheet' : 'Default-Regeln');
 
   $('availableModeBadge').textContent = draftIsLive ? 'LIVE' : 'PRE-DRAFT';
   $('availableModeBadge').classList.toggle('live', draftIsLive);
   document.querySelector('.available-panel')?.classList.toggle('live-mode', draftIsLive);
-  document.querySelector('.sheet-panel')?.classList.toggle('sheet-locked', draftIsLive);
+
+  // Only the player-priority lists are locked during the live draft.
+  // The round-by-round position plan stays editable and saveable.
+  document.querySelector('.sheet-panel')?.classList.remove('sheet-locked');
   document.querySelector('.priorities-panel')?.classList.toggle('sheet-locked', draftIsLive);
 
-  $$('[data-round]').forEach(el => { el.disabled = !editable; });
-  if ($('saveSheet')) $('saveSheet').disabled = !editable;
+  $$('[data-round]').forEach(el => { el.disabled = false; });
+  if ($('saveSheet')) $('saveSheet').disabled = false;
 
   document.querySelectorAll('.priority-player').forEach(el => {
-    el.draggable = editable;
-    el.classList.toggle('locked', !editable);
+    el.draggable = prioritiesEditable;
+    el.classList.toggle('locked', !prioritiesEditable);
   });
 
   const liveHint = draftIsLive
-    ? 'Live-Modus: synchron zum Live Screen. Bereits gedraftete Spieler sind ausgeblendet.'
+    ? 'Live-Modus: bereits gedraftete Spieler sind ausgeblendet. Die Positionsplanung pro Runde kann weiterhin geändert und gespeichert werden.'
     : 'Pre-Draft: vollständige ECR-Liste. Nur Spieler aus deinem eigenen Draft Sheet werden ausgeblendet.';
   document.querySelector('.available-panel .mode-hint')?.remove();
   const controls = document.querySelector('.team-available-controls');
@@ -297,17 +304,22 @@ function hydrateSheet() {
 
 $('saveSheet').onclick = async () => {
   const status = $('sheetSaveState');
-  if (draftIsLive) {
-    setSaveState(status, 'Draft läuft – das Draft Sheet ist schreibgeschützt.', true);
-    return;
-  }
   setSaveState(status, 'Speichert…');
   try {
-    // Always save both parts in one atomic document write so neither can overwrite/reset the other.
-    DRAFT.positions.forEach(syncPriorityFromDomSilent);
+    // Before the draft both parts are editable. During the live draft the
+    // priorities are locked, so preserve their in-memory values unchanged and
+    // only take fresh values from the round-by-round position selectors.
+    if (!draftIsLive) DRAFT.positions.forEach(syncPriorityFromDomSilent);
+
     const roundPlan = Object.fromEntries($$('[data-round]').map(e => [e.dataset.round, e.value]));
     await savePreferenceSheet(profile.teamId, { roundPlan, playerPriorities: priorityState });
-    setSaveState(status, '✓ Draft Sheet vollständig gespeichert');
+
+    setSaveState(
+      status,
+      draftIsLive
+        ? '✓ Positionsplanung gespeichert'
+        : '✓ Draft Sheet vollständig gespeichert'
+    );
   } catch (e) {
     setSaveState(status, `Fehler: ${e.message}`, true);
   }
