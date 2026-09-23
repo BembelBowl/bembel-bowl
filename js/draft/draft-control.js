@@ -1,7 +1,5 @@
 import { auth } from './firebase.js';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js';
-import { collection, query, where, getDocs, doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
-import { db } from './firebase.js';
 import { DRAFT, LEAGUE_TEAMS, teamLogo } from './config.js';
 import {
   getUserProfile, watchBoard, watchState, watchTeam, watchSheet, watchDraftOrder, watchDivisions,
@@ -33,17 +31,17 @@ $('loginBtn').onclick = async () => {
   catch (e) { $('err').textContent = /invalid-credential/i.test(e?.code || '') ? 'E-Mail oder Passwort ist nicht korrekt.' : e.message; }
 };
 $('password').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginBtn').click(); });
-$('logoutBtn').onclick = async () => { await signOut(auth); location.replace('login.html'); };
+$('logoutBtn').onclick = () => signOut(auth);
 
 onAuthStateChanged(auth, async user => {
   if (!user) {
     engine?.stop(); engine = null; startedUid = null;
-    location.replace('login.html');
+    $('loginCard').classList.remove('is-hidden'); $('app').classList.add('is-hidden');
     return;
   }
   try {
     const p = await getUserProfile(user.uid);
-    if (p?.role !== 'admin') { location.replace(p?.role === 'team' ? 'team-dashboard.html' : 'login.html'); return; }
+    if (p?.role !== 'admin') { $('err').textContent = 'Dieses Konto ist nicht als Admin hinterlegt.'; await signOut(auth); return; }
     $('loginCard').classList.add('is-hidden'); $('app').classList.remove('is-hidden');
     if (startedUid === user.uid) return;
     startedUid = user.uid;
@@ -178,20 +176,47 @@ function renderDivisions() {
   $('revealDivisionBtn').disabled = !seq.length || count >= seq.length;
 }
 
+let adminSelectedRound = 1;
+
 function renderAdminBoard() {
-  const table = $('adminBoard'); if (!table) return;
+  const list = $('adminBoard');
+  const tabs = $('adminRoundTabs');
+  if (!list || !tabs) return;
+
+  adminSelectedRound = Math.max(1, Math.min(DRAFT.roundCount, Number(adminSelectedRound || 1)));
   const teamsOrder = board.teams || [];
-  let html = '<thead><tr><th>R</th>' + Array.from({length:DRAFT.teamCount},(_,i)=>`<th>${i+1}<small>${esc(teamsOrder[i] || '—')}</small></th>`).join('') + '</tr></thead><tbody>';
-  for (let r=1;r<=DRAFT.roundCount;r++) {
-    html += `<tr><th>R${r}</th>`;
-    for (let p=1;p<=DRAFT.teamCount;p++) {
-      const key=`${r}-${p}`, pick=board.picks?.[key];
-      html += `<td><button class="admin-pick-cell ${pick ? 'filled' : ''}" data-round="${r}" data-pos="${p}" ${!state.orderSet ? 'disabled' : ''}><small>#${pickNumber(r,p)}</small>${pick ? `<b>${esc(pick.name)}</b><span>${esc(pick.position || '')} ${esc(pick.nflTeam || '')}</span>` : '<b>+</b>'}</button></td>`;
-    }
-    html += '</tr>';
-  }
-  table.innerHTML = html + '</tbody>';
+
+  tabs.innerHTML = Array.from({ length:DRAFT.roundCount }, (_, i) => {
+    const round = i + 1;
+    const hasPicks = Array.from({length:DRAFT.teamCount}, (_, p) => board.picks?.[`${round}-${p+1}`]).some(Boolean);
+    return `<button type="button" class="admin-round-tab ${round === adminSelectedRound ? 'active' : ''} ${hasPicks ? 'has-picks' : ''}" data-admin-round-tab="${round}">R${round}</button>`;
+  }).join('');
+
+  list.innerHTML = Array.from({ length:DRAFT.teamCount }, (_, idx) => {
+    const position = idx + 1;
+    const round = adminSelectedRound;
+    const key = `${round}-${position}`;
+    const pick = board.picks?.[key];
+    const team = teamsOrder[position - 1] || '—';
+    const overall = pickNumber(round, position);
+    const playerHtml = pick
+      ? `<div class="admin-round-player"><strong>${esc(pick.name)}</strong><span>Spieler</span></div><div class="admin-round-meta">${esc(pick.position || '')}${pick.nflTeam ? ` · ${esc(pick.nflTeam)}` : ''}</div>`
+      : `<div class="admin-round-player"><strong class="admin-round-empty">+ Spieler eintragen</strong><span>Noch kein Pick</span></div><div class="admin-round-meta"></div>`;
+
+    return `<button type="button" class="admin-round-pick ${pick ? 'filled' : ''}" data-round="${round}" data-pos="${position}" ${!state.orderSet ? 'disabled' : ''}>
+      <div class="admin-round-pick-number">#${overall}</div>
+      <div class="admin-round-team"><strong>${esc(team)}</strong><span>Draft Position ${position}</span></div>
+      ${playerHtml}
+    </button>`;
+  }).join('');
 }
+
+$('adminRoundTabs')?.addEventListener('click', e => {
+  const btn = e.target.closest('[data-admin-round-tab]');
+  if (!btn) return;
+  adminSelectedRound = Number(btn.dataset.adminRoundTab) || 1;
+  renderAdminBoard();
+});
 
 $('adminBoard').onclick = e => {
   const btn = e.target.closest('[data-round][data-pos]'); if (!btn) return;
@@ -228,43 +253,6 @@ function renderTeams() {
   $('teams').innerHTML = LEAGUE_TEAMS.map(id => `<div class="admin-team-row"><span class="admin-team-name"><img src="${teamLogo(id)}" alt=""><strong>${esc(id)}</strong></span><select data-team-status="${esc(id)}"><option value="present" ${(teams.get(id)?.attendance||'present')==='present'?'selected':''}>Vor Ort</option><option value="remote" ${teams.get(id)?.attendance==='remote'?'selected':''}>Video / Remote</option><option value="absent" ${teams.get(id)?.attendance==='absent'?'selected':''}>Abwesend</option></select></div>`).join('');
 }
 $('teams').addEventListener('change', async e => { const id=e.target.dataset.teamStatus;if(!id)return;e.target.disabled=true;try{await setAttendance(id,e.target.value);}catch(err){alert(err.message);}finally{e.target.disabled=false;} });
-
-
-// Reports admin is centralized here; public reports.html remains view-only.
-const reportCollection = collection(db, 'matchReports');
-$('loadReportsBtn').onclick = loadAdminReports;
-$('saveReportBtn').onclick = saveAdminReport;
-$('deleteReportBtn').onclick = deleteAdminReport;
-
-async function loadAdminReports() {
-  const season = Number($('reportSeason').value);
-  const week = Number($('reportWeek').value);
-  $('reportAdminStatus').textContent = 'Lädt…';
-  try {
-    const snap = await getDocs(reportCollection);
-    const docs = snap.docs.map(d=>({id:d.id,...d.data()})).filter(x => { const y=Number(x.season || String(x.id).match(/^(\d{4})/)?.[1]); const w=Number(x.week || String(x.id).match(/-w(\d+)/)?.[1]); return y===season && (w===week || !!x.type); });
-    $('reportList').innerHTML = docs.length ? docs.map(x=>`<button class="report-admin-item" data-report-id="${esc(x.id)}"><span><strong>${esc(x.title || x.id)}</strong><br><small>${esc(x.homeTeam || '')}${x.awayTeam ? ` vs ${esc(x.awayTeam)}` : ''}</small></span><span>Bearbeiten</span></button>`).join('') : '<p class="status-copy">Keine Reports gefunden.</p>';
-    $('reportAdminStatus').textContent = `${docs.length} Einträge geladen.`;
-  } catch(e) { $('reportAdminStatus').textContent = `Fehler: ${e.message}`; }
-}
-$('reportList').onclick = async e => {
-  const id=e.target.closest('[data-report-id]')?.dataset.reportId; if(!id)return;
-  try { const s=await getDoc(doc(db,'matchReports',id)); if(!s.exists()) return; fillReportEditor(id,s.data()); }
-  catch(err){ $('reportAdminStatus').textContent=`Fehler: ${err.message}`; }
-};
-function fillReportEditor(id,d={}){
-  $('reportDocId').value=id; $('reportSeason').value=d.season || Number(String(id).match(/^(\d{4})/)?.[1]) || 2026; $('reportWeek').value=d.week || Number(String(id).match(/-w(\d+)/)?.[1]) || 1;
-  $('reportHome').value=d.homeTeam||''; $('reportAway').value=d.awayTeam||''; $('reportHomeScore').value=d.homeScore??''; $('reportAwayScore').value=d.awayScore??''; $('reportType').value=d.type||''; $('reportTitle').value=d.title||''; $('reportText').value=d.text||'';
-  $('reportHomeBox').value=JSON.stringify(d.homeBoxScore||[],null,2); $('reportAwayBox').value=JSON.stringify(d.awayBoxScore||[],null,2);
-}
-async function saveAdminReport(){
-  const id=$('reportDocId').value.trim(); if(!id) return $('reportAdminStatus').textContent='Dokument-ID fehlt.';
-  try{
-    const payload={season:Number($('reportSeason').value),week:Number($('reportWeek').value),homeTeam:$('reportHome').value.trim(),awayTeam:$('reportAway').value.trim(),homeScore:Number($('reportHomeScore').value)||0,awayScore:Number($('reportAwayScore').value)||0,text:$('reportText').value,type:$('reportType').value.trim()||null,title:$('reportTitle').value.trim()||null,homeBoxScore:JSON.parse($('reportHomeBox').value||'[]'),awayBoxScore:JSON.parse($('reportAwayBox').value||'[]'),updatedAt:serverTimestamp()};
-    await setDoc(doc(db,'matchReports',id),payload,{merge:true}); $('reportAdminStatus').textContent='✓ Report gespeichert.'; await loadAdminReports();
-  }catch(e){$('reportAdminStatus').textContent=`Fehler: ${e.message}`;}
-}
-async function deleteAdminReport(){const id=$('reportDocId').value.trim();if(!id||!confirm(`Report ${id} wirklich löschen?`))return;try{await deleteDoc(doc(db,'matchReports',id));fillReportEditor('',{});$('reportAdminStatus').textContent='Report gelöscht.';await loadAdminReports();}catch(e){$('reportAdminStatus').textContent=`Fehler: ${e.message}`;}}
 
 function shuffle(arr){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function formatCountdown(ms){const s=Math.max(0,Math.ceil(ms/1000));return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;}
