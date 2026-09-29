@@ -87,7 +87,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           ESPN_LEAGUE_ID: ${{ secrets.ESPN_LEAGUE_ID }}
-          GEMINI_MODEL: gemini-3.6-flash
+          GEMINI_MODEL: gemini-3.8-flash
           GEMINI_MAX_ATTEMPTS: '5'
           GEMINI_BASE_BACKOFF_SECONDS: '15'
           MATCHUP_DELAY_SECONDS: '15'
