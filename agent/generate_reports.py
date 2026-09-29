@@ -21,7 +21,7 @@ Optionale Umgebungsvariablen (manuelles Testen/Ueberschreiben):
 - SKIP_EXISTING ("true", vorhandene Berichte nicht neu erzeugen)
 - GEMINI_MODEL (Default: "gemini-3.8-flash")
 - GEMINI_FALLBACK_MODELS (kommagetrennte Fallback-Modellliste)
-- GEMINI_ATTEMPTS_PER_MODEL (Default: "2")
+- GEMINI_ATTEMPTS_PER_MODEL (Default: "1")
 """
 
 import json
@@ -68,7 +68,7 @@ GEMINI_FALLBACK_MODELS = [
     m.strip()
     for m in os.environ.get(
         "GEMINI_FALLBACK_MODELS",
-        "gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash"
+        "gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-2.5-flash-lite"
     ).split(",")
     if m.strip()
 ]
@@ -314,6 +314,9 @@ def validate_matchups(games, week, strict=True):
 # ---------------------------------------------------------------------------
 # Echter NFL-Wochenkontext fuer Fakten, Anekdoten und reale Spielereignisse
 # ---------------------------------------------------------------------------
+NFL_SITE_API_BLOCKED = False
+
+
 NFL_HTTP_HEADERS = {
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "en-US,en;q=0.9",
@@ -356,6 +359,8 @@ def _find_nested_events(value):
 
 
 def _fetch_nfl_scoreboard(week):
+    global NFL_SITE_API_BLOCKED
+
     params = {
         "week": week,
         "seasontype": 2,
@@ -369,6 +374,9 @@ def _fetch_nfl_scoreboard(week):
         if events:
             return events, "site.api.espn.com"
     except Exception as exc:  # noqa: BLE001
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        if status == 403:
+            NFL_SITE_API_BLOCKED = True
         print(f"  NFL-Scoreboard Site-API nicht verfuegbar ({exc}); versuche ESPN-CDN ...")
 
     cdn = _nfl_get(
@@ -390,15 +398,22 @@ def _fetch_nfl_scoreboard(week):
 
 def _fetch_nfl_game_package(event_id):
     """Versucht Site Summary, danach das ESPN-CDN-Spielpaket."""
-    try:
-        return _nfl_get(NFL_SUMMARY_URL, {"event": event_id})
-    except Exception as exc:  # noqa: BLE001
-        print(f"  NFL-Summary {event_id} Site-API nicht verfuegbar ({exc}); versuche CDN ...")
+    global NFL_SITE_API_BLOCKED
+
+    if not NFL_SITE_API_BLOCKED:
         try:
-            return _nfl_get(NFL_CDN_GAME_URL, {"xhr": 1, "gameId": event_id})
-        except Exception as cdn_exc:  # noqa: BLE001
-            print(f"  WARNUNG: NFL-Spielpaket {event_id} nicht verfuegbar: {cdn_exc}")
-            return {}
+            return _nfl_get(NFL_SUMMARY_URL, {"event": event_id})
+        except Exception as exc:  # noqa: BLE001
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            if status == 403:
+                NFL_SITE_API_BLOCKED = True
+            print(f"  NFL-Summary {event_id} Site-API nicht verfuegbar ({exc}); versuche CDN ...")
+
+    try:
+        return _nfl_get(NFL_CDN_GAME_URL, {"xhr": 1, "gameId": event_id})
+    except Exception as cdn_exc:  # noqa: BLE001
+        print(f"  WARNUNG: NFL-Spielpaket {event_id} nicht verfuegbar: {cdn_exc}")
+        return {}
 
 
 def _canon_person_name(value):
@@ -508,17 +523,20 @@ def fetch_real_nfl_context(week):
                 context["playerFacts"].extend(_summary_player_facts(summary, game_name))
                 context["gameNotes"].extend(_summary_game_notes(summary, game_name))
 
-        try:
-            news = _nfl_get(NFL_NEWS_URL, {"limit": 30})
-            for article in news.get("articles") or []:
-                headline = article.get("headline") or article.get("title")
-                description = article.get("description")
-                if headline:
-                    context["news"].append(
-                        headline + (f" — {description}" if description else "")
-                    )
-        except Exception as exc:  # noqa: BLE001
-            print(f"  WARNUNG: NFL-News nicht verfuegbar: {exc}")
+        if not NFL_SITE_API_BLOCKED:
+            try:
+                news = _nfl_get(NFL_NEWS_URL, {"limit": 30})
+                for article in news.get("articles") or []:
+                    headline = article.get("headline") or article.get("title")
+                    description = article.get("description")
+                    if headline:
+                        context["news"].append(
+                            headline + (f" — {description}" if description else "")
+                        )
+            except Exception as exc:  # noqa: BLE001
+                print(f"  WARNUNG: NFL-News nicht verfuegbar: {exc}")
+        else:
+            print("  NFL-News Site-API uebersprungen, da ESPN diesen Runner bereits mit 403 blockiert.")
 
         seen_facts = set()
         unique_facts = []
@@ -873,13 +891,19 @@ def generate_report(prompt, max_attempts=None, temperature=0.8, max_output_token
     api_key = os.environ["GEMINI_API_KEY"]
 
     if max_attempts is None:
-        max_attempts = int(os.environ.get("GEMINI_ATTEMPTS_PER_MODEL", "2"))
+        max_attempts = int(os.environ.get("GEMINI_ATTEMPTS_PER_MODEL", "1"))
 
     base_backoff = int(os.environ.get("GEMINI_BASE_BACKOFF_SECONDS", "12"))
 
+    # Report writing does not need Gemini's default medium reasoning depth.
+    # Low thinking reduces latency/load while the report prompt itself supplies
+    # the creative variation. Sampling temperature is deprecated on current
+    # Gemini models, so it is intentionally not sent anymore.
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": temperature},
+        "generationConfig": {
+            "thinkingConfig": {"thinkingLevel": "low"},
+        },
     }
     if max_output_tokens:
         body["generationConfig"]["maxOutputTokens"] = max_output_tokens
@@ -897,7 +921,10 @@ def generate_report(prompt, max_attempts=None, temperature=0.8, max_output_token
             try:
                 response = requests.post(
                     url,
-                    params={"key": api_key},
+                    headers={
+                        "x-goog-api-key": api_key,
+                        "Content-Type": "application/json",
+                    },
                     json=body,
                     timeout=180,
                 )
