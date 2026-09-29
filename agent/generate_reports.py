@@ -69,6 +69,15 @@ ESPN_URLS = [
     "https://fantasy.espn.com/apis/v3/games/ffl/seasons/{season}/segments/0/leagues/{league_id}",
 ]
 
+# Optionaler echter NFL-Wochenkontext fuer abwechslungsreichere Reports.
+# Keine Secrets noetig. Wenn die Datenquelle ausfaellt, werden Berichte trotzdem
+# nur aus den Fantasy-Daten erzeugt und es werden KEINE NFL-Fakten erfunden.
+NFL_CONTEXT_ENABLED = os.environ.get("NFL_CONTEXT_ENABLED", "true").lower() == "true"
+NFL_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
+NFL_SUMMARY_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary"
+NFL_NEWS_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news"
+NFL_CONTEXT_TIMEOUT = int(os.environ.get("NFL_CONTEXT_TIMEOUT", "12"))
+
 # ESPN Lineup-Slot- und Positions-Mapping (Standard-IDs, plattformweit gleich)
 LINEUP_SLOT_MAP = {0: "QB", 2: "RB", 4: "WR", 6: "TE", 16: "DEF", 17: "K", 23: "FLEX"}
 BENCH_SLOTS = {20, 21}  # Bench, IR - im Bericht nicht relevant
@@ -283,6 +292,208 @@ def validate_matchups(games, week, strict=True):
 
 
 # ---------------------------------------------------------------------------
+# Echter NFL-Wochenkontext fuer Fakten, Anekdoten und reale Spielereignisse
+# ---------------------------------------------------------------------------
+def _nfl_get(url, params=None):
+    response = requests.get(
+        url,
+        params=params,
+        timeout=NFL_CONTEXT_TIMEOUT,
+        headers={"Accept": "application/json", "User-Agent": "BembelBowlReports/1.0"},
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def _canon_person_name(value):
+    return re.sub(r"[^a-z0-9 ]+", "", str(value or "").lower()).strip()
+
+
+def _event_scoreline(event):
+    competitions = event.get("competitions") or []
+    if not competitions:
+        return ""
+    competitors = competitions[0].get("competitors") or []
+    if len(competitors) < 2:
+        return ""
+    parts = []
+    for c in competitors:
+        team = (c.get("team") or {}).get("abbreviation") or (c.get("team") or {}).get("displayName") or "?"
+        parts.append(f"{team} {c.get('score', '?')}")
+    return " - ".join(parts)
+
+
+def _summary_player_facts(summary, game_name):
+    """Extrahiert nur klar bezeichnete ESPN-Leaderwerte; keine Interpretation."""
+    facts = []
+    for team_block in summary.get("leaders") or []:
+        team_name = ((team_block.get("team") or {}).get("displayName")
+                     or (team_block.get("team") or {}).get("abbreviation") or "")
+        for category in team_block.get("leaders") or []:
+            label = category.get("displayName") or category.get("name") or "Statistik"
+            for item in (category.get("leaders") or [])[:2]:
+                athlete = item.get("athlete") or {}
+                name = athlete.get("displayName") or athlete.get("fullName")
+                value = item.get("displayValue") or item.get("value")
+                if name and value not in (None, ""):
+                    facts.append({
+                        "name": name,
+                        "text": f"{name}: {value} ({label}) in {game_name}"
+                                + (f" fuer {team_name}" if team_name else ""),
+                    })
+    return facts
+
+
+def _summary_game_notes(summary, game_name):
+    notes = []
+    article = summary.get("article") or {}
+    headline = article.get("headline")
+    description = article.get("description")
+    if headline:
+        notes.append(f"{game_name}: {headline}" + (f" — {description}" if description else ""))
+
+    # Einige besonders konkrete Scoring-Plays koennen als Farbtupfer dienen.
+    scoring = summary.get("scoringPlays") or []
+    if scoring:
+        for play in (scoring[:1] + scoring[-1:]):
+            txt = play.get("text") or play.get("shortText")
+            if txt:
+                notes.append(f"{game_name}: {txt}")
+    return notes[:3]
+
+
+def fetch_real_nfl_context(week):
+    """Laedt echten NFL-Kontext. Fehler sind bewusst nicht fatal."""
+    if not NFL_CONTEXT_ENABLED:
+        return {"available": False, "playerFacts": [], "gameNotes": [], "news": []}
+
+    context = {"available": False, "playerFacts": [], "gameNotes": [], "news": []}
+    try:
+        scoreboard = _nfl_get(NFL_SCOREBOARD_URL, {
+            "week": week,
+            "seasontype": 2,
+            "season": SEASON,
+            "limit": 100,
+        })
+        events = scoreboard.get("events") or []
+        for event in events:
+            event_id = event.get("id")
+            game_name = event.get("shortName") or event.get("name") or f"NFL Game {event_id}"
+            scoreline = _event_scoreline(event)
+            if scoreline:
+                context["gameNotes"].append(f"{game_name}: Endstand/Score {scoreline}")
+            if not event_id:
+                continue
+            try:
+                summary = _nfl_get(NFL_SUMMARY_URL, {"event": event_id})
+                context["playerFacts"].extend(_summary_player_facts(summary, game_name))
+                context["gameNotes"].extend(_summary_game_notes(summary, game_name))
+            except Exception as exc:  # noqa: BLE001
+                print(f"  WARNUNG: NFL-Summary {event_id} nicht verfuegbar: {exc}")
+
+        try:
+            news = _nfl_get(NFL_NEWS_URL, {"limit": 30})
+            for article in news.get("articles") or []:
+                headline = article.get("headline") or article.get("title")
+                description = article.get("description")
+                if headline:
+                    context["news"].append(
+                        headline + (f" — {description}" if description else "")
+                    )
+        except Exception as exc:  # noqa: BLE001
+            print(f"  WARNUNG: NFL-News nicht verfuegbar: {exc}")
+
+        context["available"] = bool(context["playerFacts"] or context["gameNotes"] or context["news"])
+        print(
+            "NFL-Kontext geladen: "
+            f"{len(context['playerFacts'])} Spielerfakten, "
+            f"{len(context['gameNotes'])} Spielnotizen, "
+            f"{len(context['news'])} Headlines."
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"WARNUNG: NFL-Wochenkontext konnte nicht geladen werden: {exc}")
+    return context
+
+
+def nfl_context_for_matchup(matchup, nfl_context):
+    if not nfl_context or not nfl_context.get("available"):
+        return "(kein verifizierter NFL-Zusatzkontext verfuegbar)"
+
+    fantasy_names = [
+        p.get("name")
+        for p in (matchup.get("homeBoxScore") or []) + (matchup.get("awayBoxScore") or [])
+        if p.get("name")
+    ]
+    canonical = {_canon_person_name(n): n for n in fantasy_names}
+
+    matched_facts = []
+    for fact in nfl_context.get("playerFacts") or []:
+        if _canon_person_name(fact.get("name")) in canonical:
+            matched_facts.append(fact.get("text"))
+
+    matched_news = []
+    for article in nfl_context.get("news") or []:
+        low = _canon_person_name(article)
+        if any(name and name in low for name in canonical):
+            matched_news.append(article)
+
+    lines = []
+    if matched_facts:
+        lines.append("Verifizierte Fakten zu Spielern dieses Fantasy-Matchups:")
+        lines.extend(f"- {x}" for x in matched_facts[:8])
+    if matched_news:
+        lines.append("Passende aktuelle NFL-Headlines:")
+        lines.extend(f"- {x}" for x in matched_news[:4])
+
+    # Auch ein ligaweiter Seitensatz darf vorkommen, aber nur selten und nur aus
+    # dem gelieferten Kontext. Dadurch entstehen die gewuenschten NFL-Anekdoten,
+    # ohne dass das Modell aktuelle Geschichten erfinden muss.
+    league_notes = (nfl_context.get("news") or [])[:3]
+    if league_notes:
+        lines.append("Optionaler ligaweiter Kontext (nur verwenden, wenn er wirklich als Pointe/Seitensatz passt):")
+        lines.extend(f"- {x}" for x in league_notes)
+
+    return "\n".join(lines) if lines else "(kein passender verifizierter NFL-Zusatzkontext fuer dieses Matchup)"
+
+
+def matchup_story_profile(matchup):
+    home_score = float(matchup.get("homeScore") or 0)
+    away_score = float(matchup.get("awayScore") or 0)
+    margin = abs(home_score - away_score)
+    total = home_score + away_score
+    players = (matchup.get("homeBoxScore") or []) + (matchup.get("awayBoxScore") or [])
+    points = [float(p.get("points") or 0) for p in players]
+    top = max(points) if points else 0
+    duds = sum(1 for x in points if x <= 3.0)
+    explosions = sum(1 for x in points if x >= 30.0)
+
+    if margin <= 5:
+        length = "ca. 260-390 Woerter; das enge Matchup darf mehr Raum bekommen"
+        intensity = "sehr enges Matchup"
+    elif margin >= 35:
+        length = "ca. 130-220 Woerter; ein klarer Blowout braucht keinen kuenstlich langen Positionsrundgang"
+        intensity = "klarer Blowout"
+    elif total <= 180:
+        length = "ca. 140-230 Woerter; eher knapper, trockener Bericht fuer einen punktearmen Spieltag"
+        intensity = "punktearmes Matchup"
+    elif explosions >= 2 or top >= 40:
+        length = "ca. 230-350 Woerter; mehrere Ausreisser duerfen als Geschichte ausgespielt werden"
+        intensity = "Matchup mit auffaelligen Einzelleistungen"
+    else:
+        length = "ca. 180-300 Woerter; normale Laenge, nicht auf eine fixe Wortzahl trimmen"
+        intensity = "normales Matchup"
+
+    return {
+        "margin": margin,
+        "total": total,
+        "top": top,
+        "duds": duds,
+        "explosions": explosions,
+        "length": length,
+        "intensity": intensity,
+    }
+
+# ---------------------------------------------------------------------------
 # Stil-Guide + Beispielberichte laden
 # ---------------------------------------------------------------------------
 def load_style_guide():
@@ -319,18 +530,30 @@ def format_box_score(players):
     return "\n".join(f"  {p['position']}: {p['name']} - {p['points']:.1f} Pkt." for p in players)
 
 
-STYLE_MODES = [
-    "Beginne mit der auffaelligsten Einzelleistung im Boxscore. Keine rhetorische Frage am Anfang.",
-    "Beginne mit dem Gesamtbild beider Lineups und arbeite dann zu den entscheidenden Positionsunterschieden hin.",
-    "Beginne aus Sicht des Verlierers: Wo blieb Produktion liegen? Danach erst den Sieger einordnen.",
-    "Beginne trocken und knapp mit einer Beobachtung zum Punkteabstand; erst danach einzelne Spieler herausgreifen.",
-    "Baue den Bericht um einen Kontrast auf: eine starke Position gegen eine schwache Positionsgruppe. Keine Dramatisierung im ersten Satz.",
-    "Beginne mit einer sachlich klingenden Feststellung, die im zweiten Satz in trockenen Spott kippt.",
-    "Erzaehle das Matchup ueber zwei bis drei Schluesselfiguren aus dem Boxscore, nicht ueber den Endstand.",
-    "Beginne mit einem ungewoehnlichen Vergleich oder Bild, aber ohne bekannte Standardfloskel und ohne rhetorische Frage.",
-    "Beginne mit dem Sieger, aber vermeide Lobeshymnen; betone stattdessen, wodurch der Vorsprung im Lineup entstand.",
-    "Beginne mit einer kurzen Mini-Diagnose des Matchups in einem Satz und entwickle daraus einen frei fliessenden Kommentar.",
+REPORT_ARCHETYPES = [
+    "Mini-Reportage: Erzaehle das Matchup ueber eine Hauptfigur und hoechstens zwei Nebenfiguren. Positionen ohne Storywert duerfen komplett fehlen.",
+    "Autopsie des Verlierers: Suche den einen oder zwei entscheidenden Brueche. Kein lineares Durchgehen von QB, RB, WR, TE, K und DEF.",
+    "Zeitungskolumne mit trockenem Humor: klare These, zwei bis vier Belege, gern ein verifizierter NFL-Seitensatz als Pointe, falls passend.",
+    "Drei Szenen statt Positionsliste: drei kurze Beobachtungen/Schluesselmomente, die zusammen erklaeren, warum das Matchup so endete.",
+    "Charakterstudie: ein Held, ein Antiheld oder ein unerwarteter Nebendarsteller traegt den Text. Restliche Starter nur erwaehnen, wenn sie die Geschichte veraendern.",
+    "Kreativer Kommentar: nutze ein ungewoehnliches Bild, eine Analogie oder eine kleine fiktive Rahmenhandlung, aber erfinde KEINE realen NFL-Fakten.",
+    "Sportstudio-Rueckblick: schnell, praezise, mit zwei bis vier Highlights und einem trockenen Schluss. Keine komplette Lineup-Abnahme.",
+    "Kontrastbericht: stelle zwei extreme Leistungen oder zwei sehr unterschiedliche Teamhaelften gegeneinander. Andere Positionen bewusst auslassen.",
+    "NFL-Kontext zuerst, aber NUR wenn ein verifizierter Fakt wirklich passt: starte mit einer realen Wochenanekdote und biege dann elegant ins Fantasy-Matchup ab.",
+    "Fast schon literarisch: erzaehle den Fantasy-Abend als kleine Geschichte. Zahlen nur dort, wo sie die Pointe tragen; Fakten muessen exakt aus den Daten stammen.",
+    "Kurz und boese: wenn das Ergebnis eindeutig ist, darf der Bericht sehr kompakt sein, mit wenigen Treffern statt Vollstaendigkeitszwang.",
+    "Chaotischer Spieltag als Motiv: mehrere unerwartete Ausreisser, Nieten oder absurde Kontraste verbinden; keine Positionsreihenfolge.",
 ]
+
+TONE_TWISTS = [
+    "trocken und leicht sarkastisch",
+    "energetisch wie ein Recap nach einem wilden Sonntag",
+    "ruhig beobachtend mit einer spaeten Pointe",
+    "pointiert und knapp",
+    "spielerisch und bildhaft",
+    "halb ernsthafte Analyse, halb Liga-Stammtisch",
+]
+
 
 BANNED_WEEKLY_PHRASES = [
     "mein lieber herr gesangsverein",
@@ -403,46 +626,70 @@ def report_has_forbidden_repetition(text, previous_reports):
     return None
 
 
-def build_prompt(style_guide, examples, matchup, report_index=1, previous_reports=None):
+def build_prompt(style_guide, examples, matchup, report_index=1, previous_reports=None, nfl_context=None, week=None):
     previous_reports = previous_reports or []
     examples_block = "\n\n---\n\n".join(examples) if examples else "(keine Beispiele verfuegbar)"
     home, away = matchup["homeTeam"], matchup["awayTeam"]
     home_score, away_score = matchup["homeScore"], matchup["awayScore"]
     winner = home if home_score > away_score else away if away_score > home_score else "Unentschieden"
-    style_mode = STYLE_MODES[(report_index - 1) % len(STYLE_MODES)]
+
+    # Unterschiedliche, aber bei einem Retry stabile Grundform pro Matchup/Woche.
+    seed = (int(week or 0) * 31 + report_index * 17) % len(REPORT_ARCHETYPES)
+    archetype = REPORT_ARCHETYPES[seed]
+    tone = TONE_TWISTS[(seed + report_index) % len(TONE_TWISTS)]
+    story = matchup_story_profile(matchup)
+    real_context = nfl_context_for_matchup(matchup, nfl_context)
 
     used_openings = [first_sentence(r) for r in previous_reports if first_sentence(r)]
     used_openings_block = "\n".join(f"- {x}" for x in used_openings[-9:]) or "- noch keine"
 
-    return f"""Du schreibst Spielberichte fuer eine Fantasy-Football-Liga ("Bembel Bowl"),
-im gleichen Grundton wie die Liga-Manager das seit Jahren selbst tun, aber NICHT als Schablone.
+    return f"""Du schreibst einen Spielbericht fuer die Fantasy-Football-Liga Bembel Bowl.
+Der Ton darf an die historischen Manager-Berichte erinnern, aber jeder einzelne Text soll wie ein eigener kleiner Artikel wirken.
 
 STIL-GUIDE:
 {style_guide}
 
-BEISPIELBERICHTE AUS VERGANGENEN JAHREN (nur Orientierung fuer Tonfall; NICHT Formulierungen kopieren):
+BEISPIELBERICHTE AUS VERGANGENEN JAHREN
+(nur als Tonreferenz; NICHT Aufbau, Reihenfolge oder Formulierungen kopieren):
 {examples_block}
 
-WICHTIG FUER DIESE WOCHE:
-- Dies ist Bericht {report_index} von mehreren Matchups derselben Woche. Jeder Bericht muss eigenstaendig klingen.
-- Keine Ueberschrift. Keine Titelzeile. Teamnamen und Endstand NICHT als erste Zeile wiederholen.
-- Beginne sofort mit dem Fliesstext.
-- Verwende keine wiederkehrende Standarddramaturgie nach dem Muster "dieses Matchup kann man nicht verlieren".
-- Nutze rhetorische Fragen nur selten. Nicht jeder Bericht darf mit einer Frage beginnen.
-- Dieselbe auffaellige Redewendung oder Catchphrase darf innerhalb einer Woche hoechstens einmal vorkommen.
-- Insbesondere "Mein lieber Herr Gesangsverein" nicht verwenden, wenn es fuer die Pointe nicht absolut unverzichtbar ist.
-- Variiere Satzlaenge, Einstieg, Perspektive, Schwerpunkt und Schluss. Nicht jeder Bericht soll Sieger -> Verlierer -> Fazit folgen.
-- Beende den Bericht nicht automatisch mit einem Ausblick auf die kommende Woche, wenn dazu keine Daten vorliegen.
-- Keine erfundenen Verletzungen, Trades, Managerentscheidungen, Rekorde oder NFL-News.
-- Keine Behauptung ueber Spielverlauf/Comeback/Last-Second, wenn das nicht aus den Daten ableitbar ist.
+DAS WICHTIGSTE FUER DIESE NEUE GENERATION VON BERICHTEN:
+- KEINE Positions-Rundreise. Gehe NICHT automatisch QB -> RB -> WR -> TE -> FLEX -> DEF -> K durch.
+- Vollstaendigkeit ist KEIN Ziel. Erwaehne nur Spieler und Zahlen, die fuer die Geschichte interessant sind.
+- Ein Bericht darf sich fast nur um einen Spieler drehen; ein anderer um einen Totalausfall; ein anderer um eine absurde Kombination mehrerer Ereignisse.
+- Manche Berichte duerfen sehr kurz sein, andere deutlich laenger. Die Laenge richtet sich nach Spielverlauf, Punkteabstand und Auffaelligkeiten.
+- Verwende echte NFL-Anekdoten, Headlines oder Spielereignisse NUR, wenn sie unten im verifizierten NFL-Kontext stehen.
+- Du darfst aus realen NFL-Fakten eine humorvolle Pointe machen, aber den Fakt selbst NICHT veraendern oder ausschmuecken.
+- Wenn kein passender NFL-Kontext vorhanden ist: KEINE aktuellen NFL-Geschichten erfinden.
+- Kreativitaet bei Bildern, Metaphern, Vergleichen und Erzaehlrahmen ist ausdruecklich erwuenscht. Kreativitaet bei Fakten ist verboten.
+- Keine erfundenen Verletzungen, Trades, Managerentscheidungen, Rekorde, Zitate oder Kabinen-/Social-Media-Geschichten.
+- Keine Behauptung ueber Comeback, Last-Second-Drama oder zeitlichen Spielverlauf, wenn das aus den Daten nicht hervorgeht.
+- Keine Ueberschrift und keine Scorezeile als Einstieg. Beginne direkt mit dem Fliesstext.
+- Nicht automatisch mit einem Ausblick auf die naechste Woche enden.
+- Wiederhole keine Catchphrases oder sichtbare Dramaturgie anderer Berichte derselben Woche.
+- Absatzanzahl frei waehlen: von einem kompakten Block bis zu mehreren kurzen Absaetzen.
 
-ERZAEHLPERSPEKTIVE FUER GENAU DIESEN BERICHT:
-{style_mode}
+ERZAEHLFORM FUER GENAU DIESEN BERICHT:
+{archetype}
 
-BEREITS VERWENDETE EINSTIEGE DIESER WOCHE (nicht nachbauen oder paraphrasieren):
+TON-NOTE:
+{tone}
+
+MATCHUP-PROFIL:
+- Charakter: {story['intensity']}
+- Punkteabstand: {story['margin']:.2f}
+- Gesamtpunkte: {story['total']:.2f}
+- Hoechste Starterleistung: {story['top']:.2f}
+- Starter mit <= 3 Punkten: {story['duds']}
+- Starter mit >= 30 Punkten: {story['explosions']}
+- Ziel-Laenge: {story['length']}
+Die Wortspanne ist nur ein Richtwert. Wenn die Geschichte nach 150 Woertern erzaehlt ist, hoer auf. Wenn ein enges Matchup oder mehrere echte NFL-Anekdoten mehr Raum verdienen, darf der Text laenger werden.
+
+BEREITS VERWENDETE EINSTIEGE DIESER WOCHE
+(nicht nachbauen oder paraphrasieren):
 {used_openings_block}
 
-MATCH-UP-DATEN:
+FANTASY-MATCHUP-DATEN:
 {home}: {home_score:.2f} Punkte
 {away}: {away_score:.2f} Punkte
 Sieger: {winner}
@@ -453,7 +700,11 @@ BOX SCORE {home}:
 BOX SCORE {away}:
 {format_box_score(matchup['awayBoxScore'])}
 
-Schreibe einen dichten, unterhaltsamen Fliesstext. Antworte NUR mit dem Bericht selbst."""
+VERIFIZIERTER REALER NFL-WOCHENKONTEXT
+(optional; nur verwenden, wenn er den Bericht wirklich besser macht):
+{real_context}
+
+Schreibe jetzt NUR den fertigen Bericht. Keine Meta-Erklaerung, keine Ueberschrift, keine Aufzaehlung der Regeln."""
 
 
 
@@ -1268,6 +1519,10 @@ def main():
     examples = load_example_reports()
     print(f"Stil-Guide geladen; {len(examples)} historische Wochenberichte als Beispiele geladen.")
 
+    nfl_context = fetch_real_nfl_context(week)
+    if not nfl_context.get("available"):
+        print("Kein echter NFL-Zusatzkontext verfuegbar; Berichte werden sicher nur aus Fantasy-Daten erzeugt.")
+
     if validate_only:
         print("VALIDATE_ONLY=true: ESPN-/Datenpruefung erfolgreich. Keine KI-Aufrufe, keine Firestore-Schreibvorgaenge.")
         return
@@ -1321,6 +1576,8 @@ def main():
                     matchup,
                     report_index=index,
                     previous_reports=generated_reports_this_run,
+                    nfl_context=nfl_context,
+                    week=week,
                 )
                 if retry_note:
                     prompt += (
@@ -1329,7 +1586,7 @@ def main():
                         + "\nFormuliere den Bericht deutlich anders als beim vorherigen Versuch."
                     )
 
-                candidate = sanitize_report_text(generate_report(prompt), matchup)
+                candidate = sanitize_report_text(generate_report(prompt, temperature=0.94, max_output_tokens=4096), matchup)
                 repetition = report_has_forbidden_repetition(candidate, generated_reports_this_run)
                 if not repetition:
                     text = candidate
@@ -1338,7 +1595,7 @@ def main():
                 print(f"  Stilwiederholung erkannt ({repetition}); neuer Versuch ...")
                 retry_note = (
                     f"Die Formulierung/Struktur '{repetition}' wurde in dieser Woche bereits verwendet. "
-                    "Verwende einen anderen Einstieg, eine andere Dramaturgie und andere Redewendungen."
+                    "Wechsle Erzaehlform, Einstieg, Schwerpunkt und Schluss. Erwaehne notfalls deutlich weniger Spieler statt wieder eine Positionsliste zu bauen."
                 )
                 time.sleep(3)
 
