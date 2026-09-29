@@ -19,6 +19,9 @@ Optionale Umgebungsvariablen (manuelles Testen/Ueberschreiben):
 - WEEK_OVERRIDE (z.B. "5", ueberschreibt die automatische Wochenerkennung)
 - FORCE_RUN     ("true", ueberspringt die Zeitpruefung)
 - SKIP_EXISTING ("true", vorhandene Berichte nicht neu erzeugen)
+- GEMINI_MODEL (Default: "gemini-3.8-flash")
+- GEMINI_FALLBACK_MODELS (kommagetrennte Fallback-Modellliste)
+- GEMINI_ATTEMPTS_PER_MODEL (Default: "2")
 """
 
 import json
@@ -56,13 +59,25 @@ MIDSEASON_WEEK = int(os.environ.get("MIDSEASON_WEEK", "7"))
 CHAMPIONSHIP_WEEK = int(os.environ.get("CHAMPIONSHIP_WEEK", "17"))
 PLAYOFF_SIMULATIONS = int(os.environ.get("PLAYOFF_SIMULATIONS", "20000"))
 
-# Kostenloses Gemini-Modell. In Google AI Studio unter "Rate limits" pruefen,
-# welches Modell aktuell im Free-Tier verfuegbar ist, ggf. hier anpassen.
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
-GEMINI_URL = (
-    "https://generativelanguage.googleapis.com/v1beta/models/"
-    + GEMINI_MODEL + ":generateContent"
-)
+# Gemini-Modellkette fuer robuste automatische Reports.
+# Stand 09/2026 ist gemini-3.8-flash das aktuelle stabile Flash-Modell.
+# Bei temporaeren 429/5xx-Fehlern wechselt der Generator automatisch auf
+# weitere stabile Flash-Modelle.
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash").strip()
+GEMINI_FALLBACK_MODELS = [
+    m.strip()
+    for m in os.environ.get(
+        "GEMINI_FALLBACK_MODELS",
+        "gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash"
+    ).split(",")
+    if m.strip()
+]
+GEMINI_MODELS = []
+for _model in [GEMINI_MODEL, *GEMINI_FALLBACK_MODELS]:
+    if _model and _model not in GEMINI_MODELS:
+        GEMINI_MODELS.append(_model)
+
+GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 ESPN_URLS = [
     "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/{season}/segments/0/leagues/{league_id}",
@@ -76,6 +91,11 @@ NFL_CONTEXT_ENABLED = os.environ.get("NFL_CONTEXT_ENABLED", "true").lower() == "
 NFL_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
 NFL_SUMMARY_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary"
 NFL_NEWS_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news"
+
+# ESPN blockiert einzelne Datacenter-/Bot-Requests gelegentlich mit 403.
+# Der CDN-Endpunkt dient deshalb als zweiter oeffentlicher Datenweg.
+NFL_CDN_SCOREBOARD_URL = "https://cdn.espn.com/core/nfl/scoreboard"
+NFL_CDN_GAME_URL = "https://cdn.espn.com/core/nfl/game"
 NFL_CONTEXT_TIMEOUT = int(os.environ.get("NFL_CONTEXT_TIMEOUT", "12"))
 
 # ESPN Lineup-Slot- und Positions-Mapping (Standard-IDs, plattformweit gleich)
@@ -294,15 +314,91 @@ def validate_matchups(games, week, strict=True):
 # ---------------------------------------------------------------------------
 # Echter NFL-Wochenkontext fuer Fakten, Anekdoten und reale Spielereignisse
 # ---------------------------------------------------------------------------
+NFL_HTTP_HEADERS = {
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Cache-Control": "no-cache",
+    "Referer": "https://www.espn.com/",
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+    ),
+}
+
+
 def _nfl_get(url, params=None):
     response = requests.get(
         url,
         params=params,
         timeout=NFL_CONTEXT_TIMEOUT,
-        headers={"Accept": "application/json", "User-Agent": "BembelBowlReports/1.0"},
+        headers=NFL_HTTP_HEADERS,
     )
     response.raise_for_status()
     return response.json()
+
+
+def _find_nested_events(value):
+    """Findet ESPN-event-Listen auch in verschachtelten CDN-Payloads."""
+    if isinstance(value, dict):
+        events = value.get("events")
+        if isinstance(events, list) and (not events or isinstance(events[0], dict)):
+            return events
+        for child in value.values():
+            found = _find_nested_events(child)
+            if found is not None:
+                return found
+    elif isinstance(value, list):
+        for child in value:
+            found = _find_nested_events(child)
+            if found is not None:
+                return found
+    return None
+
+
+def _fetch_nfl_scoreboard(week):
+    params = {
+        "week": week,
+        "seasontype": 2,
+        "season": SEASON,
+        "limit": 100,
+    }
+
+    try:
+        data = _nfl_get(NFL_SCOREBOARD_URL, params)
+        events = data.get("events") or []
+        if events:
+            return events, "site.api.espn.com"
+    except Exception as exc:  # noqa: BLE001
+        print(f"  NFL-Scoreboard Site-API nicht verfuegbar ({exc}); versuche ESPN-CDN ...")
+
+    cdn = _nfl_get(
+        NFL_CDN_SCOREBOARD_URL,
+        {
+            "xhr": 1,
+            "limit": 100,
+            "week": week,
+            "year": SEASON,
+            "season": SEASON,
+            "seasontype": 2,
+        },
+    )
+    events = _find_nested_events(cdn) or []
+    if not events:
+        raise RuntimeError("ESPN-CDN lieferte keine NFL-Events.")
+    return events, "cdn.espn.com"
+
+
+def _fetch_nfl_game_package(event_id):
+    """Versucht Site Summary, danach das ESPN-CDN-Spielpaket."""
+    try:
+        return _nfl_get(NFL_SUMMARY_URL, {"event": event_id})
+    except Exception as exc:  # noqa: BLE001
+        print(f"  NFL-Summary {event_id} Site-API nicht verfuegbar ({exc}); versuche CDN ...")
+        try:
+            return _nfl_get(NFL_CDN_GAME_URL, {"xhr": 1, "gameId": event_id})
+        except Exception as cdn_exc:  # noqa: BLE001
+            print(f"  WARNUNG: NFL-Spielpaket {event_id} nicht verfuegbar: {cdn_exc}")
+            return {}
 
 
 def _canon_person_name(value):
@@ -321,6 +417,27 @@ def _event_scoreline(event):
         team = (c.get("team") or {}).get("abbreviation") or (c.get("team") or {}).get("displayName") or "?"
         parts.append(f"{team} {c.get('score', '?')}")
     return " - ".join(parts)
+
+
+def _event_player_facts(event, game_name):
+    """Nutzt die Leader direkt aus dem Scoreboard, falls Summary/CDN ausfaellt."""
+    facts = []
+    competitions = event.get("competitions") or []
+    if not competitions:
+        return facts
+
+    for category in competitions[0].get("leaders") or []:
+        label = category.get("displayName") or category.get("name") or "Statistik"
+        for item in (category.get("leaders") or [])[:2]:
+            athlete = item.get("athlete") or {}
+            name = athlete.get("displayName") or athlete.get("fullName")
+            value = item.get("displayValue") or item.get("value")
+            if name and value not in (None, ""):
+                facts.append({
+                    "name": name,
+                    "text": f"{name}: {value} ({label}) in {game_name}",
+                })
+    return facts
 
 
 def _summary_player_facts(summary, game_name):
@@ -368,28 +485,28 @@ def fetch_real_nfl_context(week):
         return {"available": False, "playerFacts": [], "gameNotes": [], "news": []}
 
     context = {"available": False, "playerFacts": [], "gameNotes": [], "news": []}
+
     try:
-        scoreboard = _nfl_get(NFL_SCOREBOARD_URL, {
-            "week": week,
-            "seasontype": 2,
-            "season": SEASON,
-            "limit": 100,
-        })
-        events = scoreboard.get("events") or []
+        events, source = _fetch_nfl_scoreboard(week)
+        print(f"NFL-Scoreboard geladen ueber {source}: {len(events)} Spiele.")
+
         for event in events:
             event_id = event.get("id")
             game_name = event.get("shortName") or event.get("name") or f"NFL Game {event_id}"
+
             scoreline = _event_scoreline(event)
             if scoreline:
                 context["gameNotes"].append(f"{game_name}: Endstand/Score {scoreline}")
+
+            context["playerFacts"].extend(_event_player_facts(event, game_name))
+
             if not event_id:
                 continue
-            try:
-                summary = _nfl_get(NFL_SUMMARY_URL, {"event": event_id})
+
+            summary = _fetch_nfl_game_package(event_id)
+            if summary:
                 context["playerFacts"].extend(_summary_player_facts(summary, game_name))
                 context["gameNotes"].extend(_summary_game_notes(summary, game_name))
-            except Exception as exc:  # noqa: BLE001
-                print(f"  WARNUNG: NFL-Summary {event_id} nicht verfuegbar: {exc}")
 
         try:
             news = _nfl_get(NFL_NEWS_URL, {"limit": 30})
@@ -403,7 +520,21 @@ def fetch_real_nfl_context(week):
         except Exception as exc:  # noqa: BLE001
             print(f"  WARNUNG: NFL-News nicht verfuegbar: {exc}")
 
-        context["available"] = bool(context["playerFacts"] or context["gameNotes"] or context["news"])
+        seen_facts = set()
+        unique_facts = []
+        for fact in context["playerFacts"]:
+            marker = (fact.get("name"), fact.get("text"))
+            if marker not in seen_facts:
+                seen_facts.add(marker)
+                unique_facts.append(fact)
+        context["playerFacts"] = unique_facts
+
+        context["gameNotes"] = list(dict.fromkeys(context["gameNotes"]))
+        context["news"] = list(dict.fromkeys(context["news"]))
+
+        context["available"] = bool(
+            context["playerFacts"] or context["gameNotes"] or context["news"]
+        )
         print(
             "NFL-Kontext geladen: "
             f"{len(context['playerFacts'])} Spielerfakten, "
@@ -412,6 +543,7 @@ def fetch_real_nfl_context(week):
         )
     except Exception as exc:  # noqa: BLE001
         print(f"WARNUNG: NFL-Wochenkontext konnte nicht geladen werden: {exc}")
+
     return context
 
 
@@ -720,11 +852,30 @@ def _retry_delay(response, attempt, base_seconds):
     return min(base_seconds * (2 ** (attempt - 1)), 180)
 
 
+def _gemini_url(model):
+    return f"{GEMINI_API_BASE}/{model}:generateContent"
+
+
+def _gemini_error_detail(response):
+    if response is None:
+        return ""
+    try:
+        payload = response.json()
+        message = ((payload.get("error") or {}).get("message") or "").strip()
+        if message:
+            return message[:500]
+    except Exception:  # noqa: BLE001
+        pass
+    return (response.text or "").strip()[:500]
+
+
 def generate_report(prompt, max_attempts=None, temperature=0.8, max_output_tokens=None):
     api_key = os.environ["GEMINI_API_KEY"]
+
     if max_attempts is None:
-        max_attempts = int(os.environ.get("GEMINI_MAX_ATTEMPTS", "5"))
-    base_backoff = int(os.environ.get("GEMINI_BASE_BACKOFF_SECONDS", "15"))
+        max_attempts = int(os.environ.get("GEMINI_ATTEMPTS_PER_MODEL", "2"))
+
+    base_backoff = int(os.environ.get("GEMINI_BASE_BACKOFF_SECONDS", "12"))
 
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -735,52 +886,127 @@ def generate_report(prompt, max_attempts=None, temperature=0.8, max_output_token
 
     transient_statuses = {429, 500, 502, 503, 504}
     last_err = None
+    attempted_models = []
 
-    for attempt in range(1, max_attempts + 1):
-        response = None
-        try:
-            response = requests.post(GEMINI_URL, params={"key": api_key}, json=body, timeout=180)
-            if response.status_code in transient_statuses:
-                last_err = requests.HTTPError(
-                    f"{response.status_code} Server/Rate-Limit Fehler fuer Gemini",
-                    response=response,
+    for model_index, model in enumerate(GEMINI_MODELS, start=1):
+        attempted_models.append(model)
+        url = _gemini_url(model)
+
+        for attempt in range(1, max_attempts + 1):
+            response = None
+            try:
+                response = requests.post(
+                    url,
+                    params={"key": api_key},
+                    json=body,
+                    timeout=180,
                 )
+
+                if response.status_code in transient_statuses:
+                    detail = _gemini_error_detail(response)
+                    last_err = requests.HTTPError(
+                        f"{response.status_code} Gemini {model}: {detail or 'Service/Rate-Limit Fehler'}",
+                        response=response,
+                    )
+
+                    if attempt < max_attempts:
+                        wait = _retry_delay(response, attempt, base_backoff)
+                        print(
+                            f"  Gemini {model} temporaer nicht verfuegbar "
+                            f"(HTTP {response.status_code}), Versuch {attempt}/{max_attempts}; "
+                            f"neuer Versuch in {wait}s ..."
+                        )
+                        time.sleep(wait)
+                        continue
+
+                    if model_index < len(GEMINI_MODELS):
+                        print(
+                            f"  Gemini {model} nach {max_attempts} Versuchen weiterhin "
+                            f"HTTP {response.status_code}; wechsle automatisch auf "
+                            f"{GEMINI_MODELS[model_index]}."
+                        )
+                    break
+
+                if response.status_code in {400, 404}:
+                    detail = _gemini_error_detail(response)
+                    last_err = RuntimeError(
+                        f"Gemini {model} nicht nutzbar "
+                        f"(HTTP {response.status_code}): {detail}"
+                    )
+                    if model_index < len(GEMINI_MODELS):
+                        print(
+                            f"  Gemini {model} nicht nutzbar "
+                            f"(HTTP {response.status_code}); wechsle auf "
+                            f"{GEMINI_MODELS[model_index]}."
+                        )
+                        break
+
+                if response.status_code in {401, 403}:
+                    detail = _gemini_error_detail(response)
+                    raise RuntimeError(
+                        f"Gemini API-Key/Berechtigung fehlgeschlagen "
+                        f"(HTTP {response.status_code}): {detail}"
+                    )
+
+                response.raise_for_status()
+                data = response.json()
+                candidates = data.get("candidates") or []
+                if not candidates:
+                    raise RuntimeError(f"Gemini {model} lieferte keine Antwort: {data}")
+
+                parts = candidates[0].get("content", {}).get("parts", [])
+                generated_text = "".join(
+                    part.get("text", "") for part in parts
+                ).strip()
+
+                if not generated_text:
+                    raise RuntimeError(f"Gemini {model}-Antwort war leer: {data}")
+
+                if model != GEMINI_MODEL:
+                    print(f"  Bericht erfolgreich mit Fallback-Modell {model} erzeugt.")
+                return generated_text
+
+            except RuntimeError as exc:
+                last_err = exc
+                if "API-Key/Berechtigung" in str(exc):
+                    raise
                 if attempt < max_attempts:
-                    wait = _retry_delay(response, attempt, base_backoff)
+                    wait = min(base_backoff * attempt, 45)
                     print(
-                        f"  Gemini temporaer nicht verfuegbar (HTTP {response.status_code}), "
-                        f"Versuch {attempt}/{max_attempts}; neuer Versuch in {wait}s ..."
+                        f"  Gemini {model}-Fehler ({exc}); "
+                        f"neuer Versuch in {wait}s ..."
+                    )
+                    time.sleep(wait)
+                    continue
+                break
+
+            except Exception as exc:  # noqa: BLE001
+                last_err = exc
+                status = getattr(getattr(exc, "response", None), "status_code", None)
+
+                if status in transient_statuses and attempt < max_attempts:
+                    wait = _retry_delay(getattr(exc, "response", None), attempt, base_backoff)
+                    print(
+                        f"  Gemini {model}-Fehler HTTP {status}; "
+                        f"neuer Versuch in {wait}s ..."
                     )
                     time.sleep(wait)
                     continue
 
-            response.raise_for_status()
-            data = response.json()
-            candidates = data.get("candidates") or []
-            if not candidates:
-                raise RuntimeError(f"Gemini lieferte keine Antwort: {data}")
-            parts = candidates[0].get("content", {}).get("parts", [])
-            text = "".join(part.get("text", "") for part in parts).strip()
-            if not text:
-                raise RuntimeError(f"Gemini-Antwort war leer: {data}")
-            return text
+                if attempt < max_attempts:
+                    wait = min(base_backoff * attempt, 45)
+                    print(
+                        f"  Gemini {model}-Fehler ({exc}); "
+                        f"neuer Versuch in {wait}s ..."
+                    )
+                    time.sleep(wait)
+                    continue
+                break
 
-        except Exception as exc:  # noqa: BLE001
-            last_err = exc
-            status = getattr(getattr(exc, "response", None), "status_code", None)
-            if status in transient_statuses and attempt < max_attempts:
-                wait = _retry_delay(getattr(exc, "response", None), attempt, base_backoff)
-                print(f"  Gemini-Fehler HTTP {status}; neuer Versuch in {wait}s ...")
-                time.sleep(wait)
-                continue
-            if status not in transient_statuses and attempt < max_attempts:
-                wait = min(base_backoff * attempt, 60)
-                print(f"  Gemini-Fehler ({exc}); neuer Versuch in {wait}s ...")
-                time.sleep(wait)
-                continue
-            break
-
-    raise RuntimeError(f"Gemini nach {max_attempts} Versuchen fehlgeschlagen: {last_err}")
+    raise RuntimeError(
+        "Gemini ueber alle Modelle fehlgeschlagen "
+        f"({', '.join(attempted_models)}): {last_err}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1532,7 +1758,7 @@ def main():
         ai_text = generate_report("Antworte exakt mit dem Wort OK und sonst nichts.")
         if not ai_text.strip():
             raise RuntimeError("Gemini-Smoke-Test lieferte keine Antwort.")
-        print(f"Gemini erreichbar ({GEMINI_MODEL}): {ai_text[:40]!r}")
+        print("Gemini erreichbar (Modellkette: " + ", ".join(GEMINI_MODELS) + f"): {ai_text[:40]!r}")
         db = init_firestore()
         test_ref = db.collection("matchReports").document("automation-smoke-test")
         test_ref.set({
