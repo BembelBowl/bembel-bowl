@@ -1759,7 +1759,17 @@ def main():
     week = determine_week()
     print(f"Saison {SEASON}, Spieltag {week}, League {LEAGUE_ID}")
 
-    matchups = fetch_week_matchups(week, strict=not smoke_test)
+    try:
+        matchups = fetch_week_matchups(week, strict=not smoke_test)
+    except RuntimeError as err:
+        # ESPN meldet latestScoringPeriod teils schon als laufende Woche, die noch
+        # keine Punkte hat. Bei automatischer Erkennung dann den Vorwochen-Spieltag
+        # nehmen; ein manuell gesetzter Spieltag bleibt unveraendert.
+        if WEEK_OVERRIDE or week <= 1 or "Scores fuer Woche" not in str(err):
+            raise
+        print(f"Woche {week} hat noch keine Scores ({err}). Verwende Spieltag {week - 1}.")
+        week -= 1
+        matchups = fetch_week_matchups(week, strict=not smoke_test)
     print(f"{len(matchups)} Match-ups gefunden und validiert.")
     for i, matchup in enumerate(matchups, start=1):
         print(
