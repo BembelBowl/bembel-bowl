@@ -754,6 +754,49 @@ def sanitize_report_text(text, matchup):
     return "\n".join(raw_lines).strip()
 
 
+META_LINE_RE = None
+
+
+def _meta_regex():
+    import re
+    global META_LINE_RE
+    if META_LINE_RE is None:
+        META_LINE_RE = re.compile(
+            r"^\s*(?:[-*#>]+\s*)*(?:\*\*)?(?:fakten|entwurf|tonfall|ton-note|erzaehlform|erz\u00e4hlform|"
+            r"ueberarbeitung|\u00fcberarbeitung|analyse|plan|struktur)(?:\*\*)?\s*:",
+            re.IGNORECASE,
+        )
+    return META_LINE_RE
+
+
+def has_meta_output(text):
+    """True, wenn der Text Anweisungs-/Entwurfs-Reste statt nur den Bericht enthaelt."""
+    low = normalize_phrase(text)
+    if any(m in low for m in ("kontrastbericht", "positionsrundreise", "keine positionsrundreise", "entwurf:")):
+        return True
+    return any(_meta_regex().match(line) for line in str(text or "").splitlines())
+
+
+def strip_meta_output(text):
+    """Notfall-Bereinigung: letzte Fassung nach 'Entwurf:' behalten und Doppelungen entfernen."""
+    import re
+    t = str(text or "")
+    parts = re.split(r"(?i)entwurf\s*:", t)
+    if len(parts) > 1:
+        t = parts[-1]
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", t) if p.strip()]
+    if len(paragraphs) == 1:
+        # Zwei Fassungen ohne Leerzeile direkt hintereinander: ab zweitem Auftreten des Einstiegs behalten.
+        one = paragraphs[0]
+        head = one[:40]
+        second = one.find(head, 20)
+        if second > 0:
+            one = one[second:]
+        paragraphs = [one]
+    cleaned = [p for p in paragraphs if not _meta_regex().match(p)]
+    return "\n\n".join(cleaned or paragraphs).strip()
+
+
 def report_has_forbidden_repetition(text, previous_reports):
     """Erkennt besonders auffaellige Wochen-Wiederholungen fuer einen Retry."""
     current = normalize_phrase(text)
@@ -854,7 +897,8 @@ VERIFIZIERTER REALER NFL-WOCHENKONTEXT
 (optional; nur verwenden, wenn er den Bericht wirklich besser macht):
 {real_context}
 
-Schreibe jetzt NUR den fertigen Bericht. Keine Meta-Erklaerung, keine Ueberschrift, keine Aufzaehlung der Regeln."""
+Schreibe jetzt NUR den fertigen Bericht. Keine Meta-Erklaerung, keine Ueberschrift, keine Aufzaehlung der Regeln.
+Gib weder die Erzaehlform noch Fakten, Tonfall, Entwurf oder eine Ueberarbeitung wieder. Genau EINE finale Fassung, nur Fliesstext."""
 
 
 
@@ -982,8 +1026,9 @@ def generate_report(prompt, max_attempts=None, temperature=0.8, max_output_token
                     raise RuntimeError(f"Gemini {model} lieferte keine Antwort: {data}")
 
                 parts = candidates[0].get("content", {}).get("parts", [])
+                # Gedankenzusammenfassungen (thought=true) gehoeren nie in den Bericht.
                 generated_text = "".join(
-                    part.get("text", "") for part in parts
+                    part.get("text", "") for part in parts if not part.get("thought")
                 ).strip()
 
                 if not generated_text:
@@ -1849,23 +1894,33 @@ def main():
                         + "\nFormuliere den Bericht deutlich anders als beim vorherigen Versuch."
                     )
 
-                candidate = sanitize_report_text(generate_report(prompt, temperature=0.94, max_output_tokens=4096), matchup)
-                repetition = report_has_forbidden_repetition(candidate, generated_reports_this_run)
+                candidate = sanitize_report_text(generate_report(prompt, temperature=0.94, max_output_tokens=8192), matchup)
+                if has_meta_output(candidate):
+                    print("  Modell hat Fakten/Entwurf/Anweisungen mit ausgegeben; neuer Versuch ...")
+                    repetition = "Meta-Ausgabe (Fakten/Entwurf)"
+                else:
+                    repetition = report_has_forbidden_repetition(candidate, generated_reports_this_run)
                 if not repetition:
                     text = candidate
                     break
 
                 print(f"  Stilwiederholung erkannt ({repetition}); neuer Versuch ...")
-                retry_note = (
-                    f"Die Formulierung/Struktur '{repetition}' wurde in dieser Woche bereits verwendet. "
-                    "Wechsle Erzaehlform, Einstieg, Schwerpunkt und Schluss. Erwaehne notfalls deutlich weniger Spieler statt wieder eine Positionsliste zu bauen."
-                )
+                if repetition.startswith("Meta-Ausgabe"):
+                    retry_note = (
+                        "Gib AUSSCHLIESSLICH den fertigen Bericht als Fliesstext aus. Keine Zeilen wie 'Fakten:', "
+                        "'Entwurf:', 'Tonfall:', keine Wiederholung der Anweisungen, keine zweite Fassung."
+                    )
+                else:
+                    retry_note = (
+                        f"Die Formulierung/Struktur '{repetition}' wurde in dieser Woche bereits verwendet. "
+                        "Wechsle Erzaehlform, Einstieg, Schwerpunkt und Schluss. Erwaehne notfalls deutlich weniger Spieler statt wieder eine Positionsliste zu bauen."
+                    )
                 time.sleep(3)
 
             if not text:
                 # Letzten Kandidaten nicht verwerfen, falls nur der Stil-Check
                 # nach mehreren Versuchen weiterhin anschlaegt.
-                text = candidate
+                text = strip_meta_output(candidate) if has_meta_output(candidate) else candidate
 
             if not text.strip():
                 raise RuntimeError("Der bereinigte Gemini-Bericht ist leer.")
