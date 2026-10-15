@@ -2,12 +2,12 @@ name: Weekly Reports
 
 on:
   schedule:
-    # Vier Dienstag-Laeufe als robuste Wiederholungsfenster.
+    # Vier Dienstag-Laeufe als robuste Wiederholungsfenster (Cron immer in UTC).
+    # 10:23-16:23 UTC = 12:23-18:23 Sommerzeit bzw. 11:23-17:23 Winterzeit (Berlin).
     # Bereits vorhandene Berichte werden uebersprungen, daher sind die
     # Wiederholungen idempotent und erzeugen keine Duplikate.
     # Minute 23 liegt bewusst ausserhalb der stark belasteten vollen Stunde.
-    - cron: '23 12,14,16,18 * * 2'
-      timezone: 'Europe/Berlin'
+    - cron: '23 10,12,14,16 * * 2'
 
   workflow_dispatch:
     inputs:
@@ -88,9 +88,9 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           ESPN_LEAGUE_ID: ${{ secrets.ESPN_LEAGUE_ID }}
           GEMINI_MODEL: gemini-3.8-flash
-          GEMINI_MAX_ATTEMPTS: '5'
           GEMINI_BASE_BACKOFF_SECONDS: '15'
           MATCHUP_DELAY_SECONDS: '15'
+          GEMINI_ATTEMPTS_PER_MODEL: '2'
           MAX_CONSECUTIVE_GEMINI_FAILURES: '2'
           WEEK_OVERRIDE: ${{ github.event.inputs.week }}
 
